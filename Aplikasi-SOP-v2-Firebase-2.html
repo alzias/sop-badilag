@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SOP Knowledge Center v2.0 — Ditjen Badilag MA RI</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#05080f;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.07);
+  --b1:rgba(255,255,255,.08);--b2:rgba(255,255,255,.14);
+  --cyan:#00f5d4;--cyan2:#00c4aa;--amber:#ffb703;--red:#ff4d6d;
+  --green:#06d6a0;--blue:#4361ee;--tx:#e8eaf0;--mu:#6b7280;--mu2:#9ca3af;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;justify-content:center;align-items:center;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 20% 20%,rgba(0,245,212,.06) 0%,transparent 70%),radial-gradient(ellipse 50% 60% at 80% 80%,rgba(67,97,238,.08) 0%,transparent 70%);animation:bgP 8s ease-in-out infinite alternate;}
+@keyframes bgP{from{opacity:.6}to{opacity:1}}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(0,245,212,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,212,.025) 1px,transparent 1px);background-size:40px 40px;}
+.app{width:100%;max-width:440px;height:100vh;display:flex;flex-direction:column;position:relative;z-index:1;overflow:hidden;}
+
+/* TOAST */
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);background:rgba(0,245,212,.12);backdrop-filter:blur(20px);border:1px solid rgba(0,245,212,.3);color:var(--cyan);padding:10px 20px;border-radius:40px;font-size:13px;font-weight:600;z-index:9999;transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* SHARED INPUTS */
+.flabel{display:block;font-size:11px;font-weight:600;color:var(--mu);margin-bottom:6px;letter-spacing:.8px;text-transform:uppercase;}
+.finput,.fselect{width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:border .2s,box-shadow .2s,background .2s;}
+.finput:focus,.fselect:focus{border-color:rgba(0,245,212,.5);box-shadow:0 0 0 3px rgba(0,245,212,.08);background:rgba(0,245,212,.04);}
+.finput::placeholder{color:var(--mu);}
+.fselect option{background:#0d1117;color:var(--tx);}
+
+/* MODALS — fixed so they always sit above everything */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:900;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.modal.on{display:flex;}
+.mbox{background:rgba(12,18,30,.98);border:1px solid var(--b2);border-radius:20px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.mhd{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--b1);}
+.mhd-t{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;}
+.mclose{background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;line-height:1;}
+.mclose:hover{color:var(--tx);}
+.mbody{padding:20px;max-height:75vh;overflow-y:auto;}
+.mbody::-webkit-scrollbar{width:3px;}
+.mbody::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+.mrow{display:flex;gap:10px;margin-top:16px;}
+.mbtn{flex:1;padding:11px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.mbtn.cancel{background:var(--s1);border:1px solid var(--b2);color:var(--mu2);}
+.mbtn.cancel:hover{background:var(--s2);}
+.mbtn.ok{background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#05080f;}
+.mbtn.ok:hover{box-shadow:0 6px 20px rgba(0,245,212,.35);transform:translateY(-1px);}
+
+/* Confirm modal */
+.cbox{background:rgba(12,18,30,.98);border:1px solid rgba(255,77,109,.3);border-radius:20px;width:100%;max-width:300px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);text-align:center;}
+.cicon{font-size:44px;margin:28px 0 10px;}
+.ctitle{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:8px;}
+.csub{font-size:13px;color:var(--mu);margin-bottom:24px;padding:0 20px;line-height:1.5;}
+.cbtns{display:flex;border-top:1px solid var(--b1);}
+.cbtn{flex:1;padding:14px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;background:none;transition:background .15s;}
+.cbtn.no{color:var(--mu2);border-right:1px solid var(--b1);}
+.cbtn.no:hover{background:rgba(255,255,255,.03);}
+.cbtn.yes{color:var(--red);}
+.cbtn.yes:hover{background:rgba(255,77,109,.08);}
+
+/* LOGIN */
+#loginScreen{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;background:var(--bg);}
+.lglow{position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:300px;height:300px;background:radial-gradient(circle,rgba(0,245,212,.15) 0%,transparent 70%);pointer-events:none;}
+.llogo{width:72px;height:72px;position:relative;z-index:1;background:linear-gradient(135deg,rgba(0,245,212,.15),rgba(67,97,238,.15));border:1.5px solid rgba(0,245,212,.4);border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:20px;animation:logoPulse 3s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{box-shadow:0 0 30px rgba(0,245,212,.2);}50%{box-shadow:0 0 60px rgba(0,245,212,.4);}}
+.ltitle{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,var(--cyan),#fff 60%,var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;position:relative;z-index:1;}
+.lsub{font-size:13px;color:var(--mu);margin-bottom:32px;letter-spacing:.3px;position:relative;z-index:1;}
+.lcard{background:rgba(255,255,255,.03);border:1px solid var(--b2);border-radius:24px;padding:28px 24px;width:100%;backdrop-filter:blur(20px);box-shadow:0 24px 48px rgba(0,0,0,.5);position:relative;z-index:1;}
+.lcard h3{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--mu2);margin-bottom:20px;letter-spacing:.5px;text-transform:uppercase;}
+.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));border:none;border-radius:12px;color:#05080f;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all .25s;letter-spacing:.5px;}
+.lbtn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,245,212,.35);}
+.lbtn:active{transform:translateY(0);}
+.admin-link{text-align:center;margin-top:14px;font-size:12px;color:var(--mu);cursor:pointer;transition:color .2s;letter-spacing:.3px;}
+.admin-link:hover{color:var(--cyan);}
+
+/* ICON PICKER */
+.ipwrap{position:relative;margin-bottom:14px;}
+.ipbtn{width:100%;padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:border .2s;}
+.ipbtn:hover{border-color:rgba(0,245,212,.4);}
+.ipdrop{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#0d1420;border:1px solid var(--b2);border-radius:14px;padding:12px;z-index:50;box-shadow:0 16px 40px rgba(0,0,0,.6);}
+.ipdrop.on{display:block;}
+.ipcats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.icatbtn{background:var(--s1);border:1px solid var(--b1);border-radius:8px;color:var(--mu2);font-size:11px;font-weight:700;padding:4px 10px;cursor:pointer;transition:all .15s;}
+.icatbtn.on{background:rgba(0,245,212,.1);border-color:rgba(0,245,212,.3);color:var(--cyan);}
+.ipgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-height:140px;overflow-y:auto;}
+.ipgrid::-webkit-scrollbar{width:3px;}
+.ipgrid::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+.icoopt{background:none;border:none;font-size:22px;cursor:pointer;padding:6px;border-radius:8px;transition:background .12s;}
+.icoopt:hover{background:rgba(0,245,212,.1);}
+.icoopt.on{background:rgba(0,245,212,.18);outline:1.5px solid var(--cyan);}
+
+/* ADMIN PANEL */
+#adminPanel{position:absolute;inset:0;z-index:60;background:var(--bg);display:none;flex-direction:column;overflow:hidden;}
+.ahd{padding:20px 20px 16px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);}
+.ahd-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.ahd-title span{color:var(--cyan);}
+.aclose{background:rgba(255,255,255,.06);border:1px solid var(--b2);color:var(--mu2);padding:6px 14px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+.aclose:hover{background:rgba(255,255,255,.1);color:var(--tx);}
+.atabs{display:flex;gap:4px;padding:12px 16px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);}
+.atab{flex:1;padding:8px 4px;text-align:center;font-size:12px;font-weight:700;letter-spacing:.4px;cursor:pointer;border-radius:10px;color:var(--mu);transition:all .2s;border:1px solid transparent;}
+.atab.on{background:rgba(0,245,212,.1);border-color:rgba(0,245,212,.25);color:var(--cyan);}
+.atab:hover:not(.on){background:rgba(255,255,255,.04);color:var(--tx);}
+.abody{flex:1;overflow-y:auto;padding:16px;}
+.abody::-webkit-scrollbar{width:3px;}
+.abody::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+.sectitle{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--mu);margin:16px 0 8px;}
+.acard{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:border .2s,background .2s;}
+.acard:hover{background:var(--s2);border-color:var(--b2);}
+.acard-ico{font-size:26px;flex-shrink:0;width:36px;text-align:center;}
+.acard-info{flex:1;min-width:0;}
+.acard-name{font-size:14px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.acard-sub{font-size:11px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.acard-acts{display:flex;gap:6px;flex-shrink:0;}
+.bedit{background:rgba(0,245,212,.08);border:1px solid rgba(0,245,212,.2);color:var(--cyan);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;transition:all .2s;}
+.bedit:hover{background:rgba(0,245,212,.18);}
+.bdel{background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.2);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;transition:all .2s;}
+.bdel:hover{background:rgba(255,77,109,.2);}
+.addbox{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:8px;}
+.addbox h4{font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:14px;letter-spacing:.3px;}
+.addbtn{width:100%;padding:11px;background:linear-gradient(135deg,rgba(0,245,212,.15),rgba(67,97,238,.15));border:1px solid rgba(0,245,212,.25);border-radius:10px;color:var(--cyan);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.addbtn:hover{background:linear-gradient(135deg,rgba(0,245,212,.25),rgba(67,97,238,.25));}
+
+/* CHAT */
+.chdr{padding:12px 16px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);z-index:10;flex-shrink:0;}
+.menubtn{background:none;border:none;color:var(--mu2);font-size:20px;cursor:pointer;padding:4px;transition:color .2s;}
+.menubtn:hover{color:var(--tx);}
+.avring{width:38px;height:38px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));padding:2px;box-shadow:0 0 16px rgba(0,245,212,.3);}
+.avin{width:100%;height:100%;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.hname{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:-.3px;}
+.hdept{font-size:11px;color:var(--mu);margin-top:1px;}
+.hbtns{display:flex;gap:8px;margin-left:auto;}
+.hbtn{background:var(--s1);border:1px solid var(--b1);color:var(--mu2);border-radius:10px;padding:6px 10px;font-size:15px;cursor:pointer;transition:all .2s;}
+.hbtn:hover{background:var(--s2);border-color:var(--b2);color:var(--tx);}
+.stbar{display:flex;align-items:center;gap:8px;padding:6px 16px;background:rgba(0,245,212,.04);border-bottom:1px solid rgba(0,245,212,.08);font-size:11px;color:var(--mu);letter-spacing:.3px;flex-shrink:0;}
+.stdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.stag{margin-left:auto;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;}
+.chatarea{overflow-y:auto;padding:14px 10px 6px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;}
+.chatarea::-webkit-scrollbar{width:3px;}
+.chatarea::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+.datesep{display:flex;justify-content:center;margin:8px 0;}
+.datesep span{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--mu);background:var(--s1);border:1px solid var(--b1);padding:4px 14px;border-radius:20px;}
+.bwrap{display:flex;flex-direction:column;max-width:92%;animation:msgIn .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px) scale(.95)}to{opacity:1;transform:none}}
+.bwrap.out{align-self:flex-end;align-items:flex-end;}
+.bwrap.in{align-self:flex-start;align-items:flex-start;}
+.bubble{padding:10px 14px 8px;border-radius:16px;font-size:14px;line-height:1.6;word-wrap:break-word;word-break:break-word;overflow-wrap:break-word;white-space:normal;max-width:100%;}
+.bwrap.out .bubble{background:linear-gradient(135deg,rgba(0,245,212,.18),rgba(0,196,170,.12));border:1px solid rgba(0,245,212,.2);border-bottom-right-radius:4px;color:var(--tx);}
+.bwrap.in .bubble{background:var(--s1);border:1px solid var(--b1);border-bottom-left-radius:4px;color:var(--tx);}
+.bmeta{font-size:10px;color:var(--mu);margin-top:3px;padding:0 4px;letter-spacing:.3px;}
+.ck{color:var(--cyan);}
+.dcard{background:rgba(255,255,255,.03);border:1px solid var(--b2);border-radius:14px;overflow:hidden;min-width:200px;max-width:250px;margin-top:4px;animation:msgIn .3s cubic-bezier(.34,1.56,.64,1);}
+.dcard-hd{padding:11px 14px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;}
+.dcard-hd.ok{background:linear-gradient(135deg,rgba(0,245,212,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(0,245,212,.15);color:var(--cyan);}
+.dcard-hd.locked{background:linear-gradient(135deg,rgba(255,77,109,.12),rgba(150,0,50,.08));border-bottom:1px solid rgba(255,77,109,.15);color:var(--red);}
+.dpill{margin-left:auto;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);}
+.dcard-bd{padding:11px 14px;font-size:13px;color:var(--mu2);line-height:1.5;}
+.dlink{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);padding:6px 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;transition:all .2s;}
+.dlink:hover{background:rgba(0,245,212,.2);}
+.lockmsg{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;font-weight:600;color:var(--red);opacity:.8;}
+.typwrap{align-self:flex-start;}
+.typbub{background:var(--s1);border:1px solid var(--b1);border-radius:16px;border-bottom-left-radius:4px;padding:14px 18px;display:flex;gap:5px;align-items:center;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);opacity:.5;animation:tB 1.2s ease-in-out infinite;}
+.dot:nth-child(2){animation-delay:.15s;}.dot:nth-child(3){animation-delay:.3s;}
+@keyframes tB{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+.qarea{padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--b1);background:rgba(255,255,255,.01);flex-shrink:0;}
+.qchip{background:var(--s1);border:1px solid var(--b2);color:var(--mu2);border-radius:20px;padding:6px 14px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.qchip:hover{background:rgba(0,245,212,.08);border-color:rgba(0,245,212,.3);color:var(--cyan);}
+.inputarea{padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom, 12px));background:rgba(255,255,255,.02);border-top:1px solid var(--b1);display:flex;align-items:flex-end;gap:8px;flex-shrink:0;}
+.inputwrap{flex:1;display:flex;align-items:flex-end;gap:8px;background:var(--s1);border:1px solid var(--b2);border-radius:20px;padding:10px 16px;transition:border .2s,box-shadow .2s;}
+.inputwrap:focus-within{border-color:rgba(0,245,212,.35);box-shadow:0 0 0 3px rgba(0,245,212,.06);}
+#msgInput{flex:1;border:none;outline:none;background:transparent;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;resize:none;max-height:100px;line-height:1.4;}
+#msgInput::placeholder{color:var(--mu);}
+.icobtn{background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;transition:color .2s;padding:0;}
+.icobtn:hover{color:var(--cyan);}
+.sendbtn{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));border:none;color:#05080f;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 4px 16px rgba(0,245,212,.3);transition:all .2s;}
+.sendbtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,245,212,.4);}
+.sendbtn:active{transform:translateY(0);}
+
+/* SIDEBAR */
+#overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:30;backdrop-filter:blur(4px);}
+#overlay.on{display:block;}
+#sidebar{position:absolute;top:0;left:-100%;width:82%;height:100%;background:rgba(10,15,25,.98);backdrop-filter:blur(20px);border-right:1px solid var(--b2);z-index:40;transition:left .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
+#sidebar.on{left:0;}
+.sbtop{padding:48px 20px 24px;background:linear-gradient(180deg,rgba(0,245,212,.06) 0%,transparent 100%);border-bottom:1px solid var(--b1);}
+.sbav{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px;box-shadow:0 0 24px rgba(0,245,212,.3);}
+.sbname{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.3px;}
+.sbdept{display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.sbmenu{flex:1;padding:12px 0;}
+.sbitem{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;transition:background .15s;border-left:2px solid transparent;}
+.sbitem:hover{background:rgba(255,255,255,.03);border-left-color:var(--cyan);}
+.sbico{font-size:20px;width:28px;text-align:center;}
+.sblabel{font-size:14px;font-weight:600;color:var(--tx);}
+.sbsub{font-size:11px;color:var(--mu);margin-top:1px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOAST -->
+<div id="toast"></div>
+<!-- Hidden file input - harus di luar modal agar bisa diklik di Android -->
+<input type="file" id="csvFile" accept=".csv" 
+  style="position:fixed;top:-100px;left:-100px;opacity:0;width:1px;height:1px;pointer-events:none;" 
+  tabindex="-1" onchange="onCSVFileChange(event)"/>
+
+<!-- ══ MODALS (fixed, z:900, always on top) ══ -->
+
+<!-- Admin Login -->
+<div class="modal" id="mAdminLogin">
+  <div class="mbox" style="max-width:320px;" id="adminLoginBox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(255,183,3,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(255,183,3,.2);">
+      <div class="mhd-t" style="color:var(--amber);">🔐 Admin Login</div>
+      <button class="mclose" id="btnCloseAdminLogin">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:44px;margin-bottom:8px;">🛡️</div>
+        <div style="font-size:12px;color:var(--mu);">Akses terbatas — masukkan kredensial admin</div>
+      </div>
+      <label class="flabel">Email Admin</label>
+      <input class="finput" id="aUser" type="email" placeholder="Email admin..." autocomplete="off" />
+      <label class="flabel">Password</label>
+      <div style="position:relative;">
+        <input class="finput" id="aPass" type="password" placeholder="Password..." style="padding-right:46px;margin-bottom:0;" autocomplete="off" />
+        <button id="eyeBtn" onclick="togglePass()" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;line-height:1;">👁</button>
+      </div>
+      <div id="aErr" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--red);margin-top:12px;text-align:center;"></div>
+      <div class="mrow">
+        <button class="mbtn cancel" id="btnCloseAdminLogin">Batal</button>
+        <button class="mbtn ok" style="background:linear-gradient(135deg,var(--amber),#d4920a);color:#1a0f00;" id="btnDoAdminLogin">Masuk →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Form (add/edit) -->
+<div class="modal" id="mForm">
+  <div class="mbox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.1),rgba(67,97,238,.1));">
+      <div class="mhd-t" id="formTitle" style="color:var(--cyan);">Form</div>
+      <button class="mclose" onclick="closeModal('mForm')">✕</button>
+    </div>
+    <div class="mbody" id="formBody"></div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="modal" id="mConfirm">
+  <div class="cbox">
+    <div class="cicon">🗑️</div>
+    <div class="ctitle" id="cTitle">Hapus?</div>
+    <div class="csub" id="cSub">Tindakan ini tidak dapat dibatalkan.</div>
+    <div class="cbtns">
+      <button class="cbtn no" onclick="closeModal('mConfirm')">Batal</button>
+      <button class="cbtn yes" id="cYes">Hapus</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Analisis Dokumen Modal -->
+<div class="modal" id="mDoc">
+  <div class="mbox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.1),rgba(67,97,238,.1));">
+      <div class="mhd-t" style="color:var(--cyan);">📄 Analisis Dokumen</div>
+      <button class="mclose" onclick="closeModal('mDoc')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="tabPaste" class="mbtn ok" style="flex:1;font-size:12px;" onclick="switchDocTab('paste')">📋 Paste Teks</button>
+        <button id="tabLink" class="mbtn cancel" style="flex:1;font-size:12px;" onclick="switchDocTab('link')">🔗 Link Drive</button>
+      </div>
+
+      <!-- Tab Paste -->
+      <div id="panePaste">
+        <label class="flabel">Paste isi dokumen di sini</label>
+        <textarea class="finput" id="docText" rows="7" placeholder="Copy-paste isi dokumen kamu di sini, lalu tulis pertanyaanmu..." style="resize:vertical;line-height:1.5;"></textarea>
+        <label class="flabel">Pertanyaan / Instruksi Analisis</label>
+        <input class="finput" id="docQuestion" placeholder="Contoh: Ringkas dokumen ini, Temukan poin penting..."/>
+        <div class="mrow">
+          <button class="mbtn cancel" onclick="closeModal('mDoc')">Batal</button>
+          <button class="mbtn ok" onclick="analyzeText()">🔍 Analisis</button>
+        </div>
+      </div>
+
+      <!-- Tab Link -->
+      <div id="paneLink" style="display:none;">
+        <div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--mu2);line-height:1.6;">
+          💡 <strong style="color:var(--cyan);">Tips:</strong> Pastikan file Google Docs/Sheets/Slides diset <strong>publik (Anyone with link)</strong> agar bisa dibaca otomatis.
+        </div>
+        <label class="flabel">Link Google Drive / Docs</label>
+        <input class="finput" id="docLink" placeholder="https://drive.google.com/... atau https://docs.google.com/..."/>
+        <label class="flabel">Pertanyaan / Instruksi Analisis</label>
+        <input class="finput" id="docLinkQuestion" placeholder="Contoh: Ringkas isi file ini, Analisis data..."/>
+        <div id="fetchStatus" style="display:none;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px;"></div>
+        <div class="mrow">
+          <button class="mbtn cancel" onclick="closeModal('mDoc')">Batal</button>
+          <button class="mbtn ok" onclick="fetchAndAnalyze()">🔗 Fetch & Analisis</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Import CSV Modal -->
+<div class="modal" id="mImportCSV">
+  <div class="mbox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.1),rgba(67,97,238,.1));">
+      <div class="mhd-t" style="color:var(--cyan);">📥 Import Pegawai dari CSV</div>
+      <button class="mclose" onclick="closeModal('mImportCSV')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--mu2);line-height:1.7;">
+        📋 <strong style="color:var(--cyan);">Format kolom CSV:</strong><br>
+        No, Nama, NIP, Golongan, Unit Kerja, Jabatan<br>
+        <span style="color:var(--mu);">NIP akan disimpan tanpa spasi secara otomatis.</span>
+      </div>
+      <label class="flabel">Pilih File CSV</label>
+
+      <div id="csvFileLabel" onclick="triggerFileInput()"
+        style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;"
+        onmouseover="this.style.borderColor='rgba(0,245,212,.4)'" onmouseout="this.style.borderColor='rgba(255,255,255,.14)'">
+        <span style="font-size:20px;">📂</span>
+        <span id="csvFileName">Tap di sini untuk pilih file CSV...</span>
+      </div>
+      <div id="csvStatus" style="display:none;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px;line-height:1.6;"></div>
+      <div class="mrow">
+        <button class="mbtn cancel" onclick="closeModal('mImportCSV')">Batal</button>
+        <button class="mbtn ok" onclick="importCSV()">📥 Import Sekarang</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drive (from chat) -->
+<div class="modal" id="mDrive">
+  <div class="mbox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.1),rgba(67,97,238,.1));">
+      <div class="mhd-t" style="color:var(--cyan);">📂 Tambah Drive</div>
+      <button class="mclose" onclick="closeModal('mDrive')">✕</button>
+    </div>
+    <div class="mbody">
+      <label class="flabel">Departemen Pemilik</label><select class="fselect" id="mDD"></select>
+      <label class="flabel">Judul</label><input class="finput" id="mDT" placeholder="Nama file/folder..."/>
+      <label class="flabel">Link Google Drive</label><input class="finput" id="mDL" placeholder="https://drive.google.com/..."/>
+      <label class="flabel">Deskripsi (opsional)</label><input class="finput" id="mDDesc" placeholder="Keterangan..."/>
+      <div class="mrow">
+        <button class="mbtn cancel" onclick="closeModal('mDrive')">Batal</button>
+        <button class="mbtn ok" onclick="saveChatDrive()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="lglow"></div>
+  <div class="llogo">⚖️</div>
+  <div class="ltitle">SOP Center</div>
+  <div class="lsub">Ditjen Badan Peradilan Agama — MA RI</div>
+  <div class="lcard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h3 style="margin:0;">Masuk ke Sistem</h3>
+      <span style="background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;">v1.0</span>
+    </div>
+    <label class="flabel">Nomor Induk Pegawai (NIP)</label>
+    <input class="finput" id="loginNIP" placeholder="Masukkan NIP..." inputmode="numeric" maxlength="18" style="font-size:18px;letter-spacing:2px;text-align:center;"/>
+    <div id="loginErr" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--red);margin-bottom:14px;text-align:center;"></div>
+    <button class="lbtn" id="btnDoLogin">MASUK SEBAGAI PEGAWAI →</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+      <div style="flex:1;height:1px;background:var(--b2);"></div>
+      <span style="font-size:11px;color:var(--mu);letter-spacing:.5px;">ATAU</span>
+      <div style="flex:1;height:1px;background:var(--b2);"></div>
+    </div>
+    <button class="lbtn" id="btnGuestLogin" style="background:transparent;border:1px solid var(--b2);color:var(--mu2);font-size:13px;padding:12px;">
+      🌐 Lihat SOP Tanpa Login
+    </button>
+    <div class="admin-link" id="btnAdminLink">⚙ Panel Administrator</div>
+  </div>
+</div>
+
+<!-- ══ ADMIN PANEL ══ -->
+<div id="adminPanel">
+  <div class="ahd">
+    <div class="ahd-title">⚙ Admin <span>Panel</span> <span style="font-size:11px;font-weight:400;color:var(--mu);margin-left:6px;">v1.0</span></div>
+    <button class="aclose" onclick="closeAdmin()">✕ Tutup</button>
+  </div>
+  <div class="atabs">
+    <div class="atab on" id="tabDept" onclick="switchTab('dept')">🏢 Unit</div>
+    <div class="atab" id="tabEmp" onclick="switchTab('emp')">👤 Pegawai</div>
+    <div class="atab" id="tabDrive" onclick="switchTab('drive')">📋 SOP</div>
+    <div class="atab" id="tabQR" onclick="switchTab('qr')">🔲 QR Code</div>
+  </div>
+  <div class="abody" id="adminBody"></div>
+</div>
+
+<!-- ══ SIDEBAR ══ -->
+<div id="overlay" onclick="closeSidebar()"></div>
+<div id="sidebar">
+  <div class="sbtop">
+    <div class="sbav" id="sbAv">🤖</div>
+    <div class="sbname" id="sbName">—</div>
+    <div style="font-size:11px;color:var(--mu2);margin-top:4px;" id="sbNIP">—</div>
+    <div class="sbdept" id="sbDept">—</div>
+  </div>
+  <div class="sbmenu">
+    <div class="sbitem" onclick="showMyDrive()"><span class="sbico">📂</span><div><div class="sblabel">Data Drive Saya</div><div class="sbsub">Akses folder departemenmu</div></div></div>
+    <div class="sbitem" onclick="newChat()"><span class="sbico">✦</span><div><div class="sblabel">Chat Baru</div><div class="sbsub">Mulai percakapan baru</div></div></div>
+    <div class="sbitem" onclick="doLogout()"><span class="sbico">→</span><div><div class="sblabel">Keluar</div><div class="sbsub">Logout dari sistem</div></div></div>
+    </div>
+  <div style="padding:14px 20px;border-top:1px solid var(--b1);text-align:center;">
+    <div style="font-size:10px;color:var(--mu);letter-spacing:.5px;">SOP Knowledge Center</div>
+    <div style="font-size:10px;color:var(--mu);margin-top:2px;">Ditjen Badilag MA RI · <span style="color:var(--cyan);">v1.0</span></div>
+  </div>
+</div>
+
+<!-- ══ CHAT UI ══ -->
+<!-- Chat wrapper - satu flex container untuk semua elemen chat -->
+<div id="chatWrapper" style="display:none;flex-direction:column;width:100%;position:absolute;top:0;left:0;right:0;bottom:0;">
+  <div class="chdr" id="chdr">
+    <button class="menubtn" onclick="openSidebar()">☰</button>
+    <div class="avring"><div class="avin" id="hdrIco">🤖</div></div>
+    <div style="flex:1"><div class="hname">SOP Knowledge Center</div><div class="hdept" id="hdrDept">—</div></div>
+    <div class="hbtns">
+      <button class="hbtn" onclick="showMyDrive()">📂</button>
+      <button class="hbtn" onclick="newChat()">✦</button>
+    </div>
+  </div>
+  <div class="stbar" id="stbar">
+    <div class="stdot"></div><span id="stText">Online · AI Aktif</span>
+    <span style="font-size:10px;color:var(--mu);margin-left:4px;">v1.0</span>
+    <div class="stag" id="stTag">—</div>
+  </div>
+  <!-- Scroll body: chat + input mengikuti pesan terakhir -->
+  <div id="scrollBody" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;">
+    <div class="chatarea" id="chatArea">
+      <div class="datesep"><span>Hari ini</span></div>
+    </div>
+    <div class="qarea" id="qarea">
+      <button class="qchip" onclick="sq('Halo!')">👋 Halo</button>
+      <button class="qchip" onclick="sq('Tampilkan data Drive saya')">📂 Drive Saya</button>
+      <button class="qchip" onclick="sq('Apa yang bisa kamu lakukan?')">✦ Kemampuan</button>
+      <button class="qchip" onclick="sq('Siapa saya di sistem ini?')">👤 Profil</button>
+    </div>
+    <div class="inputarea" id="inputArea">
+      <div class="inputwrap">
+        <button class="icobtn" onclick="openModal('mDoc')" title="Analisis Dokumen">📄</button>
+        <button class="icobtn" onclick="openChatDrive()" title="Tambah Drive">📎</button>
+        <textarea id="msgInput" rows="1" placeholder="Ketik pesan..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      </div>
+      <button class="sendbtn" onclick="sendMsg()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+</div>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsM32VhPFmSN4cQJs6ks8w0NuzCJxBdQk",
+    authDomain: "sop-badilag.firebaseapp.com",
+    projectId: "sop-badilag",
+    storageBucket: "sop-badilag.firebasestorage.app",
+    messagingSenderId: "743445576077",
+    appId: "1:743445576077:web:6901a496f3352e343565c4"
+  };
+  try {
+    firebase.initializeApp(firebaseConfig);
+  } catch(e) {}
+</script>
+<script>
+// ══ FIREBASE GLOBALS ══
+let db, auth;
+
+// ══ ICON DATA ══
+const ICON_CATS = {
+  'Kepegawaian':['👥','👤','🧑‍💼','👩‍💼','👨‍💼','🪪','📋','🤝','🗂️','📁','✍️','🖊️','📝','🏅','🎓'],
+  'Keuangan':   ['💰','💵','💳','🏦','📊','📈','📉','🧾','💹','🪙','💎','🏧','💴','💶','🤑'],
+  'Umum':       ['🏢','🏛️','⚙️','🔧','🛠️','📦','🚚','🏗️','🔑','🗝️','📌','📍','🗄️','🖨️','📠'],
+  'Ortala':     ['📐','📏','🗃️','📑','📄','🗒️','🗓️','📅','🔖','🏷️','🖇️','✂️','🔍','⚖️','🗺️'],
+  'IT & Teknis':['💻','🖥️','🖱️','⌨️','🔌','📡','🛰️','🤖','🧠','💾','📀','📲','🔐','🛡️','🔬'],
+  'Hukum':      ['⚖️','🏛️','📜','🔏','✍️','🧑‍⚖️','👨‍⚖️','🔒','🛡️','🏷️','📌','🗂️','🪖','📋','🗺️'],
+  'Kesehatan':  ['🏥','⚕️','💊','🩺','🧬','🩻','🩹','💉','🧪','🧫','❤️','🫁','🌡️','💆','🏨'],
+  'Lainnya':    ['⭐','🌟','✨','🔥','💡','🎯','🚀','🌐','🔔','📣','📢','🎖️','🏆','🎗️','🌈'],
+};
+const IPS = {};
+function initPicker(wrapId, initIco, key) {
+  const el = document.getElementById(wrapId);
+  if (!el) return;
+  IPS[key] = { sel: initIco || '🏢', cat: Object.keys(ICON_CATS)[0] };
+  el.innerHTML = `<div class="ipwrap"><button type="button" class="ipbtn" onclick="togglePicker('${key}')"><span id="ipPrev_${key}" style="font-size:22px;">${IPS[key].sel}</span><span style="color:var(--mu2);font-size:13px;">Pilih ikon</span><span style="margin-left:auto;color:var(--mu);font-size:12px;">▾</span></button><div class="ipdrop" id="ipDrop_${key}"><div class="ipcats" id="ipCats_${key}"></div><div class="ipgrid" id="ipGrid_${key}"></div></div></div>`;
+  rCats(key); rGrid(key);
+}
+function togglePicker(key) {
+  document.querySelectorAll('.ipdrop.on').forEach(e => { if(e.id!=='ipDrop_'+key) e.classList.remove('on'); });
+  document.getElementById('ipDrop_'+key).classList.toggle('on');
+}
+function rCats(key) {
+  document.getElementById('ipCats_'+key).innerHTML = Object.keys(ICON_CATS).map(c=>`<button type="button" class="icatbtn ${c===IPS[key].cat?'on':''}" onclick="pCat('${key}','${c}')">${c}</button>`).join('');
+}
+function rGrid(key) {
+  document.getElementById('ipGrid_'+key).innerHTML = ICON_CATS[IPS[key].cat].map(i=>`<button type="button" class="icoopt ${i===IPS[key].sel?'on':''}" onclick="pIco('${key}','${i}')">${i}</button>`).join('');
+}
+function pCat(key,cat){ IPS[key].cat=cat; rCats(key); rGrid(key); }
+function pIco(key,ico){ IPS[key].sel=ico; document.getElementById('ipPrev_'+key).textContent=ico; document.getElementById('ipDrop_'+key).classList.remove('on'); rGrid(key); }
+function gIco(key,fb){ return (IPS[key]&&IPS[key].sel)?IPS[key].sel:(fb||'🏢'); }
+
+
+// ══ ESELON II MAPPING ══
+const ESELON2 = [
+  { id: 'e2_sek', name: 'Sekretariat Ditjen Badilag', icon: '🏛️' },
+  { id: 'e2_adm', name: 'Dit. Pembinaan Administrasi Peradilan Agama', icon: '⚖️' },
+  { id: 'e2_ttk', name: 'Dit. Pembinaan Tenaga Teknis Peradilan Agama', icon: '👨‍⚖️' },
+];
+
+
+// ══ STRUKTUR ESELON III & IV ══
+const ESELON3 = [
+  {id:'e3s1', nama:'Bagian Kepegawaian', eselon2:'e2_sek'},
+  {id:'e3s2', nama:'Bagian Organisasi dan Tata Laksana', eselon2:'e2_sek'},
+  {id:'e3s3', nama:'Bagian Perencanaan dan Keuangan', eselon2:'e2_sek'},
+  {id:'e3s4', nama:'Bagian Umum', eselon2:'e2_sek'},
+  {id:'e3a1', nama:'Subdit Bimbingan dan Monitoring', eselon2:'e2_adm'},
+  {id:'e3a2', nama:'Subdit Syariah', eselon2:'e2_adm'},
+  {id:'e3a3', nama:'Subdit Tata Kelola', eselon2:'e2_adm'},
+  {id:'e3a4', nama:'Subdit Statistik dan Dokumentasi', eselon2:'e2_adm'},
+  {id:'e3t1', nama:'Subdit Mutasi Hakim', eselon2:'e2_ttk'},
+  {id:'e3t2', nama:'Subdit Mutasi Panitera dan Jurusita', eselon2:'e2_ttk'},
+  {id:'e3t3', nama:'Subdit Pengembangan Tenaga Teknis', eselon2:'e2_ttk'},
+  {id:'e3t4', nama:'Subdit Data dan Evaluasi', eselon2:'e2_ttk'},
+];
+
+const ESELON4 = [
+  // Bag. Kepegawaian
+  {id:'e4s101', nama:'Subbag Umum Kepegawaian', eselon3:'e3s1'},
+  {id:'e4s102', nama:'Subbag Mutasi Kepegawaian', eselon3:'e3s1'},
+  {id:'e4s103', nama:'Subbag Pemberhentian dan Pensiun', eselon3:'e3s1'},
+  // Bag. Ortala
+  {id:'e4s201', nama:'Subbag Kelembagaan dan Pelaporan', eselon3:'e3s2'},
+  {id:'e4s202', nama:'Subbag Dokumentasi dan Informasi', eselon3:'e3s2'},
+  {id:'e4s203', nama:'Subbag Ketatalaksanaan', eselon3:'e3s2'},
+  // Bag. Perenc. & Keuangan
+  {id:'e4s301', nama:'Subbag Perencanaan Program dan Penyusunan Anggaran', eselon3:'e3s3'},
+  {id:'e4s302', nama:'Subbag Anggaran dan Perbendaharaan', eselon3:'e3s3'},
+  {id:'e4s303', nama:'Subbag Akuntansi', eselon3:'e3s3'},
+  // Bag. Umum
+  {id:'e4s401', nama:'Subbag Tata Usaha', eselon3:'e3s4'},
+  {id:'e4s402', nama:'Subbag Rumah Tangga', eselon3:'e3s4'},
+  {id:'e4s403', nama:'Subbag Perlengkapan', eselon3:'e3s4'},
+  // Subdit Bimbingan & Monitoring
+  {id:'e4a101', nama:'Kasi Bimbingan I', eselon3:'e3a1'},
+  {id:'e4a102', nama:'Kasi Bimbingan II', eselon3:'e3a1'},
+  {id:'e4a103', nama:'Kasi Monitoring dan Evaluasi', eselon3:'e3a1'},
+  // Subdit Syariah
+  {id:'e4a201', nama:'Kasi Pengkajian Syariah dan Hisab Rukyat', eselon3:'e3a2'},
+  {id:'e4a202', nama:'Kasi Evaluasi dan Pengendalian Syariah', eselon3:'e3a2'},
+  {id:'e4a203', nama:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah', eselon3:'e3a2'},
+  // Subdit Tata Kelola
+  {id:'e4a301', nama:'Kasi Tata Persidangan', eselon3:'e3a3'},
+  {id:'e4a302', nama:'Kasi Sarana Kerja Pengadilan', eselon3:'e3a3'},
+  {id:'e4a303', nama:'Kasi Pelayanan Peradilan', eselon3:'e3a3'},
+  // Subdit Statistik & Dokumentasi
+  {id:'e4a401', nama:'Kasi Statistik', eselon3:'e3a4'},
+  {id:'e4a402', nama:'Kasi Dokumentasi Wilayah Hukum', eselon3:'e3a4'},
+  {id:'e4a403', nama:'Kasubbag Tata Usaha Dit. Adm. PA', eselon3:'e3a4'},
+  // Subdit Mutasi Hakim
+  {id:'e4t101', nama:'Kasi Mutasi I Hakim', eselon3:'e3t1'},
+  {id:'e4t102', nama:'Kasi Mutasi II Hakim', eselon3:'e3t1'},
+  {id:'e4t103', nama:'Kasi Tata Naskah Mutasi Hakim', eselon3:'e3t1'},
+  // Subdit Mutasi Panitera & Jurusita
+  {id:'e4t201', nama:'Kasi Mutasi I Panitera dan Jurusita', eselon3:'e3t2'},
+  {id:'e4t202', nama:'Kasi Mutasi II Panitera dan Jurusita', eselon3:'e3t2'},
+  {id:'e4t203', nama:'Kasi Tata Naskah Panitera dan Jurusita', eselon3:'e3t2'},
+  // Subdit Pengembangan
+  {id:'e4t301', nama:'Kasi Evaluasi dan Rasionalisasi', eselon3:'e3t3'},
+  {id:'e4t302', nama:'Kasi Peningkatan Mutu Hakim', eselon3:'e3t3'},
+  {id:'e4t303', nama:'Kasubbag Tata Usaha Dit. Tenaga Teknis', eselon3:'e3t3'},
+  // Subdit Data & Evaluasi
+  {id:'e4t401', nama:'Kasi Arsip dan Dokumentasi', eselon3:'e3t4'},
+  {id:'e4t402', nama:'Kasi Evaluasi dan Pelaporan', eselon3:'e3t4'},
+  {id:'e4t403', nama:'Kasi Data dan Informasi Tenaga Teknis', eselon3:'e3t4'},
+];
+
+function getE3Opts(e2Id, selId='') {
+  return ESELON3.filter(e=>e.eselon2===e2Id)
+    .map(e=>`<option value="${e.id}"${e.id===selId?' selected':''}>${e.nama}</option>`).join('');
+}
+function getE4Opts(e3Id, selId='') {
+  return ESELON4.filter(e=>e.eselon3===e3Id)
+    .map(e=>`<option value="${e.id}"${e.id===selId?' selected':''}>${e.nama}</option>`).join('');
+}
+function onE2Change(prefix) {
+  const e2El = document.getElementById(prefix+'EEselon2');
+  const e3El = document.getElementById(prefix+'EBagian');
+  const e4El = document.getElementById(prefix+'ESubbag');
+  if(!e2El||!e3El||!e4El) return;
+  e3El.innerHTML = '<option value="">— Pilih Bagian/Subdit —</option>' + getE3Opts(e2El.value);
+  e4El.innerHTML = '<option value="">— Pilih Subbag/Kasi —</option>';
+}
+function onE3Change(prefix) {
+  const e3El = document.getElementById(prefix+'EBagian');
+  const e4El = document.getElementById(prefix+'ESubbag');
+  if(!e3El||!e4El) return;
+  e4El.innerHTML = '<option value="">— Pilih Subbag/Kasi —</option>' + getE4Opts(e3El.value);
+}
+
+// ══ STATE ══
+// ══ FIREBASE STATE ══
+let adminOk = false;
+let fbLoaded = false;
+let S = {
+  user:null,
+  mode: 'guest',
+  depts:[],
+  emps: [],
+  drives:[],
+  history:[],
+  tab:'dept'
+};
+
+// Load data dari Firestore
+async function loadFromFirebase() {
+  try {
+    const [deptsSnap, empsSnap, drivesSnap] = await Promise.all([
+      db.collection('depts').orderBy('name').get(),
+      db.collection('emps').get(),
+      db.collection('drives').get()
+    ]);
+    if (!deptsSnap.empty) S.depts = deptsSnap.docs.map(d=>({id:d.id,...d.data()}));
+    if (!empsSnap.empty)  S.emps  = empsSnap.docs.map(d=>({id:d.id,...d.data()}));
+    if (!drivesSnap.empty) S.drives = drivesSnap.docs.map(d=>({id:d.id,...d.data()}));
+    fbLoaded = true;
+  } catch(e) {
+    console.warn('Firebase load error, using local fallback:', e);
+    fbLoaded = false;
+  }
+}
+// Preload data Ditjen Badilag v1.0 — dipanggil dari init
+function loadDefaultData() {
+if (!S.depts.length) { S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "s07", "name": "Subbag Kelembagaan dan Pelaporan", "icon": "📊"}, {"id": "s08", "name": "Subbag Dokumentasi dan Informasi", "icon": "📁"}, {"id": "s09", "name": "Subbag Ketatalaksanaan", "icon": "⚙️"}, {"id": "s10", "name": "Bagian Perencanaan dan Keuangan", "icon": "💰"}, {"id": "s11", "name": "Subbag Perencanaan Program dan Penyusunan Anggaran", "icon": "📈"}, {"id": "s12", "name": "Subbag Anggaran dan Perbendaharaan", "icon": "💵"}, {"id": "s13", "name": "Subbag Akuntansi", "icon": "🧾"}, {"id": "s14", "name": "Bagian Umum", "icon": "🏢"}, {"id": "s15", "name": "Subbag Tata Usaha Bagian Umum", "icon": "📮"}, {"id": "s16", "name": "Subbag Rumah Tangga", "icon": "🏠"}, {"id": "s17", "name": "Subbag Perlengkapan", "icon": "📦"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "a02", "name": "Subdit Bimbingan dan Monitoring", "icon": "🔍"}, {"id": "a03", "name": "Kasi Bimbingan I", "icon": "📋"}, {"id": "a04", "name": "Kasi Bimbingan II", "icon": "📋"}, {"id": "a05", "name": "Kasi Monitoring dan Evaluasi", "icon": "📊"}, {"id": "a06", "name": "Subdit Syariah", "icon": "🕌"}, {"id": "a07", "name": "Kasi Pengkajian Syariah dan Hisab Rukyat", "icon": "📜"}, {"id": "a08", "name": "Kasi Evaluasi dan Pengendalian Syariah", "icon": "✅"}, {"id": "a09", "name": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah", "icon": "📖"}, {"id": "a10", "name": "Subdit Tata Kelola", "icon": "🗂️"}, {"id": "a11", "name": "Kasi Tata Persidangan", "icon": "🏛️"}, {"id": "a12", "name": "Kasi Sarana Kerja Pengadilan", "icon": "🛠️"}, {"id": "a13", "name": "Kasi Pelayanan Peradilan", "icon": "🤝"}, {"id": "a14", "name": "Subdit Statistik dan Dokumentasi", "icon": "📊"}, {"id": "a15", "name": "Kasi Statistik", "icon": "📈"}, {"id": "a16", "name": "Kasi Dokumentasi Wilayah Hukum", "icon": "🗺️"}, {"id": "a17", "name": "Kasubbag Tata Usaha Dit. Adm. PA", "icon": "📮"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "t02", "name": "Subdit Mutasi Hakim", "icon": "👨‍⚖️"}, {"id": "t03", "name": "Kasi Mutasi I Hakim", "icon": "📋"}, {"id": "t04", "name": "Kasi Mutasi II Hakim", "icon": "📋"}, {"id": "t05", "name": "Kasi Tata Naskah Mutasi Hakim", "icon": "📝"}, {"id": "t06", "name": "Subdit Mutasi Panitera dan Jurusita", "icon": "⚖️"}, {"id": "t07", "name": "Kasi Mutasi I Panitera dan Jurusita", "icon": "📋"}, {"id": "t08", "name": "Kasi Mutasi II Panitera dan Jurusita", "icon": "📋"}, {"id": "t09", "name": "Kasi Tata Naskah Panitera dan Jurusita", "icon": "📝"}, {"id": "t10", "name": "Subdit Pengembangan Tenaga Teknis", "icon": "🎓"}, {"id": "t11", "name": "Kasi Evaluasi dan Rasionalisasi", "icon": "📊"}, {"id": "t12", "name": "Kasi Peningkatan Mutu Hakim", "icon": "⭐"}, {"id": "t13", "name": "Kasubbag Tata Usaha Dit. Tenaga Teknis", "icon": "📮"}, {"id": "t14", "name": "Subdit Data dan Evaluasi", "icon": "💾"}, {"id": "t15", "name": "Kasi Arsip dan Dokumentasi", "icon": "🗄️"}, {"id": "t16", "name": "Kasi Evaluasi dan Pelaporan", "icon": "📈"}, {"id": "t17", "name": "Kasi Data dan Informasi Tenaga Teknis", "icon": "💻"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
+}
+if (!S.emps.length && !fbLoaded)  { S.emps  = [{"id": "e_csv_0_1004", "name": "Drs. H. Muchlis, S.H., M.H.", "nip": "196608101993031004", "golongan": "Pembina Utama (IV/e)", "jabatan": "Direktur Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_1_1004", "name": "Drs. Arief Hidayat, S.H., M.M.", "nip": "196809041993031004", "golongan": "Pembina Utama Madya (IV/d)", "jabatan": "Sekretaris Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_2_2002", "name": "Hj. Nitasari, S.H., M.M.", "nip": "197108301992032002", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_3_1009", "name": "Zaenal Abidin, S.E.", "nip": "198103252011011009", "golongan": "Penata Tk I (III/d)", "jabatan": "Kepala Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_4_2005", "name": "Fenny Sulistyaningsih, S.E., M.M", "nip": "197804242006042005", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_5_1001", "name": "M.Yakub, S.E., M.M.", "nip": "198401042006041001", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_6_2014", "name": "Fitriza Agustina, S.E., M.M.", "nip": "198108022006042014", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Akuntansi pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_7_2003", "name": "Dian Puspita Rini, S.E. M.Si.", "nip": "198604142009122003", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Anggaran dan Perbendaharaan pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_8_2009", "name": "Inke Kurnia, S.Kom., M.M.", "nip": "198511162009042009", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Perencanaan Program dan Penyusunan Anggaran pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_9_1002", "name": "Lilik Subagyo, S.Kom. M.H.", "nip": "197506292009121002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Umum Kepegawaian Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_10_2003", "name": "Afika Rahmah, S.Sos., M.H.", "nip": "198208272006042003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Mutasi Kepegawaian Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_11_1008", "name": "Achmad Suyatno, S.E., M.M.", "nip": "197610202006041008", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Pemberhentian dan Pensiun Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_12_1001", "name": "Sumantri Tejo Kusumo, S.E. M.M", "nip": "197708082009121001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Kelembagaan dan Pelaporan Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_13_1001", "name": "Maimun, S.H.", "nip": "198012032006041001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Bagian Dokumentasi dan Informasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_14_2002", "name": "Nikmah Rahmawati, S.Kom.", "nip": "199006112015032002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Ketatalaksanaan Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_15_1003", "name": "Andhika Zaldy, S.H.", "nip": "198306072006041003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Tata Usaha Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_16_1002", "name": "Offend Adetriartna, S.Ap.", "nip": "199501122020121002", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Kasubbag Rumah Tangga Bagian Umum Sekretariat Direktoral Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_17_1002", "name": "Oktario Prastia Wildan, S.Kom.", "nip": "198810282015031002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Perlengkapan Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_18_1001", "name": "Yudi Hermawan, S.H.I.", "nip": "198705112017121001", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_19_1006", "name": "Rendra Widyakso, S.H.", "nip": "199301012017121006", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_20_1004", "name": "Fahadil Amin AL Hasan, S.Sy., M.Si", "nip": "199112262017121004", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_21_1003", "name": "Reza Dwi Ardianto, S.H. M.H.", "nip": "198805242009121003", "golongan": "Penata (III/c)", "jabatan": "Fungsional Pengelolaan Keuangan APBN Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_22_1007", "name": "Arief Kusuma Putra, S.Kom", "nip": "199011102020121007", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_23_2013", "name": "Septi Rahayu, S.S.T.Ars", "nip": "199209252020122013", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Arsiparis Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_24_2000", "name": "Nisa Tahaja Seadillah, S. Kom.", "nip": "199109192020122000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_25_2002", "name": "Mifta Hidayah, A.Md.Kb.N", "nip": "200011022022012002", "golongan": "Pengatur (II/c)", "jabatan": "Pranata Keuangan APBN Pelaksana/Terampil", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_26_2001", "name": "Dra. Arina Suyetty", "nip": "196805281995032001", "golongan": "Pembina (IV/a)", "jabatan": "Operator Penata Layanan Operasional", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_27_2002", "name": "Sri Harni, S.H.", "nip": "197205121994032002", "golongan": "Penata Tk I (III/d)", "jabatan": "Klerek - Konselor Kepegawaian, Sub Bagian Pemberhentian dan Pensiun", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_28_1001", "name": "Mohammad Taufik, S.H.", "nip": "198704182006041001", "golongan": "Penata (III/c)", "jabatan": "Operator - Penata Layanan Operasional, Sub Bagian Anggaran dan Perbendaharaan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_29_2000", "name": "Resgi Rishandita, S. E.", "nip": "198812012020122000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Operator - Penata Layanan Operasional, Subbagian Umum Kepegawaian", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_30_2001", "name": "Pebri Tripeni", "nip": "198502132006042001", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Sub Bagian Perencanaan Program dan Penyusunan Anggaran", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_31_2008", "name": "Ninda Afifah Permatasari, S.H.", "nip": "199406032022032008", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Klerek - Analis Perkara Peradilan, Subbagian Rumah Tangga", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_32_1006", "name": "Fariz Alwan, S.E.", "nip": "199707202022031006", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Penelaah Teknis Kebijakan, Subbagian Kelembagaan dan Pelaporan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_33_2005", "name": "Febi Rizkia, A. Md", "nip": "200002232022032005", "golongan": "Pengatur (II/c)", "jabatan": "Klerek - Pengolah Data dan Informasi, Subbagian Ketatalaksanaan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_34_1000", "name": "Wildan Achsanul Fikri, S.E.", "nip": "199511292025061000", "golongan": "Penata Muda (III/a)", "jabatan": "Analis Pengelolaan Keuangan APBN Ahli Pertama, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_35_2000", "name": "Farah Mas'udatul Rahmadani, S.AK.", "nip": "200012082025062000", "golongan": "Penata Muda (III/a)", "jabatan": "Analis Pengelolaan Keuangan APBN Ahli Pertama, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_36_2043", "name": "Fatin Fiqruna, S.H.", "nip": "199208092023212043", "golongan": "IX", "jabatan": "Pengelola Pengadaan Barang/Jasa Ahli Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_37_1008", "name": "Mokhamad Subartin, S.H.", "nip": "197701202025211008", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_38_1023", "name": "Iwan Kartiwan, S.H.", "nip": "197607042025211023", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Perencanaan Program dan Penyusunan Anggaran Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_39_1030", "name": "Triyan Finoza, S.H.", "nip": "199101292025211030", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_40_1026", "name": "Abdul Rahman, S.H.", "nip": "198111092025211026", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_41_1047", "name": "Adhityas Prathama, S.H.", "nip": "199308072025211047", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_42_1041", "name": "Adithia Fadli, S.H.", "nip": "198708282025211041", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_43_1025", "name": "Hafzhani Ahmad, A.Md.", "nip": "199401182025211025", "golongan": "VII", "jabatan": "Pengelola Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_44_1032", "name": "Imam Santoso", "nip": "198702252025211032", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_45_1043", "name": "Yono Karyono", "nip": "198603012025211043", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_46_1013", "name": "Muhammad Andika Putra Bustan", "nip": "199901212025211013", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_47_1066", "name": "Aulia Putera", "nip": "198505252025211066", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Dokumentasi dan Informasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_48_1006", "name": "Achmad Fauzan", "nip": "200110102025211006", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_49_1019", "name": "Hendra Friza", "nip": "198111242025211019", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_50_1001", "name": "Sutarno, S.IP, M.M.", "nip": "197302171992031001", "golongan": "Pembina Utama Muda (IV/c)", "jabatan": "Direktur Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_51_1001", "name": "Pranasta Surga, S.H., M. Kom", "nip": "198709252006041001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kepala Sub Direktorat Bimbingan Dan Monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_52_1001", "name": "Daud Al Wadud, S.E., M.M.", "nip": "197302232006041001", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_53_2001", "name": "Itjah Minantika, S.E., S.H., M.H.", "nip": "197705302005022001", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Tata Kelola Direktorat Tata Kelola Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_54_2001", "name": "Hj. Lystia Paramita Amaliyah Rum, S.H., M.H.", "nip": "198406202008052001", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Statistik Dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_55_2004", "name": "Aulia Septiani, S.SI.", "nip": "199009042015032004", "golongan": "Penata (III/c)", "jabatan": "Kasi Bimbingan I Pada Sub. Direktorat Bimbingan dan monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_56_1003", "name": "Fajar Setiawan, S.Sos., MBA.", "nip": "198501162009041003", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Bimbingan II Pada Sub Direktorat Bimbingan dan Monitoring Direktorat Pembinaan Adminitrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_57_1003", "name": "Suryo Waskito Wirano, S. Kom", "nip": "198603082015031003", "golongan": "Penata (III/c)", "jabatan": "Kasi Monitoring dan Evaluasi Pada Sub. Direktorat Bimbingan dan Monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_58_1002", "name": "Wahyu Setiyawan, S.H.", "nip": "198705282006041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Pelayanan Peradilan Pada Sub Direktorat Tata Kelola Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_59_2003", "name": "Tri Hartatik, S.E.", "nip": "198112172009122003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Tata Persidangan Pada Sub Direktorat Tata Kelola Direktorat Pembinaan Administrai Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_60_1003", "name": "Agus Santosa, S.H.", "nip": "198406122006041003", "golongan": "Penata (III/c)", "jabatan": "Seksi Sarana Kerja Pengadilan, Direktorat Pembinaan Administrai Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_61_1004", "name": "Fathul Ma'rif, S.H., M.H.", "nip": "198604212006041004", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Statistik Pada Sub Direktorat Statistik dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_62_2001", "name": "Endah Purnamasari, S.Kom", "nip": "198405152008052001", "golongan": "Penata (III/c)", "jabatan": "Kasi Dokumentasi Wilayah Hukum Pada Sub Direktorat Statistik dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_63_2011", "name": "Fitri Suryaningsih, S.Pd.", "nip": "197807072006042011", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Pengkajian Syariah dan Hisab Rukyat Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_64_2001", "name": "Dwiana Sri Handayani , S.H.", "nip": "196803051989032001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_65_2004", "name": "Nurhayati, S.E., M.M.", "nip": "197901162009042004", "golongan": "Penata (III/c)", "jabatan": "Kasi Evaluasi dan Pengendalian Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_66_2002", "name": "Anna Tresnasari, S.H. M.H.", "nip": "197606052006042002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Tata Usaha Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_67_1004", "name": "Saryono, S.Kom", "nip": "198801082020121004", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_68_1002", "name": "Rizky Nur Ariansyah, S.H.", "nip": "199612032020121002", "golongan": "Penata Muda Tk.I III/b", "jabatan": "Klerek - Analis Perkara Peradilan, Seksi Monitoring dan Evaluasi", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_69_2003", "name": "Raden Desy Puspasari, A.Md", "nip": "197912182009042003", "golongan": "Penata III/c", "jabatan": "Klerek - Pengolah Data dan Informasi, Sub Bagian Tata Usaha", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_70_1003", "name": "Yusuf Nurullah", "nip": "198506292006041003", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Sub Bagian Tata Usaha", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_71_1002", "name": "Mochamad Zainuddin", "nip": "198202222006041002", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Seksi Pengkajian Syariah dan Hisab Rukyat", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_72_1000", "name": "Ilham Kholid Mubarok, S.T.", "nip": "199907062025061000", "golongan": "Penata Muda (III/a)", "jabatan": "Penata Kelola Sistem dan Teknologi Informasi, Subbagian Perlengkapan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_73_1013", "name": "Rizki Yansyah, S.Kom", "nip": "198309292023211013", "golongan": "IX", "jabatan": "Pranata Komputer Ahli Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_74_2038", "name": "Musyawirah Isra, S.H.", "nip": "199008072025212038", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Pelayanan Peradilan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_75_1033", "name": "Angga Setiawan, S.Kom.", "nip": "199609242025211033", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Bimbingan I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_76_1037", "name": "Surachman, A.Md.", "nip": "198409242025211037", "golongan": "VII", "jabatan": "Pengelola Layanan Operasional, Subbagian Umum Kepegawaian Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_77_2059", "name": "Nurul Mutmainnah", "nip": "199407102025212059", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Tata Persidangan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_78_1044", "name": "Reza Cahyadi", "nip": "199201132025211044", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Monitoring dan Evaluasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_79_1036", "name": "Rahmatullah", "nip": "198207072025211036", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Monitoring dan Evaluasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_80_2037", "name": "Renni Aprillia Ningsih", "nip": "198804182025212037", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Dokumentasi Wilayah Hukum Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_81_1030", "name": "Sahrudin", "nip": "197306122025211030", "golongan": "I", "jabatan": "Pengelola Umum Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_83_1002", "name": "Ahyar Siddiq, S.E.I., M.H.I", "nip": "198107262007041002", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_84_1004", "name": "Mas Muhammad Ferdiansyah, S.E.", "nip": "198105132006041004", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Mutasi Panitera Dan Juru Sita Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_85_2003", "name": "Rina Herlina, S.H., M.H.", "nip": "197606132006042003", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_86_2002", "name": "Lala Umilah, S. Psi", "nip": "198109052006042002", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Data Dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_87_1007", "name": "M. Tasdik, S.Pd., M.H.", "nip": "198101142006041007", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi II Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_88_2004", "name": "Siti Yanuarina Marhamah, S.H., M.H.", "nip": "198701092006042004", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi I Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_89_2002", "name": "Susi Ari Purwanti, S.H., M.M.", "nip": "196809291991032002", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Tata Naskah Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_90_2001", "name": "Fitriati Anom, S.H.", "nip": "198204282007042001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi I Panitera dan jurusita Pada Sub Direktorat Mutasi Panitera dan Juru Sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_91_1002", "name": "Adnan Qori Widanu, S.E.", "nip": "198603012000041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi II Panitera dan Jurusita Pada Sub Direktorat Mutasi Panitera dan Juru sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama,", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_92_2002", "name": "Muthmainah, S.E., M.M.", "nip": "197606102006042002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Tata Naskah Panitera dan Juru sita Pada Sub Direktorat Mutasi Panitera dan Juru Sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_93_1002", "name": "Herman Hermanto, S.Pd., M.H.", "nip": "197902272006041002", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Evaluasi dan Rasionalisasi Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_94_1002", "name": "Muhammad Fahrizal Adriyanto, S.Kom", "nip": "198712272015031002", "golongan": "Penata (III/c)", "jabatan": "Kasi Peningkatan Mutu Panitera dan Jurusita Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_95_1002", "name": "Budi Santoso, S.H.", "nip": "197306212006041002", "golongan": "Penata (III/c)", "jabatan": "Kasi Peningkatan Mutu Hakim Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_96_1005", "name": "Reynul Ardi, S.E., M.M.", "nip": "197706072009041005", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Data dan Informasi Tenaga Teknis Peradilan, Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_97_2003", "name": "Riskha Septilia, S.H.", "nip": "198209142006042003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Arsip dan Dokumentasi Pada Sub Direktorat Data dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_98_2001", "name": "Wijayanti, S.H.", "nip": "198401192006042001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Evaluasi dan Pelaporan Sub Direktorat Data dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_99_2002", "name": "Lisa Harmayanti, S.Si., M.H.", "nip": "198401222009042002", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Tata Usaha Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_100_2009", "name": "Rini Astuti, S.S.T.Ars", "nip": "199312082020122009", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Arsiparis Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_101_2000", "name": "Sitti Avania Rizki, S.I.A.", "nip": "199605042019032000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Analis Sumber Daya Manusia Aparatur Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_102_2006", "name": "Daryatul Choiriyah, S.T.", "nip": "199706122020122006", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_103_2002", "name": "Firma Reza Fajriati, A.Md.T", "nip": "199702282020122002", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Pelaksana / Terampil", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_104_2012", "name": "Aisyah Anani, S.H.", "nip": "199203232020122012", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Klerek - Analis Perkara Peradilan, Seksi Peningkatan Mutu Hakim", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_105_1002", "name": "Dika Andrian, S.Kom., S.H.", "nip": "198701262006041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Panitera Pengganti pada Pengadilan Tinggi Agama Jakarta Diperbantukan pada Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_106_1010", "name": "Muhammad Hudri, S.Kom.", "nip": "199008042019031010", "golongan": "Penata Muda (III/a)", "jabatan": "Juru Sita pada Pengadilan Agama Depok Kelas I.A Diperbantukan pada Sub Direktorat Mutasi Panitera dan Juru Sita Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_107_1003", "name": "Rezza Rijki Adiputra, S.T.", "nip": "199609192019031003", "golongan": "Penata Muda (III/a)", "jabatan": "Juru Sita pada Pengadilan Agama Jakarta Timur Kelas I.A Diperbantukan pada Sub Direktorat Mutasi Panitera dan Juru Sita Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_108_1008", "name": "Romdlon Fauzi, A.Md.", "nip": "199602022019031008", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Juru sita pada Pengadilan Agama Ngamprah Diperbantukan pada Direktorat Pembinaan Tenaga Tehnis Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_109_2000", "name": "Wilda Aulia Rahma, S.Tr.S.I.", "nip": "200104272025062000", "golongan": "Penata Muda (III/a)", "jabatan": "Arsiparis Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_110_2020", "name": "Zaza Ragillya, S.H.", "nip": "199807162025212020", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_111_1092", "name": "Okta Libriansyah Putra, S.Pd.I.", "nip": "198410102025211092", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi II Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_112_1038", "name": "Fredly Asmoro, S.H.", "nip": "198903082025211038", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Tata Naskah Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_113_2036", "name": "Qisthi Amali, S.E.", "nip": "199602052025212036", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Peningkatan Mutu Hakim Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_114_1020", "name": "Yuri Ostani, S.H.", "nip": "198501192025211020", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Arsip dan Dokumentasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_115_2027", "name": "Azizah Mufidati, S.E.", "nip": "197908052025212027", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Evaluasi dan Pelaporan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_116_2017", "name": "Yusrina Darneli", "nip": "199810252025212017", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_117_1029", "name": "Achmad Ramadhon", "nip": "198206272025211029", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Peningkatan Mutu Panitera dan Juru Sita Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}];}
+} // end loadDefaultData
+
+async function persist() {
+  // Simpan ke Firestore (hanya admin yang bisa)
+  if (!adminOk) return;
+  try {
+    const batch = db.batch();
+    S.depts.forEach(d => {
+      const {id, ...data} = d;
+      batch.set(db.collection('depts').doc(id), data);
+    });
+    S.emps.forEach(e => {
+      const {id, ...data} = e;
+      batch.set(db.collection('emps').doc(id), data);
+    });
+    S.drives.forEach(dr => {
+      const {id, ...data} = dr;
+      batch.set(db.collection('drives').doc(id), data);
+    });
+    await batch.commit();
+  } catch(e) {
+    console.error('Firestore save error:', e);
+    // Fallback ke localStorage
+    localStorage.setItem('nx_depts', JSON.stringify(S.depts));
+    localStorage.setItem('nx_emps',  JSON.stringify(S.emps));
+    localStorage.setItem('nx_drives',JSON.stringify(S.drives));
+  }
+}
+function now() { return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
+function toast(msg) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+
+// ══ MODAL HELPERS ══
+function openModal(id)  { const el=document.getElementById(id); if(el) el.classList.add('on'); }
+function closeModal(id) { const el=document.getElementById(id); if(el) el.classList.remove('on'); }
+
+// ══ ADMIN AUTH ══
+function openAdminLogin() {
+  const aUser = document.getElementById('aUser');
+  const aPass = document.getElementById('aPass');
+  const eyeBtn = document.getElementById('eyeBtn');
+  const aErr = document.getElementById('aErr');
+  if(aUser) aUser.value='';
+  if(aPass){ aPass.value=''; aPass.type='password'; }
+  if(eyeBtn) eyeBtn.textContent='👁';
+  if(aErr) aErr.style.display='none';
+  openModal('mAdminLogin');
+  setTimeout(()=>{ const u=document.getElementById('aUser'); if(u) u.focus(); },150);
+}
+function closeAdminLogin() { closeModal('mAdminLogin'); }
+async function doAdminLogin() {
+  const uEl=document.getElementById('aUser');
+  const pEl=document.getElementById('aPass');
+  const errEl=document.getElementById('aErr');
+  const boxEl=document.getElementById('adminLoginBox');
+  if(!uEl||!pEl) return;
+  const email=uEl.value.trim();
+  const pass=pEl.value;
+  if(!email||!pass){
+    if(errEl){ errEl.textContent='⚠ Masukkan email dan password'; errEl.style.display='block'; }
+    return;
+  }
+  try {
+    if(errEl){ errEl.textContent='🔄 Memverifikasi...'; errEl.style.display='block'; errEl.style.color='var(--cyan)'; }
+    await auth.signInWithEmailAndPassword(email, pass);
+    adminOk=true;
+    closeAdminLogin();
+    openAdmin();
+  } catch(e) {
+    if(errEl){ errEl.textContent='❌ Email atau password salah!'; errEl.style.display='block'; errEl.style.color='var(--red)'; }
+    pEl.value='';
+    if(boxEl){ boxEl.style.animation='none'; requestAnimationFrame(()=>{ boxEl.style.animation='shake .4s ease'; }); }
+  }
+}
+function togglePass() {
+  const inp=document.getElementById('aPass'), btn=document.getElementById('eyeBtn');
+  if(!inp||!btn) return;
+  if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}
+  else{inp.type='password';btn.textContent='👁';}
+}
+
+// ══ CONFIRM ══
+function showConfirm(title,sub,fn) {
+  const t=document.getElementById('cTitle');
+  const s=document.getElementById('cSub');
+  const y=document.getElementById('cYes');
+  if(t) t.textContent=title;
+  if(s) s.textContent=sub;
+  if(y) y.onclick=()=>{ closeModal('mConfirm'); fn(); };
+  openModal('mConfirm');
+}
+
+// ══ FORM ══
+function openForm(title, html) {
+  const ft=document.getElementById('formTitle');
+  const fb=document.getElementById('formBody');
+  if(ft) ft.textContent=title;
+  if(fb) fb.innerHTML=html;
+  openModal('mForm');
+}
+
+// ══ LOGIN ══
+function populateDepts() {
+  // Isi dropdown di admin panel jika ada
+  const sel=document.getElementById('loginDept');
+  if(sel){
+    sel.innerHTML='<option value="">— Pilih Departemen —</option>';
+    S.depts.forEach(d=>sel.innerHTML+=`<option value="${d.id}">${d.icon} ${d.name}</option>`);
+  }
+}
+function loginGuest() {
+  S.user = {
+    name: 'Tamu',
+    nip: '',
+    jabatan: '',
+    golongan: '',
+    dept: { id: 'guest', name: 'Umum', icon: '🌐' }
+  };
+  S.mode = 'guest';
+  S.history = [];
+  showChat();
+}
+
+function doLogin() {
+  const nipEl = document.getElementById('loginNIP');
+  const errEl = document.getElementById('loginErr');
+  const nip   = nipEl ? nipEl.value.trim() : '';
+
+  function showLoginErr(msg) {
+    if(errEl){ errEl.textContent=msg; errEl.style.display='block'; }
+    else toast(msg);
+  }
+  function hideLoginErr() {
+    if(errEl) errEl.style.display='none';
+  }
+
+  hideLoginErr();
+  if(!nip){ showLoginErr('⚠ Masukkan NIP terlebih dahulu'); return; }
+  if(nip.length < 8){ showLoginErr('⚠ NIP tidak valid'); return; }
+
+  // Validasi NIP ke database pegawai
+  const found = S.emps.find(e => e.nip === nip);
+  if(!found){
+    showLoginErr('❌ NIP tidak terdaftar dalam sistem. Hubungi admin Subbag Ketatalaksanaan.');
+    return;
+  }
+
+  const dept = S.depts.find(d => d.id === found.deptId);
+  if(!dept){
+    showLoginErr('❌ Unit kerja tidak ditemukan. Hubungi admin.');
+    return;
+  }
+
+  S.user = {
+    name: found.name,
+    nip: found.nip,
+    jabatan: found.jabatan || '',
+    golongan: found.golongan || '',
+    dept
+  };
+  S.mode = 'pegawai';
+  S.history = [];
+  // Simpan info lengkap dari data pegawai
+  S.user.eselon2 = found.eselon2 || '';
+  S.user.subbag  = found.subbag  || '';
+  showChat();
+}
+async function doLogout() {
+  S.user=null;S.history=[];S.mode='guest';
+  adminOk=false;
+  try { await auth.signOut(); } catch(e) {}
+  closeSidebar();
+  document.getElementById('chatWrapper').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  populateDepts();
+}
+
+// ══ CHAT ══
+function showChat() {
+  const setEl=(id,prop,val)=>{ const e=document.getElementById(id); if(e) e[prop]=val; };
+  const setStyle=(id,prop,val)=>{ const e=document.getElementById(id); if(e) e.style[prop]=val; };
+  setStyle('loginScreen','display','none');
+  setStyle('chatWrapper','display','flex');
+  setStyle('chatWrapper','flexDirection','column');
+  setEl('hdrIco','textContent',S.user.dept.icon);
+  if(S.mode === 'guest') {
+    setEl('hdrDept','textContent','🌐 Mode Publik — Akses SOP Terbuka');
+  } else {
+    setEl('hdrDept','textContent',S.user.dept.icon+' '+S.user.dept.name+(S.user.jabatan?' · '+S.user.jabatan.split(' ').slice(0,3).join(' '):''));
+  }
+  setEl('stTag','textContent', S.mode==='guest' ? '🌐 Publik' : S.user.dept.name);
+  setEl('sbAv','textContent',S.user.dept.icon);
+  setEl('sbName','textContent',S.user.name);
+  setEl('sbNIP','textContent','NIP: '+S.user.nip);
+  setEl('sbDept','textContent',S.user.dept.icon+' '+S.user.dept.name);
+  resetChat(true);
+  setTimeout(()=>{
+    if(S.mode === 'guest') {
+      addMsg('Selamat datang di **SOP Knowledge Center** 🌐\n\nDitjen Badan Peradilan Agama — Mahkamah Agung RI\n\nAnda mengakses sebagai **Tamu**. Anda dapat melihat dan menanyakan informasi tentang seluruh dokumen SOP yang tersedia.\n\n💡 Untuk pengalaman lebih personal dan konsultasi SOP yang terhubung dengan unit kerja Anda, silakan **login dengan NIP**.\n\nAda SOP apa yang ingin Anda ketahui?', false);
+    } else {
+      const jabatan = S.user.jabatan || 'Pegawai';
+      const unit = S.user.dept.name;
+      const icon = S.user.dept.icon;
+      const e2info = S.user.eselon2 ? '\n'+S.user.eselon2 : '';
+      const subbagInfo = S.user.subbag ? ' · '+S.user.subbag : '';
+      addMsg('Hei, **'+S.user.name+'**! 👋\n\nAnda berhasil masuk sebagai **'+jabatan+'**\n'+icon+' '+unit+subbagInfo+e2info+'\n\nSelamat datang di SOP Knowledge Center Ditjen Badilag MA RI. Saya siap membantu Anda mengakses dan memahami seluruh dokumen SOP. 📋\n\nAda yang bisa saya bantu hari ini?', false);
+    }
+  },500);
+}
+function formatMessage(text) {
+  let t = text;
+  // Heading ## dan ###
+  t = t.replace(/^### (.+)$/gm, '<div style="font-weight:700;font-size:14px;color:var(--cyan);margin:10px 0 4px;display:flex;align-items:center;gap:6px;">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-weight:800;font-size:15px;color:var(--cyan);margin:12px 0 6px;border-bottom:1px solid rgba(0,245,212,.2);padding-bottom:4px;">$1</div>');
+  t = t.replace(/^# (.+)$/gm, '<div style="font-weight:800;font-size:16px;color:var(--cyan);margin:12px 0 8px;">$1</div>');
+  // Bold **text**
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italic *text*
+  t = t.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // Divider ---
+  t = t.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--b2);margin:8px 0;"/>');
+  // Bullet - item
+  t = t.replace(/^- (.+)$/gm, '<div style="display:flex;gap:6px;margin:3px 0;"><span style="color:var(--cyan);flex-shrink:0;">•</span><span>$1</span></div>');
+  // Numbered list 1. item
+  t = t.replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:6px;margin:3px 0;"><span style="color:var(--cyan);flex-shrink:0;font-weight:700;min-width:16px;">$1.</span><span>$2</span></div>');
+  // Newline
+  t = t.replace(/\n/g, '<br>');
+  // Hapus <br> setelah div
+  t = t.replace(/<\/div><br>/g, '</div>');
+  t = t.replace(/<br><div/g, '<div');
+  return t;
+}
+
+function addMsg(text,isOut,card=null) {
+  const area=document.getElementById('chatArea');
+  const w=document.createElement('div');
+  w.className='bwrap '+(isOut?'out':'in');
+  if(card){
+    const own=card.deptId===S.user.dept.id;
+    const dn=getDN(card.deptId);
+    w.innerHTML=own
+      ?`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" href="${card.link}" target="_blank">↗ Buka di Drive</a></div></div><div class="bmeta">${now()}</div>`
+      :`<div class="dcard"><div class="dcard-hd locked">🔒 ${card.title}<span class="dpill">${dn}</span></div><div class="lockmsg">🚫 Akses ditolak — hanya ${dn} yang dapat mengakses.</div></div><div class="bmeta">${now()}</div>`;
+  } else {
+    const fmt=text.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    w.innerHTML=`<div class="bubble">${fmt}</div><div class="bmeta">${now()}${isOut?' <span class="ck">✓✓</span>':''}</div>`;
+  }
+  area.appendChild(w); const sb=document.getElementById("scrollBody"); if(sb) sb.scrollTop=sb.scrollHeight;
+}
+function getDN(id){const d=S.depts.find(x=>x.id===id);return d?d.icon+' '+d.name:'?';}
+function showTyping(){const area=document.getElementById('chatArea');const el=document.createElement('div');el.id='typing';el.className='typwrap';el.innerHTML='<div class="typbub"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';area.appendChild(el);area.scrollTop=area.scrollHeight;}
+function hideTyping(){const t=document.getElementById('typing');if(t)t.remove();}
+async function sendMsg(){
+  const inp=document.getElementById('msgInput');
+  const txt=inp.value.trim(); if(!txt)return;
+  inp.value='';inp.style.height='auto';
+  document.getElementById('qarea').style.display='none'; // hide quick replies after first message
+  addMsg(txt,true);
+  S.history.push({role:'user',content:txt});
+  const drKw=['drive','data','file','dokumen','laporan','folder','tampilkan','lihat','akses','sop','download','buka'];
+  const wDrive=drKw.some(k=>txt.toLowerCase().includes(k));
+  const myDr=S.drives.filter(d=>d.deptId===S.user.dept.id);
+  showTyping();
+  const stEl=document.getElementById('stText'); if(stEl) stEl.textContent='NexusAI memproses...';
+  const isGuest = S.mode === 'guest';
+  const userCtx = isGuest ? 'Tamu' :
+    S.user.name+' | '+S.user.jabatan+' | '+S.user.dept.name;
+  // Batasi SOP info agar tidak melebihi token limit Gemini
+  const myDrives = S.mode==='pegawai' ? S.drives.filter(d=>d.deptId===S.user.dept.id) : S.drives;
+  const sopInfo = myDrives.slice(0,10).map((d,i)=>{
+    const dept=S.depts.find(x=>x.id===d.deptId);
+    let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
+    if(d.desc) info += ' — '+d.desc.slice(0,100);
+    if(d.link) info += ' Link: '+d.link;
+    return info;
+  }).join('\n') || 'Belum ada SOP.';
+  // Batasi history hanya 6 pesan terakhir
+  const recentHistory = S.history.slice(-4);
+  const sys = 'Kamu asisten SOP Ditjen Badilag MA RI. Jawab singkat dalam Bahasa Indonesia.'+
+    '\nPengguna: '+userCtx+
+    '\nSOP tersedia:\n'+sopInfo+
+    '\nJawab berdasarkan SOP di atas. Sertakan link jika ada.'
+  try{
+    const reply = await callGemini(sys, recentHistory);
+    hideTyping();
+    const stEl2=document.getElementById('stText'); if(stEl2) stEl2.textContent='Online · AI Aktif';
+    S.history.push({role:'assistant',content:reply});
+    addMsg(reply,false);
+    if(wDrive&&myDr.length) myDr.forEach((d,i)=>setTimeout(()=>addMsg('',false,d),400+i*200));
+  }catch(e){
+    hideTyping();
+    const stEl3=document.getElementById('stText'); if(stEl3) stEl3.textContent='⚠ Koneksi terputus';
+    addMsg('Koneksi bermasalah 📶',false);
+    console.error('Gemini error:',e);
+  }
+}
+
+// ══ GEMINI API HELPER ══
+const GEMINI_KEY = 'AIzaSyBxa1ORd6FZ4_T6k831y5rQvhBpE-v-X88';
+async function callGemini(systemPrompt, messages) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${GEMINI_KEY}`;
+  
+  // Gabung system prompt + history jadi format Gemini
+  const geminiContents = [];
+  
+  // Tambah system sebagai user turn pertama
+  geminiContents.push({
+    role: 'user',
+    parts: [{ text: systemPrompt + '\n\n[Mulai percakapan]' }]
+  });
+  geminiContents.push({
+    role: 'model', 
+    parts: [{ text: 'Siap! Saya akan membantu Anda.' }]
+  });
+  
+  // Tambah history percakapan
+  for (const msg of messages) {
+    geminiContents.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    });
+  }
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: geminiContents,
+      generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
+    })
+  });
+  
+  const data = await res.json();
+  if (data.candidates && data.candidates[0]) {
+    return data.candidates[0].content.parts[0].text;
+  }
+  throw new Error('Gemini tidak merespons');
+}
+
+function sq(t){document.getElementById('msgInput').value=t;sendMsg();}
+function showMyDrive(){
+  closeSidebar();
+  const my=S.drives.filter(d=>d.deptId===S.user.dept.id);
+  if(!my.length){
+    addMsg(`Belum ada dokumen SOP untuk unit **${S.user.dept.name}** yang tersimpan di sistem.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙`,false);
+    return;
+  }
+  addMsg(`📂 Dokumen SOP **${S.user.dept.name}** — ${my.length} dokumen:`,false);
+  my.forEach((d,i)=>setTimeout(()=>addMsg('',false,d),300+i*200));
+}
+function resetChat(silent=false){
+  S.history=[];
+  document.getElementById('chatArea').innerHTML='<div class="datesep"><span>Hari ini</span></div>';
+  document.getElementById('qarea').style.display='flex'; // show quick replies on reset
+  if(!silent){closeSidebar();toast('✦ Chat baru dimulai');}
+}
+function newChat(){resetChat();}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+function openChatDrive(){
+  document.getElementById('mDD').innerHTML=S.depts.map(d=>`<option value="${d.id}">${d.icon} ${d.name}</option>`).join('');
+  ['mDT','mDL','mDDesc'].forEach(id=>document.getElementById(id).value='');
+  openModal('mDrive');
+}
+function saveChatDrive(){
+  const t=document.getElementById('mDT').value.trim(),l=document.getElementById('mDL').value.trim();
+  if(!t||!l){toast('⚠ Judul & link wajib diisi');return;}
+  S.drives.push({id:'dr'+Date.now(),deptId:document.getElementById('mDD').value,title:t,link:l,desc:document.getElementById('mDDesc').value.trim()});
+  fbSaveDrive(S.drives[S.drives.length-1]);closeModal('mDrive');toast('✅ Drive disimpan');
+}
+
+// ══ SIDEBAR ══
+function openSidebar(){document.getElementById('sidebar').classList.add('on');document.getElementById('overlay').classList.add('on');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('on');document.getElementById('overlay').classList.remove('on');}
+
+// ══ ADMIN ══
+function openAdmin(){document.getElementById('adminPanel').style.display='flex';document.getElementById('adminPanel').style.flexDirection='column';renderAdmin();}
+function closeAdmin(){document.getElementById('adminPanel').style.display='none';populateDepts();}
+function switchTab(tab){
+  S.tab=tab;
+  ['dept','emp','drive'].forEach(t=>document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('on',t===tab));
+  renderAdmin();
+}
+function renderAdmin(){const b=document.getElementById('adminBody');if(S.tab==='dept')rDepts(b);else if(S.tab==='emp')rEmps(b);else if(S.tab==='drive')rDrives(b);else rQR(b);}
+
+// ── DEPT ──
+function rDepts(c){
+  const groups = [
+    { label: '🏛️ Sekretariat Ditjen Badilag', prefix: 's' },
+    { label: '⚖️ Dit. Pembinaan Administrasi Peradilan Agama', prefix: 'a' },
+    { label: '👨‍⚖️ Dit. Pembinaan Tenaga Teknis Peradilan Agama', prefix: 't' },
+    { label: '➕ Unit Lainnya', prefix: '' },
+  ];
+  let h = '<div class="sectitle">Tambah Unit Baru</div><div class="addbox"><h4>+ Unit Baru</h4><label class="flabel">Nama Unit</label><input class="finput" id="aDN" placeholder="Nama unit/bagian/subdit..."/><label class="flabel">Pilih Ikon</label><div id="wND"></div><button class="addbtn" onclick="addDept()">+ Tambah Unit</button></div>';
+  h += '<div class="sectitle">Struktur Organisasi ('+S.depts.length+' unit)</div>';
+  if(S.depts.length <= 5) {
+    h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--amber);">⚠️ Unit masih sedikit. <button onclick="resetToDefaultDepts()" style="background:rgba(255,183,3,.2);border:1px solid rgba(255,183,3,.4);color:var(--amber);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;">Muat Struktur Badilag Lengkap</button></div>';
+  }
+  groups.forEach(grp => {
+    const items = grp.prefix
+      ? S.depts.filter(d => d.id.startsWith(grp.prefix))
+      : S.depts.filter(d => !['s','a','t'].some(p => d.id.startsWith(p)));
+    if(!items.length) return;
+    h += '<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:14px 0 6px;text-transform:uppercase;padding:6px 10px;background:var(--s1);border-radius:8px;">'+grp.label+'</div>';
+    items.forEach(d=>{
+      const nD=S.drives.filter(x=>x.deptId===d.id).length, nE=S.emps.filter(x=>x.deptId===d.id).length;
+      h+=`<div class="acard"><span class="acard-ico">${d.icon}</span><div class="acard-info"><div class="acard-name">${d.name}</div><div class="acard-sub">${nE} pegawai · ${nD} SOP</div></div><div class="acard-acts"><button class="bedit" onclick="editDept('${d.id}')">✏️</button><button class="bdel" onclick="delDeptConfirm('${d.id}')">🗑</button></div></div>`;
+    });
+  });
+  c.innerHTML=h;
+  setTimeout(()=>initPicker('wND','🏢','newDept'),10);
+}
+async function addDept(){
+  const name=document.getElementById('aDN').value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  const dept={id:'d'+Date.now(),name,icon:gIco('newDept','🏢')};
+  S.depts.push(dept);
+  await fbSaveDept(dept);
+  renderAdmin();toast('✅ Bagian ditambahkan');
+}
+function editDept(id){
+  const d=S.depts.find(x=>x.id===id);
+  openForm('✏️ Edit Bagian',`<label class="flabel">Nama Bagian</label><input class="finput" id="eDN" value="${d.name}"/><label class="flabel">Pilih Ikon</label><div id="wED"></div><div class="mrow"><button class="mbtn cancel" onclick="closeModal('mForm')">Batal</button><button class="mbtn ok" onclick="saveDept('${id}')">Simpan</button></div>`);
+  setTimeout(()=>initPicker('wED',d.icon,'editDept'),10);
+}
+async function saveDept(id){
+  const name=document.getElementById('eDN').value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  const d=S.depts.find(x=>x.id===id);
+  d.name=name;d.icon=gIco('editDept',d.icon);
+  await fbSaveDept(d);
+  closeModal('mForm');renderAdmin();toast('✅ Bagian diperbarui');
+}
+function delDeptConfirm(id){const d=S.depts.find(x=>x.id===id);showConfirm('Hapus Bagian?','"'+d.name+'" beserta semua datanya akan dihapus permanen.',()=>delDept(id));}
+async function delDept(id){S.depts=S.depts.filter(d=>d.id!==id);S.emps=S.emps.filter(e=>e.deptId!==id);S.drives=S.drives.filter(d=>d.deptId!==id);await fbDeleteDept(id);renderAdmin();toast('🗑 Bagian dihapus');}
+
+// ── EMP ──
+function rEmps(c){
+  const e2opts = ESELON2.map(e=>'<option value="'+e.id+'">'+e.icon+' '+e.name+'</option>').join('');
+  let h = '';
+  h += '<div class="sectitle">Import & Export Data Pegawai</div>';
+  h += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
+  h += '<div class="addbox" style="flex:1;margin-bottom:0;">';
+  h += '<h4>📥 Import CSV</h4>';
+  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Upload daftar pegawai dari file CSV</p>';
+  h += '<button class="addbtn" onclick="openModal(&quot;mImportCSV&quot;)">📥 Import CSV</button>';
+  h += '</div>';
+  h += '<div class="addbox" style="flex:1;margin-bottom:0;background:rgba(67,97,238,.06);border-color:rgba(67,97,238,.2);">';
+  h += '<h4 style="color:#7b9fff;">📤 Export CSV</h4>';
+  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Download data pegawai sebagai file CSV</p>';
+  h += '<button class="addbtn" style="background:linear-gradient(135deg,rgba(67,97,238,.2),rgba(67,97,238,.1));border-color:rgba(67,97,238,.3);color:#7b9fff;" onclick="exportPegawaiCSV()">📤 Export CSV</button>';
+  h += '</div></div>';
+  h += '<div class="sectitle">Tambah Pegawai Manual</div>';
+  h += '<div class="addbox">';
+  h += '<h4>+ Pegawai Baru</h4>';
+  h += '<label class="flabel">NIP</label>';
+  h += '<input class="finput" id="aEP" placeholder="NIP tanpa spasi..." inputmode="numeric" maxlength="18"/>';
+  h += '<label class="flabel">Nama Lengkap</label>';
+  h += '<input class="finput" id="aEN" placeholder="Nama lengkap..."/>';
+  h += '<label class="flabel">Jabatan</label>';
+  h += '<input class="finput" id="aEJ" placeholder="Jabatan..."/>';
+  h += '<label class="flabel">Unit Eselon II</label>';
+  h += '<select class="fselect" id="aEEselon2" onchange="onE2Change(&quot;a&quot;)"><option value="">— Pilih Eselon II —</option>'+e2opts+'</select>';
+  h += '<label class="flabel">Bagian / Subdit (Eselon III)</label>';
+  h += '<select class="fselect" id="aEBagian" onchange="onE3Change(&quot;a&quot;)"><option value="">— Pilih dulu Eselon II —</option></select>';
+  h += '<label class="flabel">Subbagian / Kasi (Eselon IV)</label>';
+  h += '<select class="fselect" id="aESubbag"><option value="">— Pilih dulu Bagian/Subdit —</option></select>';
+  h += '<label class="flabel">Ikon Avatar</label>';
+  h += '<div id="wNE"></div>';
+  h += '<button class="addbtn" onclick="addEmp()">+ Tambah Pegawai</button>';
+  h += '</div>';
+  h += '<div class="sectitle">Daftar Pegawai ('+S.emps.length+')</div>';
+  h += '<div style="position:relative;margin-bottom:10px;">';
+  h += '<input class="finput" id="empSearch" placeholder="Cari nama, NIP, jabatan, atau unit..." oninput="filterPegawai(this.value)" style="margin-bottom:0;padding-right:40px;"/>';
+  h += '<button id="btnClearSearch" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;">✕</button>';
+  h += '</div>';
+  h += '<div id="empCount" style="font-size:11px;color:var(--mu);margin-bottom:8px;text-align:right;"></div>';
+  if(!S.emps.length) h+='<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada pegawai</div>';
+  S.emps.forEach(e=>{
+    const dept = S.depts.find(d=>d.id===e.deptId);
+    const searchData = [e.name,e.nip,e.jabatan,e.eselon2,e.bagian,e.subbag].filter(Boolean).join(' ').toLowerCase().split('"').join('');
+    const e2b = e.eselon2 ? '<span style="font-size:10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);padding:1px 8px;border-radius:10px;margin-left:4px;">'+(e.eselon2Icon||'')+' '+e.eselon2+'</span>' : '';
+    const sub = e.subbag ? ' · <em style="color:var(--cyan);font-size:11px;">'+e.subbag+'</em>' : '';
+    h += '<div class="acard emp-card" data-search="'+searchData+'" style="display:flex;">';
+    h += '<span class="acard-ico">'+(e.icon||'👤')+'</span>';
+    h += '<div class="acard-info">';
+    h += '<div class="acard-name">'+e.name+(e.nip?' <span style="font-size:11px;color:var(--mu);">NIP: '+e.nip+'</span>':'')+'</div>';
+    if(e2b) h += '<div class="acard-sub">'+e2b+'</div>';
+    h += '<div class="acard-sub">'+(e.bagian||'')+sub+(e.jabatan?' · '+e.jabatan:'')+'</div>';
+    h += '</div>';
+    h += '<div class="acard-acts">';
+    h += '<button class="bedit" onclick="editEmp(\'' + e.id + '\')">✏️</button>';
+    h += '<button class="bdel" onclick="delEmpConfirm(\'' + e.id + '\')">🗑</button>';
+    h += '</div></div>';
+  });
+  c.innerHTML=h;
+  setTimeout(()=>{
+    initPicker('wNE','👤','newEmp');
+    const srch = document.getElementById('empSearch');
+    if(srch) srch.oninput = ()=>filterPegawai(srch.value);
+    const clr = document.getElementById('btnClearSearch');
+    if(clr) clr.onclick = ()=>{ if(srch){srch.value='';filterPegawai('');} };
+  },10);
+}
+
+async function addEmp(){
+  const name = document.getElementById('aEN').value.trim();
+  const nip  = document.getElementById('aEP').value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  if(!nip){toast('⚠ NIP wajib diisi');return;}
+  const e2El  = document.getElementById('aEEselon2');
+  const e3El  = document.getElementById('aEBagian');
+  const e4El  = document.getElementById('aESubbag');
+  const e2    = e2El ? ESELON2.find(e=>e.id===e2El.value) : null;
+  const e3    = e3El ? ESELON3.find(e=>e.id===e3El.value) : null;
+  const e4    = e4El ? ESELON4.find(e=>e.id===e4El.value) : null;
+  // Cari atau buat dept berdasarkan e3
+  let deptId = '';
+  if(e3) {
+    const found = S.depts.find(d=>d.name===e3.nama);
+    deptId = found ? found.id : '';
+  }
+  S.emps.push({
+    id: 'e'+Date.now(),
+    name, nip,
+    jabatan: document.getElementById('aEJ').value.trim(),
+    eselon2: e2 ? e2.name : '',
+    eselon2Icon: e2 ? e2.icon : '',
+    bagian: e3 ? e3.nama : '',
+    subbag: e4 ? e4.nama : '',
+    deptId,
+    icon: gIco('newEmp','👤')
+  });
+  await fbSaveEmp(S.emps[S.emps.length-1]);
+  renderAdmin();toast('✅ Pegawai ditambahkan');
+}
+function editEmp(id){
+  const e   = S.emps.find(x=>x.id===id);
+  const e2Id= (ESELON2.find(x=>x.name===e.eselon2)||{}).id || '';
+  const e3Id= (ESELON3.find(x=>x.nama===e.bagian)||{}).id  || '';
+  const e4Id= (ESELON4.find(x=>x.nama===e.subbag)||{}).id  || '';
+  const e2opts = '<option value="">— Pilih Eselon II —</option>' +
+    ESELON2.map(x=>'<option value="'+x.id+'"'+(x.id===e2Id?' selected':'')+'>'+x.icon+' '+x.name+'</option>').join('');
+  const e3opts = '<option value="">— Pilih Bagian/Subdit —</option>' +
+    (e2Id ? getE3Opts(e2Id, e3Id) : '');
+  const e4opts = '<option value="">— Pilih Subbag/Kasi —</option>' +
+    (e3Id ? getE4Opts(e3Id, e4Id) : '');
+  openForm('✏️ Edit Pegawai',
+    '<label class="flabel">NIP</label>'+
+    '<input class="finput" id="eEP" value="'+(e.nip||'')+'" inputmode="numeric" maxlength="18"/>'+
+    '<label class="flabel">Nama Lengkap</label>'+
+    '<input class="finput" id="eEN" value="'+e.name+'"/>'+
+    '<label class="flabel">Jabatan</label>'+
+    '<input class="finput" id="eEJ" value="'+(e.jabatan||'')+'"/>'+
+    '<label class="flabel">Unit Eselon II</label>'+
+    '<select class="fselect" id="eEEselon2" onchange="onE2Change(&quot;e&quot;)">'+e2opts+'</select>'+
+    '<label class="flabel">Bagian / Subdit (Eselon III)</label>'+
+    '<select class="fselect" id="eEBagian" onchange="onE3Change(&quot;e&quot;)">'+e3opts+'</select>'+
+    '<label class="flabel">Subbagian / Kasi (Eselon IV)</label>'+
+    '<select class="fselect" id="eESubbag">'+e4opts+'</select>'+
+    '<label class="flabel">Ikon Avatar</label>'+
+    '<div id="wEE"></div>'+
+    '<div class="mrow">'+
+    '<button class="mbtn cancel" onclick="closeModal(&quot;mForm&quot;)">Batal</button>'+
+    '<button class="mbtn ok" id="btnSaveEmp">Simpan</button>'+
+    '</div>'
+  );
+  setTimeout(()=>{
+    initPicker('wEE',e.icon||'👤','editEmp');
+    const btn=document.getElementById('btnSaveEmp');
+    if(btn) btn.onclick=()=>saveEmp(id);
+  },10);
+}
+async function saveEmp(id){
+  const name = document.getElementById('eEN').value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  const e    = S.emps.find(x=>x.id===id);
+  const e2El = document.getElementById('eEEselon2');
+  const e3El = document.getElementById('eEBagian');
+  const e4El = document.getElementById('eESubbag');
+  const e2   = e2El ? ESELON2.find(x=>x.id===e2El.value) : null;
+  const e3   = e3El ? ESELON3.find(x=>x.id===e3El.value) : null;
+  const e4   = e4El ? ESELON4.find(x=>x.id===e4El.value) : null;
+  let deptId = e.deptId;
+  if(e3){ const found=S.depts.find(d=>d.name===e3.nama); if(found) deptId=found.id; }
+  e.name       = name;
+  e.nip        = document.getElementById('eEP').value.trim();
+  e.jabatan    = document.getElementById('eEJ').value.trim();
+  e.eselon2    = e2 ? e2.name : '';
+  e.eselon2Icon= e2 ? e2.icon : '';
+  e.bagian     = e3 ? e3.nama : '';
+  e.subbag     = e4 ? e4.nama : '';
+  e.deptId     = deptId;
+  e.icon       = gIco('editEmp', e.icon);
+  await fbSaveEmp(e);
+  closeModal('mForm');renderAdmin();toast('✅ Pegawai diperbarui');
+}
+function delEmpConfirm(id){const e=S.emps.find(x=>x.id===id);showConfirm('Hapus Pegawai?','"'+e.name+'" akan dihapus permanen.',()=>delEmp(id));}
+async function delEmp(id){S.emps=S.emps.filter(e=>e.id!==id);await fbDeleteEmp(id);renderAdmin();toast('🗑 Pegawai dihapus');}
+
+// ── DRIVE ──
+function rDrives(c){
+  const deptOpts = S.depts.map(d=>'<option value="'+d.id+'">'+d.icon+' '+d.name+'</option>').join('');
+  let h = '<div class="sectitle">Tambah Dokumen SOP</div>';
+  h += '<div class="addbox"><h4>+ Dokumen SOP Baru</h4>';
+  h += '<label class="flabel">Bagian Pemilik</label>';
+  h += '<select class="fselect" id="aDrD">' + deptOpts + '</select>';
+  h += '<label class="flabel">Judul SOP</label>';
+  h += '<input class="finput" id="aDrT" placeholder="Contoh: SOP Pengajuan Cuti..."/>';
+  h += '<label class="flabel">Nomor Dokumen</label>';
+  h += '<input class="finput" id="aDrNomor" placeholder="Contoh: SOP/BADILAG/001/2025..."/>';
+  h += '<div style="display:flex;gap:10px;">';
+  h += '<div style="flex:1;"><label class="flabel">Tanggal Dokumen</label>';
+  h += '<input class="finput" id="aDrTanggal" type="date" style="color:var(--tx);"/></div>';
+  h += '<div style="flex:1;"><label class="flabel">Masa Berlaku</label>';
+  h += '<select class="fselect" id="aDrStatus"><option value="Aktif">✅ Aktif</option><option value="Tidak Aktif">❌ Tidak Aktif</option></select></div>';
+  h += '</div>';
+  h += '<label class="flabel">Link Google Drive</label>';
+  h += '<input class="finput" id="aDrL" placeholder="https://drive.google.com/..."/>';
+  h += '<label class="flabel">Deskripsi Singkat</label>';
+  h += '<input class="finput" id="aDrDesc" placeholder="Ringkasan isi SOP..."/>';
+  h += '<label class="flabel" style="display:flex;align-items:center;gap:6px;">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;font-weight:400;">(untuk AI — paste narasi & langkah prosedur)</span></label>';
+  h += '<textarea class="finput" id="aDrContent" rows="5" placeholder="Paste isi teks SOP: tujuan, ruang lingkup, prosedur langkah demi langkah...&#10;&#10;Catatan: Bagan/flowchart tidak perlu dipaste, cukup tersedia di link Drive." style="resize:vertical;line-height:1.5;font-size:13px;margin-bottom:14px;"></textarea>';
+  h += '<button class="addbtn" onclick="addDrive()">+ Tambah SOP</button></div>';
+  h += '<div class="sectitle">Semua Dokumen SOP (' + S.drives.length + ')</div>';
+  if(!S.drives.length)h+='<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada data Drive</div>';
+  S.depts.forEach(dept=>{
+    const dd=S.drives.filter(d=>d.deptId===dept.id);
+    if(!dd.length)return;
+    h+='<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:12px 0 6px;text-transform:uppercase;">'+dept.icon+' '+dept.name+'</div>';
+    dd.forEach(d=>{
+      const sb = d.status==='Tidak Aktif'
+        ? '<span style="background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">❌ Tidak Aktif</span>'
+        : '<span style="background:rgba(6,214,160,.15);color:var(--green);border:1px solid rgba(6,214,160,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">✅ Aktif</span>';
+      const nm = d.nomor ? '📄 '+d.nomor+' · ' : '';
+      const tg = d.tanggal ? '📅 '+formatTanggal(d.tanggal) : '';
+      h += '<div class="acard"><span class="acard-ico">📋</span>';
+      h += '<div class="acard-info">';
+      h += '<div class="acard-name">'+d.title+' '+sb+'</div>';
+      h += '<div class="acard-sub">'+nm+tg+'</div>';
+      h += '<div class="acard-sub">'+(d.desc||'—')+'</div>';
+      h += '</div>';
+      h += '<div class="acard-acts"><button class="bedit" onclick="editDrive(\''+d.id+'\')">✏️</button><button class="bdel" onclick="delDriveConfirm(\''+d.id+'\')">🗑</button></div></div>';
+    });
+  });
+  c.innerHTML=h;
+}
+async function addDrive(){
+  const t=document.getElementById('aDrT').value.trim();
+  const l=document.getElementById('aDrL').value.trim();
+  if(!t){toast('⚠ Judul SOP wajib diisi');return;}
+  const contentEl = document.getElementById('aDrContent');
+  const nomorEl   = document.getElementById('aDrNomor');
+  const tanggalEl = document.getElementById('aDrTanggal');
+  const statusEl  = document.getElementById('aDrStatus');
+  S.drives.push({
+    id:'dr'+Date.now(),
+    deptId:document.getElementById('aDrD').value,
+    title:t,
+    nomor: nomorEl ? nomorEl.value.trim() : '',
+    tanggal: tanggalEl ? tanggalEl.value : '',
+    status: statusEl ? statusEl.value : 'Aktif',
+    link:l,
+    desc:document.getElementById('aDrDesc').value.trim(),
+    content: contentEl ? contentEl.value.trim() : ''
+  });
+  fbSaveDrive(S.drives[S.drives.length-1]);renderAdmin();toast('✅ SOP berhasil ditambahkan');
+}
+function editDrive(id){
+  const d=S.drives.find(x=>x.id===id);
+  const opts=S.depts.map(x=>'<option value="'+x.id+'"'+(x.id===d.deptId?' selected':'')+'>'+x.icon+' '+x.name+'</option>').join('');
+  const safeContent = (d.content||'').split('<').join('&lt;').split('>').join('&gt;');
+  const statusOpts = '<option value="Aktif"'+((!d.status||d.status==='Aktif')?' selected':'')+'>✅ Aktif</option><option value="Tidak Aktif"'+(d.status==='Tidak Aktif'?' selected':'')+'>❌ Tidak Aktif</option>';
+  openForm('✏️ Edit SOP',
+    '<label class="flabel">Bagian</label><select class="fselect" id="eDrD">'+opts+'</select>'+
+    '<label class="flabel">Judul SOP</label><input class="finput" id="eDrT" value="'+d.title+'"/>'+
+    '<label class="flabel">Nomor Dokumen</label><input class="finput" id="eDrNomor" value="'+(d.nomor||'')+'"/>'+
+    '<div style="display:flex;gap:10px;">'+
+    '<div style="flex:1;"><label class="flabel">Tanggal Dokumen</label><input class="finput" id="eDrTanggal" type="date" value="'+(d.tanggal||'')+'" style="color:var(--tx);"/></div>'+
+    '<div style="flex:1;"><label class="flabel">Masa Berlaku</label><select class="fselect" id="eDrStatus">'+statusOpts+'</select></div>'+
+    '</div>'+
+    '<label class="flabel">Link Google Drive</label><input class="finput" id="eDrL" value="'+d.link+'"/>'+
+    '<label class="flabel">Deskripsi</label><input class="finput" id="eDrDesc" value="'+(d.desc||'')+'"/>'+
+    '<label class="flabel">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;">(untuk AI)</span></label>'+
+    '<textarea class="finput" id="eDrContent" rows="5" style="resize:vertical;line-height:1.5;font-size:13px;">'+safeContent+'</textarea>'+
+    '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(\'mForm\')">Batal</button><button class="mbtn ok" id="btnSaveDrive">Simpan</button></div>'
+  );
+  setTimeout(()=>{
+    const btn=document.getElementById('btnSaveDrive');
+    if(btn) btn.onclick=()=>saveDrive(id);
+  },50);
+}
+async function saveDrive(id){
+  const t=document.getElementById('eDrT').value.trim();
+  const l=document.getElementById('eDrL').value.trim();
+  if(!t){toast('⚠ Judul SOP wajib diisi');return;}
+  const d=S.drives.find(x=>x.id===id);
+  d.deptId=document.getElementById('eDrD').value;
+  d.title=t; d.link=l;
+  d.nomor=(document.getElementById('eDrNomor')||{value:''}).value.trim();
+  d.tanggal=(document.getElementById('eDrTanggal')||{value:''}).value;
+  d.status=(document.getElementById('eDrStatus')||{value:'Aktif'}).value;
+  d.desc=document.getElementById('eDrDesc').value.trim();
+  d.content=(document.getElementById('eDrContent')||{value:''}).value.trim();
+  fbSaveDrive(S.drives.find(x=>x.id===arguments[0])||S.drives[S.drives.length-1]);closeModal('mForm');renderAdmin();toast('✅ SOP berhasil diperbarui');
+}
+function delDriveConfirm(id){const d=S.drives.find(x=>x.id===id);showConfirm('Hapus Drive?','"'+d.title+'" akan dihapus permanen.',()=>delDrive(id));}
+async function delDrive(id){S.drives=S.drives.filter(d=>d.id!==id);await fbDeleteDrive(id);renderAdmin();toast('🗑 Drive dihapus');}
+
+
+// ══ ANALISIS DOKUMEN ══
+function switchDocTab(tab) {
+  const isPaste = tab === 'paste';
+  document.getElementById('panePaste').style.display = isPaste ? 'block' : 'none';
+  document.getElementById('paneLink').style.display  = isPaste ? 'none' : 'block';
+  document.getElementById('tabPaste').className = isPaste ? 'mbtn ok' : 'mbtn cancel';
+  document.getElementById('tabLink').className  = isPaste ? 'mbtn cancel' : 'mbtn ok';
+}
+
+async function analyzeText() {
+  const text = document.getElementById('docText').value.trim();
+  const q    = document.getElementById('docQuestion').value.trim();
+  if (!text) { toast('⚠ Paste isi dokumen terlebih dahulu'); return; }
+  const question = q || 'Tolong analisis dan ringkas dokumen ini.';
+  closeModal('mDoc');
+  const preview = text.length > 60 ? text.slice(0,60)+'...' : text;
+  addMsg(`📄 Analisis dokumen:
+"${preview}"
+
+Pertanyaan: ${question}`, true);
+  await callAIWithDoc(text, question);
+}
+
+async function fetchAndAnalyze() {
+  const link = document.getElementById('docLink').value.trim();
+  const q    = document.getElementById('docLinkQuestion').value.trim();
+  if (!link) { toast('⚠ Masukkan link terlebih dahulu'); return; }
+  const question = q || 'Tolong analisis dan ringkas dokumen ini.';
+
+  const statusEl = document.getElementById('fetchStatus');
+  function setStatus(type, msg) {
+    statusEl.style.display = 'block';
+    statusEl.style.whiteSpace = 'pre-line';
+    statusEl.style.lineHeight = '1.6';
+    statusEl.style.background = type==='ok' ? 'rgba(0,245,212,.06)' : 'rgba(255,77,109,.08)';
+    statusEl.style.border = type==='ok' ? '1px solid rgba(0,245,212,.2)' : '1px solid rgba(255,77,109,.2)';
+    statusEl.style.color = type==='ok' ? 'var(--cyan)' : 'var(--red)';
+    statusEl.textContent = msg;
+  }
+
+  const exportUrl = convertToExportUrl(link);
+  if (!exportUrl) {
+    setStatus('err', '❌ Format link tidak dikenali.\nGunakan link Google Docs, Sheets, Slides, atau Drive publik.');
+    return;
+  }
+
+  setStatus('ok', '⏳ Mengambil isi dokumen...');
+
+  // Multi-proxy fallback
+  const proxies = [
+    () => fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(exportUrl))
+            .then(r => r.json()).then(d => d.contents || ''),
+    () => fetch('https://corsproxy.io/?' + encodeURIComponent(exportUrl))
+            .then(r => r.text()),
+    () => fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(exportUrl))
+            .then(r => r.text()),
+  ];
+
+  let content = '';
+  for (const proxyFn of proxies) {
+    try {
+      const raw = await Promise.race([
+        proxyFn(),
+        new Promise((_,rej) => setTimeout(() => rej('timeout'), 9000))
+      ]);
+      const cleaned = (raw || '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+        .replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+
+
+      if (cleaned.length >= 80) { content = cleaned; break; }
+    } catch(e) { continue; }
+  }
+
+  if (!content) {
+    setStatus('err', '❌ Tidak bisa membaca isi file.\n\nPastikan:\n• File diset "Anyone with link can view"\n• Tipe: Google Docs / Sheets / Slides\n\nAlternatif: Gunakan tab 📋 Paste Teks.');
+    return;
+  }
+
+  const trimmed = content.length > 8000 ? content.slice(0,8000) + '\n...[konten dipotong]' : content;
+  closeModal('mDoc');
+  addMsg('🔗 Menganalisis file dari Drive:\n' + link + '\n\nInstruksi: ' + question, true);
+  await callAIWithDoc(trimmed, question);
+}
+
+
+function convertToExportUrl(link) {
+  // Google Docs → export as plain text
+  const docsMatch = link.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (docsMatch) return `https://docs.google.com/document/d/${docsMatch[1]}/export?format=txt`;
+
+  // Google Sheets → export as CSV
+  const sheetsMatch = link.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (sheetsMatch) return `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/export?format=csv`;
+
+  // Google Slides → export as plain text
+  const slidesMatch = link.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+  if (slidesMatch) return `https://docs.google.com/presentation/d/${slidesMatch[1]}/export?format=txt`;
+
+  // Google Drive file (PDF/txt) → direct view
+  const driveMatch = link.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+
+  // Drive open link
+  const driveOpen = link.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (driveOpen) return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
+
+  return null;
+}
+
+async function callAIWithDoc(docContent, question) {
+  document.getElementById('qarea').style.display = 'none';
+  showTyping();
+  document.getElementById('stText').textContent = 'NexusAI menganalisis dokumen...';
+
+  const myDr = S.drives.filter(d => d.deptId === S.user.dept.id);
+  const sys = `Kamu adalah Asisten SOP Ditjen Badilag MA RI. Berbicara Bahasa Indonesia, profesional dan cerdas.
+Pengguna: **${S.user.name}** | Unit: **${S.user.dept.name}** ${S.user.dept.icon}
+Kamu diberikan ISI DOKUMEN SOP untuk dianalisis. Jawab pertanyaan berdasarkan isi dokumen tersebut.
+Jika diminta meringkas, buat ringkasan terstruktur dan mudah dipahami.`
+
+  const userMsg = `Berikut isi dokumen yang perlu dianalisis:
+
+---
+${docContent}
+---
+
+Pertanyaan/Instruksi: ${question}`;
+
+  try {
+    const reply = await callGemini(sys, [{ role:'user', content: userMsg }]);
+    hideTyping();
+    document.getElementById('stText').textContent = 'Online · AI Aktif';
+    S.history.push({role:'user', content: userMsg});
+    S.history.push({role:'assistant', content: reply});
+    addMsg(reply, false);
+  } catch(e) {
+    hideTyping();
+    document.getElementById('stText').textContent = '⚠ Koneksi terputus';
+    addMsg('Koneksi bermasalah saat menganalisis 📶', false);
+  }
+}
+
+
+// ══ QR CODE ══
+function rQR(c) {
+  const appUrl = window.location.href;
+  let h = `<div class="sectitle">QR Code Aplikasi</div>
+  <div class="addbox" style="text-align:center;">
+    <h4>🔲 QR Code Akses Aplikasi</h4>
+    <p style="font-size:12px;color:var(--mu2);margin-bottom:14px;line-height:1.6;">Scan QR Code ini untuk membuka SOP Knowledge Center di browser HP.</p>
+    <div id="qrApp" style="display:inline-block;background:white;padding:16px;border-radius:12px;margin-bottom:14px;"></div><br>
+    <button class="addbtn" style="width:auto;padding:8px 20px;" onclick="printQR('qrApp','SOP Knowledge Center')">🖨️ Cetak QR Aplikasi</button>
+  </div>
+  <div class="sectitle">QR Code per Dokumen SOP (${S.drives.length} dokumen)</div>`;
+
+  if (!S.drives.length) {
+    h += '<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada SOP. Tambahkan di tab 📋 SOP.</div>';
+  } else {
+    S.depts.forEach(dept => {
+      const dd = S.drives.filter(d => d.deptId === dept.id);
+      if (!dd.length) return;
+      h += '<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:14px 0 8px;text-transform:uppercase;">' + dept.icon + ' ' + dept.name + '</div>';
+      dd.forEach((d, i) => {
+        const qid = 'qr_' + d.id;
+        const safeTitle = d.title.split('"').join('&quot;');
+        h += '<div class="acard" style="flex-direction:column;align-items:flex-start;gap:10px;">';
+        h += '<div style="display:flex;align-items:center;gap:10px;width:100%;">';
+        h += '<span style="font-size:22px;">📋</span>';
+        h += '<div style="flex:1;min-width:0;">';
+        h += '<div class="acard-name">' + safeTitle + '</div>';
+        h += '<div class="acard-sub">' + (d.desc || '—') + '</div>';
+        h += '</div></div>';
+        h += '<div style="display:flex;gap:10px;align-items:center;">';
+        h += '<div id="' + qid + '" style="background:white;padding:10px;border-radius:8px;display:inline-block;"></div>';
+        h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        h += '<button class="bedit" style="font-size:11px;padding:6px 12px;" id="btn_print_' + d.id + '">🖨️ Cetak</button>';
+        h += '<button class="bedit" style="font-size:11px;padding:6px 12px;" id="btn_dl_' + d.id + '">⬇️ Simpan</button>';
+        h += '</div></div></div>';
+      });
+    });
+  }
+
+  c.innerHTML = h;
+
+  // Generate QR app
+  setTimeout(() => {
+    try {
+      new QRCode(document.getElementById('qrApp'), {
+        text: appUrl, width: 160, height: 160,
+        colorDark: "#1a1a2e", colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {}
+
+    // Generate QR per SOP + bind tombol
+    S.depts.forEach(dept => {
+      S.drives.filter(d => d.deptId === dept.id).forEach(d => {
+        const qid = 'qr_' + d.id;
+        const el = document.getElementById(qid);
+        if (!el) return;
+        try {
+          new QRCode(el, {
+            text: d.link, width: 120, height: 120,
+            colorDark: "#1a1a2e", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } catch(e) {}
+
+        // Bind tombol cetak & download
+        const btnPrint = document.getElementById('btn_print_' + d.id);
+        const btnDl    = document.getElementById('btn_dl_'    + d.id);
+        if (btnPrint) btnPrint.onclick = () => printQR(qid, d.title);
+        if (btnDl)    btnDl.onclick    = () => downloadQR(qid, d.title);
+      });
+    });
+  }, 200);
+}
+
+function printQR(qrId, title) {
+  const el = document.getElementById(qrId);
+  if (!el) return;
+  const img = el.querySelector('img') || el.querySelector('canvas');
+  let imgSrc = '';
+  if (img && img.tagName === 'IMG') imgSrc = img.src;
+  else if (img && img.tagName === 'CANVAS') imgSrc = img.toDataURL();
+  if (!imgSrc) { toast('⚠ QR Code belum siap, tunggu sebentar'); return; }
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>QR Code — ${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;text-align:center;padding:40px;background:#fff;}
+      h2{font-size:18px;color:#1a1a2e;margin-bottom:8px;}
+      p{font-size:13px;color:#666;margin-bottom:24px;}
+      img{border:2px solid #eee;border-radius:8px;padding:8px;}
+      .footer{margin-top:20px;font-size:11px;color:#aaa;}
+    </style></head>
+    <body>
+      <h2>${title}</h2>
+      <p>Scan QR Code ini untuk mengakses dokumen SOP</p>
+      <img src="${imgSrc}" width="200" height="200"/>
+      <div class="footer">SOP Knowledge Center — Ditjen Badan Peradilan Agama MA RI</div>
+    </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+function downloadQR(qrId, title) {
+  const el = document.getElementById(qrId);
+  if (!el) return;
+  const img = el.querySelector('img') || el.querySelector('canvas');
+  let imgSrc = '';
+  if (img && img.tagName === 'IMG') imgSrc = img.src;
+  else if (img && img.tagName === 'CANVAS') imgSrc = img.toDataURL('image/png');
+  if (!imgSrc) { toast('⚠ QR Code belum siap'); return; }
+  const a = document.createElement('a');
+  a.href = imgSrc;
+  a.download = 'QR-SOP.png';
+  a.click();
+  toast('✅ QR Code disimpan!');
+}
+
+
+function resetToDefaultDepts() {
+  showConfirm('Muat Struktur Badilag?',
+    'Ini akan menambahkan semua unit kerja Ditjen Badilag (52 unit). Data unit yang sudah ada tetap tersimpan.',
+    () => {
+      const defaultDepts = [
+        {id:'s01',name:'Sekretariat Ditjen Badilag',icon:'🏛️'},
+        {id:'s02',name:'Bagian Kepegawaian',icon:'🧑‍💼'},
+        {id:'s03',name:'Subbag Umum Kepegawaian',icon:'👥'},
+        {id:'s04',name:'Subbag Mutasi Kepegawaian',icon:'🔄'},
+        {id:'s05',name:'Subbag Pemberhentian dan Pensiun',icon:'📋'},
+        {id:'s06',name:'Bagian Organisasi dan Tata Laksana',icon:'📐'},
+        {id:'s07',name:'Subbag Kelembagaan dan Pelaporan',icon:'📊'},
+        {id:'s08',name:'Subbag Dokumentasi dan Informasi',icon:'📁'},
+        {id:'s09',name:'Subbag Ketatalaksanaan',icon:'⚙️'},
+        {id:'s10',name:'Bagian Perencanaan dan Keuangan',icon:'💰'},
+        {id:'s11',name:'Subbag Perencanaan Program dan Penyusunan Anggaran',icon:'📈'},
+        {id:'s12',name:'Subbag Anggaran dan Perbendaharaan',icon:'💵'},
+        {id:'s13',name:'Subbag Akuntansi',icon:'🧾'},
+        {id:'s14',name:'Bagian Umum',icon:'🏢'},
+        {id:'s15',name:'Subbag Tata Usaha Bagian Umum',icon:'📮'},
+        {id:'s16',name:'Subbag Rumah Tangga',icon:'🏠'},
+        {id:'s17',name:'Subbag Perlengkapan',icon:'📦'},
+        {id:'a01',name:'Dit. Pembinaan Administrasi Peradilan Agama',icon:'⚖️'},
+        {id:'a02',name:'Subdit Bimbingan dan Monitoring',icon:'🔍'},
+        {id:'a03',name:'Kasi Bimbingan I',icon:'📋'},
+        {id:'a04',name:'Kasi Bimbingan II',icon:'📋'},
+        {id:'a05',name:'Kasi Monitoring dan Evaluasi',icon:'📊'},
+        {id:'a06',name:'Subdit Syariah',icon:'🕌'},
+        {id:'a07',name:'Kasi Pengkajian Syariah dan Hisab Rukyat',icon:'📜'},
+        {id:'a08',name:'Kasi Evaluasi dan Pengendalian Syariah',icon:'✅'},
+        {id:'a09',name:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah',icon:'📖'},
+        {id:'a10',name:'Subdit Tata Kelola',icon:'🗂️'},
+        {id:'a11',name:'Kasi Tata Persidangan',icon:'🏛️'},
+        {id:'a12',name:'Kasi Sarana Kerja Pengadilan',icon:'🛠️'},
+        {id:'a13',name:'Kasi Pelayanan Peradilan',icon:'🤝'},
+        {id:'a14',name:'Subdit Statistik dan Dokumentasi',icon:'📊'},
+        {id:'a15',name:'Kasi Statistik',icon:'📈'},
+        {id:'a16',name:'Kasi Dokumentasi Wilayah Hukum',icon:'🗺️'},
+        {id:'a17',name:'Kasubbag Tata Usaha Dit. Adm. PA',icon:'📮'},
+        {id:'t01',name:'Dit. Pembinaan Tenaga Teknis Peradilan Agama',icon:'👨‍⚖️'},
+        {id:'t02',name:'Subdit Mutasi Hakim',icon:'👨‍⚖️'},
+        {id:'t03',name:'Kasi Mutasi I Hakim',icon:'📋'},
+        {id:'t04',name:'Kasi Mutasi II Hakim',icon:'📋'},
+        {id:'t05',name:'Kasi Tata Naskah Mutasi Hakim',icon:'📝'},
+        {id:'t06',name:'Subdit Mutasi Panitera dan Jurusita',icon:'⚖️'},
+        {id:'t07',name:'Kasi Mutasi I Panitera dan Jurusita',icon:'📋'},
+        {id:'t08',name:'Kasi Mutasi II Panitera dan Jurusita',icon:'📋'},
+        {id:'t09',name:'Kasi Tata Naskah Panitera dan Jurusita',icon:'📝'},
+        {id:'t10',name:'Subdit Pengembangan Tenaga Teknis',icon:'🎓'},
+        {id:'t11',name:'Kasi Evaluasi dan Rasionalisasi',icon:'📊'},
+        {id:'t12',name:'Kasi Peningkatan Mutu Hakim',icon:'⭐'},
+        {id:'t13',name:'Kasubbag Tata Usaha Dit. Tenaga Teknis',icon:'📮'},
+        {id:'t14',name:'Subdit Data dan Evaluasi',icon:'💾'},
+        {id:'t15',name:'Kasi Arsip dan Dokumentasi',icon:'🗄️'},
+        {id:'t16',name:'Kasi Evaluasi dan Pelaporan',icon:'📈'},
+        {id:'t17',name:'Kasi Data dan Informasi Tenaga Teknis',icon:'💻'},
+      ];
+      // Tambahkan yang belum ada
+      let added = 0;
+      defaultDepts.forEach(d => {
+        if(!S.depts.find(x=>x.id===d.id)) {
+          S.depts.push(d); added++;
+        }
+      });
+      persist(); renderAdmin();
+      toast('✅ ' + added + ' unit berhasil dimuat!');
+    }
+  );
+}
+
+// ══ IMPORT CSV ══
+function triggerFileInput() {
+  const inp = document.getElementById('csvFile');
+  if(inp) inp.click();
+}
+
+function onCSVFileChange(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const lbl = document.getElementById('csvFileName');
+  if(lbl) lbl.textContent = file.name;
+  const st = document.getElementById('csvStatus');
+  if(st) st.style.display = 'none';
+}
+
+function importCSV() {
+  const fileEl = document.getElementById('csvFile');
+  const statusEl = document.getElementById('csvStatus');
+
+  function setStatus(type, msg) {
+    if(!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.style.whiteSpace = 'pre-line';
+    statusEl.style.lineHeight = '1.6';
+    statusEl.style.background = type==='ok' ? 'rgba(6,214,160,.08)' : type==='err' ? 'rgba(255,77,109,.08)' : 'rgba(0,245,212,.06)';
+    statusEl.style.border = type==='ok' ? '1px solid rgba(6,214,160,.3)' : type==='err' ? '1px solid rgba(255,77,109,.3)' : '1px solid rgba(0,245,212,.2)';
+    statusEl.style.color = type==='ok' ? 'var(--green)' : type==='err' ? 'var(--red)' : 'var(--cyan)';
+    statusEl.textContent = msg;
+  }
+
+  if(!fileEl || !fileEl.files || !fileEl.files[0]) {
+    setStatus('err', 'Pilih file CSV terlebih dahulu.');
+    return;
+  }
+
+  const file = fileEl.files[0];
+  setStatus('info', 'Membaca file CSV...');
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      // Hapus BOM, normalize line endings
+      const text = e.target.result.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+
+
+
+
+      const lines = text.split('\n').filter(l => l.trim());
+
+
+      if(lines.length < 2) { setStatus('err', 'File CSV kosong atau tidak valid.'); return; }
+
+      // Parse header - deteksi kolom
+      const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+      const iNama = header.findIndex(h => h.includes('nama'));
+      const iNIP  = header.findIndex(h => h.includes('nip'));
+      const iGol  = header.findIndex(h => h.includes('golongan'));
+      const iUnit = header.findIndex(h => h.includes('unit'));
+      const iJab  = header.findIndex(h => h.includes('jabatan'));
+
+      if(iNama < 0 || iNIP < 0) {
+        setStatus('err', 'Kolom Nama dan NIP wajib ada. Header terdeteksi: ' + header.join(', '));
+        return;
+      }
+
+      let added = 0, skipped = 0, duplikat = 0;
+      const errors = [];
+
+      for(let i = 1; i < lines.length; i++) {
+        if(!lines[i].trim()) continue;
+        const cols = parseCSVLine(lines[i]);
+
+        const nama     = (cols[iNama] || '').trim();
+        const nipRaw   = (cols[iNIP]  || '').trim();
+        const golongan = iGol  >= 0 ? (cols[iGol]  || '').trim() : '';
+        const unitKerja= iUnit >= 0 ? (cols[iUnit] || '').trim() : '';
+        const jabatan  = iJab  >= 0 ? (cols[iJab]  || '').trim() : '';
+
+        // NIP: hapus semua spasi
+        const nip = nipRaw.split(' ').join('');
+
+        // Skip baris tidak valid
+        if(!nama || nama === 'Kosong' || nama === '-') { skipped++; continue; }
+        if(!nip || nip.length < 8) {
+          errors.push('Baris ' + (i+1) + ': NIP tidak valid (' + nipRaw + ')');
+          skipped++; continue;
+        }
+
+        // Cek duplikat NIP
+        if(S.emps.find(e => e.nip === nip)) { duplikat++; continue; }
+
+        // Cari atau auto-buat unit kerja
+        let dept = S.depts.find(d => d.name.toLowerCase().trim() === unitKerja.toLowerCase().trim());
+        if(!dept && unitKerja) {
+          dept = {
+            id: 'd' + Date.now() + '_' + Math.floor(Math.random()*9999),
+            name: unitKerja, icon: '🏢'
+          };
+          S.depts.push(dept);
+        }
+        if(!dept) { errors.push('Baris ' + (i+1) + ': Unit kerja kosong'); skipped++; continue; }
+
+        S.emps.push({
+          id: 'e' + Date.now() + '_' + Math.floor(Math.random()*9999),
+          name: nama,
+          nip: nip,          // tanpa spasi - untuk login
+          golongan: golongan,
+          jabatan: jabatan,
+          deptId: dept.id,
+          icon: '👤'
+        });
+        added++;
+      }
+
+      persist();
+
+      let msg = 'Import selesai!\n' + added + ' pegawai berhasil diimport\n' + duplikat + ' dilewati (NIP sudah ada)\n' + skipped + ' baris dilewati (kosong/tidak valid)';
+
+
+
+
+
+
+
+      if(errors.length) msg += '\n\nError:\n' + errors.slice(0,5).join('\n');
+
+
+
+      setStatus('ok', msg);
+
+      closeModal('mImportCSV');
+      const csvFileEl = document.getElementById('csvFile');
+      if(csvFileEl) csvFileEl.value = '';
+      setTimeout(() => renderAdmin(), 600);
+
+    } catch(err) {
+      setStatus('err', 'Gagal membaca CSV: ' + err.message);
+    }
+  };
+  reader.onerror = () => setStatus('err', 'Gagal membuka file.');
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSVLine(line) {
+  const cols = [];
+  let cur = '';
+  let inQ = false;
+  for(let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if(ch === '"') {
+      if(inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if(ch === ',' && !inQ) {
+      cols.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cols.push(cur);
+  return cols;
+}
+
+function formatTanggal(dateStr) {
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  return d.getDate()+' '+bulan[d.getMonth()]+' '+d.getFullYear();
+}
+
+function updateBagianOptions() {
+  // Placeholder - Bagian ditampilkan semua, tidak perlu filter per eselon
+  // Bisa dikembangkan nanti jika perlu filter
+}
+
+function exportPegawaiCSV() {
+  if(!S.emps.length){
+    toast('⚠ Belum ada data pegawai');
+    return;
+  }
+
+  // Header CSV
+  const headers = ['No','Nama','NIP','Golongan','Unit Kerja','Jabatan','Eselon II','Bagian','Sub Bagian/Kasi'];
+
+  // Data rows
+  const rows = S.emps.map((e, i) => {
+    const dept = S.depts.find(d=>d.id===e.deptId);
+    return [
+      i+1,
+      e.name || '',
+      e.nip  || '',
+      e.golongan || '',
+      dept ? dept.name : (e.eselon2 || ''),
+      e.jabatan  || '',
+      e.eselon2  || '',
+      e.bagian   || '',
+      e.subbag   || '',
+    ];
+  });
+
+  // Buat konten CSV
+  const escape = val => {
+    const s = String(val);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(escape).join(','))
+    .join('\n');
+
+  // Download file
+  const bom = '\uFEFF'; // BOM agar Excel baca UTF-8 dengan benar
+  const blob = new Blob([bom + csvContent], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'Data_Pegawai_Badilag_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  toast('✅ ' + S.emps.length + ' pegawai berhasil diexport!');
+}
+
+function filterPegawai(query) {
+  const q = query.toLowerCase().trim();
+  const cards = document.querySelectorAll('#adminBody .emp-card');
+  let visible = 0;
+
+  cards.forEach(card => {
+    const text = card.dataset.search || '';
+    const match = !q || text.includes(q);
+    card.style.display = match ? 'flex' : 'none';
+    if(match) visible++;
+  });
+
+  const countEl = document.getElementById('empCount');
+  if(countEl) {
+    if(q) {
+      countEl.textContent = visible + ' dari ' + S.emps.length + ' pegawai ditemukan';
+      countEl.style.color = visible > 0 ? 'var(--cyan)' : 'var(--red)';
+    } else {
+      countEl.textContent = '';
+    }
+  }
+}
+
+
+// ══ FIREBASE SYNC HELPERS ══
+async function fbSaveDept(dept) {
+  try {
+    const {id, ...data} = dept;
+    await db.collection('depts').doc(id).set(data);
+  } catch(e) { console.error('Save dept error:', e); }
+}
+async function fbDeleteDept(id) {
+  try { await db.collection('depts').doc(id).delete(); } catch(e) { console.error(e); }
+}
+async function fbSaveEmp(emp) {
+  try {
+    const {id, ...data} = emp;
+    await db.collection('emps').doc(id).set(data);
+  } catch(e) { console.error('Save emp error:', e); }
+}
+async function fbDeleteEmp(id) {
+  try { await db.collection('emps').doc(id).delete(); } catch(e) { console.error(e); }
+}
+async function fbSaveDrive(drive) {
+  try {
+    const {id, ...data} = drive;
+    await db.collection('drives').doc(id).set(data);
+  } catch(e) { console.error('Save drive error:', e); }
+}
+async function fbDeleteDrive(id) {
+  try { await db.collection('drives').doc(id).delete(); } catch(e) { console.error(e); }
+}
+
+// ══ INIT ══
+window.addEventListener('load', async ()=>{
+  // Init Firebase
+  try {
+    db   = firebase.firestore();
+    auth = firebase.auth();
+  } catch(e) { console.warn('Firebase init error:', e); }
+  // Tampilkan loading state
+  const loginBtn = document.getElementById('btnDoLogin');
+  if(loginBtn) loginBtn.textContent = '⏳ Memuat data...';
+  
+  // Load data dari Firebase
+  await loadFromFirebase();
+  
+  // Jika Firebase gagal, gunakan data lokal bawaan
+  loadDefaultData();
+  if(!fbLoaded || !S.depts.length) {
+    S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
+  }
+  if(!fbLoaded || !S.emps.length) {
+    // Load emps dari localStorage sebagai fallback
+    const localEmps = localStorage.getItem('nx_emps');
+    if(localEmps) S.emps = JSON.parse(localEmps);
+  }
+  if(!fbLoaded || !S.drives.length) {
+    const localDrives = localStorage.getItem('nx_drives');
+    if(localDrives) S.drives = JSON.parse(localDrives);
+  }
+
+  if(loginBtn) loginBtn.textContent = 'Masuk →';
+  populateDepts(); // untuk admin panel
+  // Bind login buttons safely after DOM ready
+  const btnAdminLink = document.getElementById('btnAdminLink');
+  if(btnAdminLink) btnAdminLink.onclick = openAdminLogin;
+  const btnDoLogin = document.getElementById('btnDoLogin');
+  if(btnDoLogin) btnDoLogin.onclick = doLogin;
+  const btnDoAdminLogin = document.getElementById('btnDoAdminLogin');
+  if(btnDoAdminLogin) btnDoAdminLogin.onclick = doAdminLogin;
+  const btnClose = document.getElementById('btnCloseAdminLogin');
+  if(btnClose) btnClose.onclick = closeAdminLogin;
+
+  // Enter key on login fields
+  const loginNIP = document.getElementById('loginNIP');
+  if(loginNIP) loginNIP.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  const btnGuest = document.getElementById('btnGuestLogin');
+  if(btnGuest) btnGuest.onclick = loginGuest;
+  const aUser = document.getElementById('aUser');
+  if(aUser) aUser.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  const aPass = document.getElementById('aPass');
+  if(aPass) aPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+});
+</script>
+</body>
+</html>
