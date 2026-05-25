@@ -963,10 +963,12 @@ async function sendMsg(){
   const sopInfo = myDrives.slice(0,15).map((d,i)=>{
     const dept=S.depts.find(x=>x.id===d.deptId);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
-    if(d.desc) info += ' — '+d.desc.slice(0,100);
-    if(d.link) info += ' Link: '+d.link;
+    if(d.nomor) info += ' (No: '+d.nomor+')';
+    if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,150);
+    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,800);
+    if(d.link) info += '\n   Link Drive: '+d.link;
     return info;
-  }).join('\n') || 'Belum ada SOP.';
+  }).join('\n\n') || 'Belum ada SOP yang tersedia di sistem.';
   // Ambil 8 pesan terakhir untuk konteks lebih panjang
   const recentHistory = S.history.slice(-8);
 
