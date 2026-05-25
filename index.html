@@ -1016,7 +1016,22 @@ async function sendMsg(){
   const userCtx = isGuest ? 'Tamu' :
     S.user.name+' | '+S.user.jabatan+' | '+S.user.dept.name;
   // Batasi SOP info agar tidak melebihi token limit Gemini
-  const myDrives = S.mode==='pegawai' ? S.drives.filter(d=>d.deptId===S.user.dept.id) : S.drives;
+  // Role-based: pegawai dapat SOP unit sendiri (cocok via eselon4/3/2 atau deptId)
+  function getMyDrives() {
+    if(S.mode !== 'pegawai' || !S.user) return S.drives;
+    const userDeptId = S.user.dept ? S.user.dept.id : '';
+    const userE4Id = S.user.eselon4Id || '';
+    const userE3Id = S.user.eselon3Id || '';
+    const userE2Id = S.user.eselon2Id || '';
+    return S.drives.filter(d => {
+      if(d.deptId === userDeptId) return true;
+      if(userE4Id && d.eselon4Id === userE4Id) return true;
+      if(userE3Id && d.eselon3Id === userE3Id) return true;
+      if(userE2Id && d.eselon2Id === userE2Id) return true;
+      return false;
+    });
+  }
+  const myDrives = getMyDrives();
   const sopInfo = myDrives.slice(0,15).map((d,i)=>{
     const dept=S.depts.find(x=>x.id===d.deptId);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
@@ -1035,7 +1050,7 @@ async function sendMsg(){
   const namaUser = isGuest ? (S.guestName || 'Bapak/Ibu') : S.user.name.split(' ')[0];
 
   // SOP unit yang relevan
-  const sopUnit = !isGuest ? S.drives.filter(d=>d.deptId===S.user.dept.id) : [];
+  const sopUnit = !isGuest ? myDrives : [];
   const sopUnitInfo = sopUnit.length ? sopUnit.map((d,i)=>{
     let info = (i+1)+'. "'+d.title+'"';
     if(d.desc) info += ' — '+d.desc.slice(0,150);
@@ -1229,30 +1244,62 @@ function renderAdmin(){const b=document.getElementById('adminBody');if(S.tab==='
 
 // ── DEPT ──
 function rDepts(c){
+  // Grouping berdasarkan 4 Eselon II resmi
   const groups = [
-    { label: '🏛️ Sekretariat Ditjen Badilag', prefix: 's' },
-    { label: '⚖️ Dit. Pembinaan Administrasi Peradilan Agama', prefix: 'a' },
-    { label: '👨‍⚖️ Dit. Pembinaan Tenaga Teknis Peradilan Agama', prefix: 't' },
-    { label: '➕ Unit Lainnya', prefix: '' },
+    { label: '🏛️ Sekretariat Ditjen Badilag',                      prefixes: ['s'] },
+    { label: '⚖️ Dit. Pembinaan Administrasi Peradilan Agama',     prefixes: ['a'] },
+    { label: '👨‍⚖️ Dit. Pembinaan Tenaga Teknis Peradilan Agama', prefixes: ['t'] },
+    { label: '📋 Dit. Pranata dan Tatalaksana Perkara',            prefixes: ['p'] },
+    { label: '🏛️ Ditjen Badan Peradilan Agama (Induk)',           prefixes: ['dj'] },
+    { label: '➕ Unit Lainnya',                                     prefixes: [] },
   ];
-  let h = '<div class="sectitle">Tambah Unit Baru</div><div class="addbox"><h4>+ Unit Baru</h4><label class="flabel">Nama Unit</label><input class="finput" id="aDN" placeholder="Nama unit/bagian/subdit..."/><label class="flabel">Pilih Ikon</label><div id="wND"></div><button class="addbtn" onclick="addDept()">+ Tambah Unit</button></div>';
+  const knownPrefixes = ['s','a','t','p','dj'];
+
+  let h = '<div class="sectitle">Tambah Unit Baru</div>';
+  h += '<div class="addbox"><h4>+ Unit Baru</h4>';
+  h += '<label class="flabel">Nama Unit</label>';
+  h += '<input class="finput" id="aDN" placeholder="Nama unit/bagian/subdit..."/>';
+  h += '<label class="flabel">Pilih Ikon</label><div id="wND"></div>';
+  h += '<button class="addbtn" onclick="addDept()">+ Tambah Unit</button></div>';
+
   h += '<div class="sectitle">Struktur Organisasi ('+S.depts.length+' unit)</div>';
   if(S.depts.length <= 5) {
     h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--amber);">⚠️ Unit masih sedikit. <button onclick="resetToDefaultDepts()" style="background:rgba(255,183,3,.2);border:1px solid rgba(255,183,3,.4);color:var(--amber);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;">Muat Struktur Badilag Lengkap</button></div>';
   }
+
   groups.forEach(grp => {
-    const items = grp.prefix
-      ? S.depts.filter(d => d.id.startsWith(grp.prefix))
-      : S.depts.filter(d => !['s','a','t'].some(p => d.id.startsWith(p)));
+    let items;
+    if(grp.prefixes.length === 0) {
+      // Unit lainnya = yang tidak masuk prefix manapun
+      items = S.depts.filter(d => !knownPrefixes.some(p => d.id.startsWith(p)));
+    } else {
+      items = S.depts.filter(d => grp.prefixes.some(p => d.id.startsWith(p)));
+    }
     if(!items.length) return;
-    h += '<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:14px 0 6px;text-transform:uppercase;padding:6px 10px;background:var(--s1);border-radius:8px;">'+grp.label+'</div>';
-    items.forEach(d=>{
-      const nD=S.drives.filter(x=>x.deptId===d.id).length, nE=S.emps.filter(x=>x.deptId===d.id).length;
-      h+=`<div class="acard"><span class="acard-ico">${d.icon}</span><div class="acard-info"><div class="acard-name">${d.name}</div><div class="acard-sub">${nE} pegawai · ${nD} SOP</div></div><div class="acard-acts"><button class="bedit" onclick="editDept('${d.id}')">✏️</button><button class="bdel" onclick="delDeptConfirm('${d.id}')">🗑</button></div></div>`;
+
+    h += '<div style="font-size:10px;color:var(--cyan);letter-spacing:1px;font-weight:800;margin:16px 0 6px;text-transform:uppercase;padding:8px 12px;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.12);border-radius:10px;">'+grp.label+'</div>';
+
+    items.forEach((d, idx) => {
+      const nD = S.drives.filter(x=>x.deptId===d.id).length;
+      const nE = S.emps.filter(x=>x.deptId===d.id).length;
+      // Indentasi: s01/a01/t01/p01/dj01 = Eselon II (indent 0), sisanya sub-unit
+      const isE2 = /^(s01|a01|t01|p01|dj01)$/.test(d.id);
+      const indent = isE2 ? '' : 'margin-left:14px;border-left:2px solid rgba(0,245,212,.12);padding-left:10px;';
+      h += `<div class="acard" style="${indent}">`;
+      h += `<span class="acard-ico">${d.icon}</span>`;
+      h += `<div class="acard-info">`;
+      h += `<div class="acard-name">${d.name}</div>`;
+      h += `<div class="acard-sub">${nE} pegawai · ${nD} SOP</div>`;
+      h += `</div>`;
+      h += `<div class="acard-acts">`;
+      h += `<button class="bedit" onclick="editDept('${d.id}')">✏️</button>`;
+      h += `<button class="bdel" onclick="delDeptConfirm('${d.id}')">🗑</button>`;
+      h += `</div></div>`;
     });
   });
-  c.innerHTML=h;
-  setTimeout(()=>initPicker('wND','🏢','newDept'),10);
+
+  c.innerHTML = h;
+  setTimeout(()=>initPicker('wND','🏢','newDept'), 10);
 }
 async function addDept(){
   const name=document.getElementById('aDN').value.trim();
@@ -1459,15 +1506,15 @@ function rDrives(c){
   h += '<label class="flabel">Eselon I (Baku)</label>';
   h += '<input class="finput" value="Direktorat Jenderal Badan Peradilan Agama MA RI" disabled style="opacity:.6;cursor:not-allowed;"/>';
   h += '<label class="flabel">Unit Eselon II</label>';
-  h += '<select class="fselect" id="aDrE2" onchange="onE2Change()">';
+  h += '<select class="fselect" id="aDrE2" onchange="onE2ChangeDr()">';
   h += '<option value="">— Pilih Eselon II —</option>'+e2opts;
   h += '</select>';
   h += '<label class="flabel">Unit Eselon III</label>';
-  h += '<select class="fselect" id="aDrE3" onchange="onE3Change()" disabled>';
+  h += '<select class="fselect" id="aDrE3" onchange="onE3ChangeDr()">';
   h += '<option value="">— Pilih Eselon II dulu —</option>';
   h += '</select>';
   h += '<label class="flabel">Unit Eselon IV</label>';
-  h += '<select class="fselect" id="aDrE4" onchange="onE4Change()" disabled>';
+  h += '<select class="fselect" id="aDrE4">';
   h += '<option value="">— Pilih Eselon III dulu —</option>';
   h += '</select>';
   h += '</div>';
@@ -1490,20 +1537,32 @@ function rDrives(c){
   h += '<button class="addbtn" onclick="addDrive()">+ Tambah SOP</button></div>';
   h += '<div class="sectitle">Semua Dokumen SOP (' + S.drives.length + ')</div>';
   if(!S.drives.length)h+='<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada data Drive</div>';
-  S.depts.forEach(dept=>{
-    const dd=S.drives.filter(d=>d.deptId===dept.id);
-    if(!dd.length)return;
-    h+='<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:12px 0 6px;text-transform:uppercase;">'+dept.icon+' '+dept.name+'</div>';
+    // Kelompokkan SOP berdasarkan 4 Eselon II
+  const driveE2Groups = [
+    {label:'🏛️ Sekretariat Ditjen Badilag',    e2id:'e2_sek'},
+    {label:'⚖️ Dit. Adm. Peradilan Agama',      e2id:'e2_adm'},
+    {label:'👨‍⚖️ Dit. Tenaga Teknis Peradilan', e2id:'e2_ttk'},
+    {label:'📋 Dit. Pranata Tatalaksana',        e2id:'e2_prt'},
+    {label:'➕ Lainnya',                         e2id:''},
+  ];
+  const allE2ids = ['e2_sek','e2_adm','e2_ttk','e2_prt'];
+  driveE2Groups.forEach(grp => {
+    const dd = grp.e2id
+      ? S.drives.filter(d=>d.eselon2Id===grp.e2id)
+      : S.drives.filter(d=>!allE2ids.includes(d.eselon2Id||''));
+    if(!dd.length) return;
+    h+='<div style="font-size:10px;color:var(--cyan);letter-spacing:1px;font-weight:800;margin:14px 0 6px;text-transform:uppercase;padding:6px 10px;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.12);border-radius:8px;">'+grp.label+' ('+dd.length+')</div>';
     dd.forEach(d=>{
       const sb = d.status==='Tidak Aktif'
         ? '<span style="background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">❌ Tidak Aktif</span>'
         : '<span style="background:rgba(6,214,160,.15);color:var(--green);border:1px solid rgba(6,214,160,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">✅ Aktif</span>';
       const nm = d.nomor ? '📄 '+d.nomor+' · ' : '';
       const tg = d.tanggal ? '📅 '+formatTanggal(d.tanggal) : '';
+      const e4lbl = d.eselon4 ? ' · <em style="color:var(--mu);font-size:10px;">'+d.eselon4+'</em>' : '';
       h += '<div class="acard"><span class="acard-ico">📋</span>';
       h += '<div class="acard-info">';
       h += '<div class="acard-name">'+d.title+' '+sb+'</div>';
-      h += '<div class="acard-sub">'+nm+tg+'</div>';
+      h += '<div class="acard-sub">'+nm+tg+e4lbl+'</div>';
       h += '<div class="acard-sub">'+(d.desc||'—')+'</div>';
       h += '</div>';
       h += '<div class="acard-acts"><button class="bedit" onclick="editDrive(\''+d.id+'\')">✏️</button><button class="bdel" onclick="delDriveConfirm(\''+d.id+'\')">🗑</button></div></div>';
@@ -1511,39 +1570,30 @@ function rDrives(c){
   });
   c.innerHTML=h;
 }
-// ══ CASCADE DROPDOWN HANDLERS ══
-function onE2Change() {
+// ══ CASCADE DROPDOWN HANDLERS (FORM TAMBAH SOP) ══
+function onE2ChangeDr() {
   const e2Id = document.getElementById('aDrE2').value;
   const e3El = document.getElementById('aDrE3');
   const e4El = document.getElementById('aDrE4');
   e3El.innerHTML = '<option value="">— Pilih Eselon III —</option>';
   e4El.innerHTML = '<option value="">— Pilih Eselon III dulu —</option>';
-  e3El.disabled = !e2Id;
-  e4El.disabled = true;
   if(!e2Id) return;
   ESELON3.filter(e=>e.eselon2===e2Id).forEach(e=>{
     e3El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
   });
+  // Auto-sync deptId saat E2 dipilih
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+  window._selectedDeptId = e2ToDept[e2Id] || '';
 }
 
-function onE3Change() {
+function onE3ChangeDr() {
   const e3Id = document.getElementById('aDrE3').value;
   const e4El = document.getElementById('aDrE4');
-  e4El.innerHTML = '<option value="">— Pilih Eselon IV —</option>';
-  e4El.disabled = !e3Id;
+  e4El.innerHTML = '<option value="">— Pilih Eselon IV (opsional) —</option>';
   if(!e3Id) return;
   ESELON4.filter(e=>e.eselon3===e3Id).forEach(e=>{
     e4El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
   });
-}
-
-function onE4Change() {
-  // Auto set deptId based on eselon2 selection
-  const e2El = document.getElementById('aDrE2');
-  const e2 = ESELON2.find(e=>e.id===e2El.value);
-  // Map eselon2 to deptId
-  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01'};
-  window._selectedDeptId = e2ToDept[e2El.value] || 's01';
 }
 
 async function addDrive(){
@@ -1552,27 +1602,29 @@ async function addDrive(){
   const e4Id = document.getElementById('aDrE4')?.value;
   if(!e2Id){toast('⚠ Pilih Unit Eselon II');return;}
   if(!e3Id){toast('⚠ Pilih Unit Eselon III');return;}
-  if(!e4Id){toast('⚠ Pilih Unit Eselon IV');return;}
   const t=document.getElementById('aDrT').value.trim();
   const l=document.getElementById('aDrL').value.trim();
   if(!t){toast('⚠ Judul SOP wajib diisi');return;}
 
-  // Map eselon2 ke deptId
-  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01'};
-  const deptId = e2ToDept[e2Id] || 's01';
-
+  // Map eselon2 ke deptId (mencakup 4 Eselon II + Dit. Pranata)
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+  // Cari deptId terbaik: prioritas E4 > E3 > E2
+  const e4obj = e4Id ? ESELON4.find(e=>e.id===e4Id) : null;
+  const e3obj = e3Id ? ESELON3.find(e=>e.id===e3Id) : null;
   const e2obj = ESELON2.find(e=>e.id===e2Id);
-  const e3obj = ESELON3.find(e=>e.id===e3Id);
-  const e4obj = ESELON4.find(e=>e.id===e4Id);
+  // Cari dept yang sesuai nama eselon terpilih
+  const targetName = e4obj ? e4obj.nama : (e3obj ? e3obj.nama : (e2obj ? e2obj.name : ''));
+  const matchedDept = S.depts.find(d => d.name.toLowerCase() === targetName.toLowerCase());
+  const deptId = matchedDept ? matchedDept.id : (e2ToDept[e2Id] || 's01');
 
   const newDrive = {
     id:'dr'+Date.now(),
     eselon1: 'Direktorat Jenderal Badan Peradilan Agama MA RI',
     eselon2Id: e2Id,
     eselon2: e2obj ? e2obj.name : '',
-    eselon3Id: e3Id,
+    eselon3Id: e3Id || '',
     eselon3: e3obj ? e3obj.nama : '',
-    eselon4Id: e4Id,
+    eselon4Id: e4Id || '',
     eselon4: e4obj ? e4obj.nama : '',
     deptId: deptId,
     title: t,
@@ -1660,17 +1712,20 @@ async function saveDrive(id){
   const e2Id = document.getElementById('eDrE2')?.value || d.eselon2Id;
   const e3Id = document.getElementById('eDrE3')?.value || d.eselon3Id;
   const e4Id = document.getElementById('eDrE4')?.value || d.eselon4Id;
-  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01'};
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
   const e2obj = ESELON2.find(e=>e.id===e2Id);
-  const e3obj = ESELON3.find(e=>e.id===e3Id);
-  const e4obj = ESELON4.find(e=>e.id===e4Id);
+  const e3obj = e3Id ? ESELON3.find(e=>e.id===e3Id) : null;
+  const e4obj = e4Id ? ESELON4.find(e=>e.id===e4Id) : null;
+
+  // Cari deptId terbaik berdasarkan nama unit yang dipilih
+  const targetNameE = e4obj ? e4obj.nama : (e3obj ? e3obj.nama : (e2obj ? e2obj.name : ''));
+  const matchedDeptE = S.depts.find(dp => dp.name.toLowerCase() === targetNameE.toLowerCase());
 
   d.eselon1 = 'Direktorat Jenderal Badan Peradilan Agama MA RI';
   d.eselon2Id = e2Id; d.eselon2 = e2obj ? e2obj.name : d.eselon2 || '';
-  d.eselon3Id = e3Id; d.eselon3 = e3obj ? e3obj.nama : d.eselon3 || '';
-  d.eselon4Id = e4Id; d.eselon4 = e4obj ? e4obj.nama : d.eselon4 || '';
-  d.deptId = e2ToDept[e2Id] || d.deptId;
-  d.deptId=document.getElementById('eDrD').value;
+  d.eselon3Id = e3Id || ''; d.eselon3 = e3obj ? e3obj.nama : d.eselon3 || '';
+  d.eselon4Id = e4Id || ''; d.eselon4 = e4obj ? e4obj.nama : d.eselon4 || '';
+  d.deptId = matchedDeptE ? matchedDeptE.id : (e2ToDept[e2Id] || d.deptId);
   d.title=t; d.link=l;
   d.nomor=(document.getElementById('eDrNomor')||{value:''}).value.trim();
   d.tanggal=(document.getElementById('eDrTanggal')||{value:''}).value;
