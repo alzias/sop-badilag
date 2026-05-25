@@ -1001,7 +1001,7 @@ function addMsg(text,isOut,card=null) {
   const w=document.createElement('div');
   w.className='bwrap '+(isOut?'out':'in');
   if(card){
-    const own=card.deptId===S.user.dept.id;
+    const own=canUserAccessDrive(card);
     const dn=getDN(card.deptId);
     w.innerHTML=own
       ?`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" href="${card.link}" target="_blank">↗ Buka di Drive</a></div></div><div class="bmeta">${now()}</div>`
@@ -1013,6 +1013,46 @@ function addMsg(text,isOut,card=null) {
   area.appendChild(w); const sb=document.getElementById("scrollBody"); if(sb) sb.scrollTop=sb.scrollHeight;
 }
 function getDN(id){const d=S.depts.find(x=>x.id===id);return d?d.icon+' '+d.name:'?';}
+
+// ── Cek apakah user boleh akses drive tertentu ──
+// Cocokkan via: deptId exact, eselon4/3/2 Id, atau nama unit
+function canUserAccessDrive(drive) {
+  if(!drive) return false;
+  if(!S.user || !S.user.dept) return false;
+  const u = S.user;
+
+  // 1. Exact deptId match
+  if(drive.deptId === u.dept.id) return true;
+
+  // 2. Cocokkan nama dept drive dengan nama unit user (toleransi nama)
+  const driveDept = S.depts.find(d => d.id === drive.deptId);
+  if(driveDept && u.dept.name &&
+     driveDept.name.toLowerCase().trim() === u.dept.name.toLowerCase().trim()) return true;
+
+  // 3. Cocokkan via eselon4Id pegawai
+  if(u.eselon4Id && drive.eselon4Id && u.eselon4Id === drive.eselon4Id) return true;
+
+  // 4. Cocokkan via nama subbag (toleransi)
+  if(u.subbag && drive.eselon4) {
+    if(u.subbag.toLowerCase().trim() === drive.eselon4.toLowerCase().trim()) return true;
+  }
+
+  // 5. Cocokkan nama dept drive dengan subbag/bagian user
+  if(driveDept) {
+    const dName = driveDept.name.toLowerCase().trim();
+    if(u.subbag  && dName === u.subbag.toLowerCase().trim())  return true;
+    if(u.bagian  && dName === u.bagian.toLowerCase().trim())  return true;
+    if(u.eselon2 && dName === u.eselon2.toLowerCase().trim()) return true;
+  }
+
+  // 6. Cocokkan via eselon3Id (akses seluruh subdit)
+  if(u.eselon3Id && drive.eselon3Id && u.eselon3Id === drive.eselon3Id) return true;
+
+  // 7. Cocokkan via eselon2Id (akses seluruh direktorat — opsional, untuk pejabat)
+  if(u.eselon2Id && drive.eselon2Id && u.eselon2Id === drive.eselon2Id) return true;
+
+  return false;
+}
 function showTyping(){const area=document.getElementById('chatArea');const el=document.createElement('div');el.id='typing';el.className='typwrap';el.innerHTML='<div class="typbub"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';area.appendChild(el);area.scrollTop=area.scrollHeight;}
 function hideTyping(){const t=document.getElementById('typing');if(t)t.remove();}
 async function sendMsg(){
@@ -1056,39 +1096,11 @@ async function sendMsg(){
 
     if(isDirjen) {
       driveAccessLevel = 'eselon1';
-      // Akses semua SOP seluruh unit
-      myDr = S.drives;
-    } else if(isEselon2) {
-      driveAccessLevel = 'eselon2';
-      // Akses semua SOP di bawah Eselon II-nya berdasarkan deptId
-      myDr = S.drives.filter(d=>d.deptId===S.user.dept.id);
-    } else if(isEselon3) {
-      driveAccessLevel = 'eselon3';
-      // Akses SOP yang eselon3Id cocok dengan bagian user
-      const e3 = ESELON3.find(e=>
-        e.nama === userBagian ||
-        userJabatan.includes(e.nama.toLowerCase()) ||
-        (S.user.bagian && e.nama.toLowerCase().includes(S.user.bagian.toLowerCase()))
-      );
-      if(e3) {
-        myDr = S.drives.filter(d=>d.eselon3Id===e3.id || d.deptId===S.user.dept.id);
-        if(!myDr.length) myDr = S.drives.filter(d=>d.deptId===S.user.dept.id);
-      } else {
-        myDr = S.drives.filter(d=>d.deptId===S.user.dept.id);
-      }
+      myDr = S.drives; // Dirjen akses semua SOP
     } else {
-      driveAccessLevel = 'eselon4';
-      // Akses SOP unit sendiri berdasarkan eselon4Id atau deptId
-      const e4 = ESELON4.find(e=>
-        e.nama === userSubbag ||
-        userJabatan.toLowerCase().includes(e.nama.toLowerCase())
-      );
-      if(e4) {
-        myDr = S.drives.filter(d=>d.eselon4Id===e4.id);
-        if(!myDr.length) myDr = S.drives.filter(d=>d.deptId===S.user.dept.id);
-      } else {
-        myDr = S.drives.filter(d=>d.deptId===S.user.dept.id);
-      }
+      // Semua level lain — gunakan canUserAccessDrive() yang sudah handle semua kasus
+      driveAccessLevel = isEselon2 ? 'eselon2' : isEselon3 ? 'eselon3' : 'eselon4';
+      myDr = S.drives.filter(d => canUserAccessDrive(d));
     }
   }
   showTyping();
@@ -1098,21 +1110,7 @@ async function sendMsg(){
     S.user.name+' | '+S.user.jabatan+' | '+S.user.dept.name;
   // Batasi SOP info agar tidak melebihi token limit Gemini
   // Role-based: pegawai dapat SOP unit sendiri (cocok via eselon4/3/2 atau deptId)
-  function getMyDrives() {
-    if(S.mode !== 'pegawai' || !S.user) return S.drives;
-    const userDeptId = S.user.dept ? S.user.dept.id : '';
-    const userE4Id = S.user.eselon4Id || '';
-    const userE3Id = S.user.eselon3Id || '';
-    const userE2Id = S.user.eselon2Id || '';
-    return S.drives.filter(d => {
-      if(d.deptId === userDeptId) return true;
-      if(userE4Id && d.eselon4Id === userE4Id) return true;
-      if(userE3Id && d.eselon3Id === userE3Id) return true;
-      if(userE2Id && d.eselon2Id === userE2Id) return true;
-      return false;
-    });
-  }
-  const myDrives = getMyDrives();
+  const myDrives = S.mode !== 'pegawai' || !S.user ? S.drives : S.drives.filter(d => canUserAccessDrive(d));
   const sopInfo = myDrives.slice(0,15).map((d,i)=>{
     const dept=S.depts.find(x=>x.id===d.deptId);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
@@ -1280,7 +1278,7 @@ async function callGemini(systemPrompt, messages) {
 function sq(t){document.getElementById('msgInput').value=t;sendMsg();}
 function showMyDrive(){
   closeSidebar();
-  const my=S.drives.filter(d=>d.deptId===S.user.dept.id);
+  const my=S.drives.filter(d=>canUserAccessDrive(d));
   if(!my.length){
     addMsg(`Belum ada dokumen SOP untuk unit **${S.user.dept.name}** yang tersimpan di sistem.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙`,false);
     return;
