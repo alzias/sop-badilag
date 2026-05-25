@@ -544,79 +544,87 @@ function gIco(key,fb){ return (IPS[key]&&IPS[key].sel)?IPS[key].sel:(fb||'🏢')
 
 // ══ ESELON II MAPPING ══
 const ESELON2 = [
-  { id: 'e2_sek', name: 'Sekretariat Ditjen Badilag', icon: '🏛️' },
-  { id: 'e2_adm', name: 'Dit. Pembinaan Administrasi Perkara Peradilan', icon: '⚖️' },
-  { id: 'e2_ttk', name: 'Dit. Pembinaan Tenaga Teknis Peradilan', icon: '👨‍⚖️' },
-  { id: 'e2_prt', name: 'Dit. Pranata dan Tatalaksana Perkara', icon: '📋' },
+  { id: 'e2_sek', name: 'Sekretariat Ditjen Badilag',                               icon: '🏛️'  },
+  { id: 'e2_adm', name: 'Dit. Pembinaan Administrasi Perkara Peradilan Agama',      icon: '⚖️'   },
+  { id: 'e2_ttk', name: 'Dit. Pembinaan Tenaga Teknis Peradilan Agama',             icon: '👨‍⚖️' },
+  { id: 'e2_prt', name: 'Dit. Pranata dan Tatalaksana Perkara',                    icon: '📋'  },
 ];
 
+// ══ STRUKTUR ESELON III & IV — Struktur Organisasi Terbaru ══
+// 1. Sekretariat: 4 Bagian → 12 Kasubbag
+// 2. Dit. Adm. PA: 3 Subdit → 9 Kasi/Kasubbag  (Subdit Syariah PINDAH ke Dit. Pranata)
+// 3. Dit. Tenaga Teknis: 4 Subdit → 12 Kasi/Kasubbag
+// 4. Dit. Pranata & Tatalaksana Perkara (BARU): 1 Subdit → 3 Kasi
 
-// ══ STRUKTUR ESELON III & IV ══
 const ESELON3 = [
-  {id:'e3s1', nama:'Bagian Kepegawaian', eselon2:'e2_sek'},
+  // ─── Sekretariat Ditjen Badilag ───
+  {id:'e3s1', nama:'Bagian Kepegawaian',                eselon2:'e2_sek'},
   {id:'e3s2', nama:'Bagian Organisasi dan Tata Laksana', eselon2:'e2_sek'},
-  {id:'e3s3', nama:'Bagian Perencanaan dan Keuangan', eselon2:'e2_sek'},
-  {id:'e3s4', nama:'Bagian Umum', eselon2:'e2_sek'},
-  {id:'e3a1', nama:'Subdit Bimbingan dan Monitoring', eselon2:'e2_adm'},
-  {id:'e3p1', nama:'Subdit Syariah', eselon2:'e2_prt'},
-  {id:'e3a3', nama:'Subdit Tata Kelola', eselon2:'e2_adm'},
-  {id:'e3a4', nama:'Subdit Statistik dan Dokumentasi', eselon2:'e2_adm'},
-  {id:'e3t1', nama:'Subdit Mutasi Hakim', eselon2:'e2_ttk'},
+  {id:'e3s3', nama:'Bagian Perencanaan dan Keuangan',   eselon2:'e2_sek'},
+  {id:'e3s4', nama:'Bagian Umum',                       eselon2:'e2_sek'},
+  // ─── Dit. Pembinaan Administrasi Perkara Peradilan Agama ───
+  {id:'e3a1', nama:'Subdit Bimbingan dan Monitoring',   eselon2:'e2_adm'},
+  {id:'e3a2', nama:'Subdit Tata Kelola',                eselon2:'e2_adm'},
+  {id:'e3a3', nama:'Subdit Statistik dan Dokumentasi',  eselon2:'e2_adm'},
+  // ─── Dit. Pembinaan Tenaga Teknis Peradilan Agama ───
+  {id:'e3t1', nama:'Subdit Mutasi Hakim',               eselon2:'e2_ttk'},
   {id:'e3t2', nama:'Subdit Mutasi Panitera dan Jurusita', eselon2:'e2_ttk'},
   {id:'e3t3', nama:'Subdit Pengembangan Tenaga Teknis', eselon2:'e2_ttk'},
-  {id:'e3t4', nama:'Subdit Data dan Evaluasi', eselon2:'e2_ttk'},
+  {id:'e3t4', nama:'Subdit Data dan Evaluasi',          eselon2:'e2_ttk'},
+  // ─── Dit. Pranata dan Tatalaksana Perkara (BARU) ───
+  {id:'e3p1', nama:'Subdit Syariah',                    eselon2:'e2_prt'},
 ];
 
 const ESELON4 = [
-  // Bag. Kepegawaian
-  {id:'e4s101', nama:'Subbag Umum Kepegawaian', eselon3:'e3s1'},
-  {id:'e4s102', nama:'Subbag Mutasi Kepegawaian', eselon3:'e3s1'},
-  {id:'e4s103', nama:'Subbag Pemberhentian dan Pensiun', eselon3:'e3s1'},
-  // Bag. Ortala
-  {id:'e4s201', nama:'Subbag Kelembagaan dan Pelaporan', eselon3:'e3s2'},
-  {id:'e4s202', nama:'Subbag Dokumentasi dan Informasi', eselon3:'e3s2'},
-  {id:'e4s203', nama:'Subbag Ketatalaksanaan', eselon3:'e3s2'},
-  // Bag. Perenc. & Keuangan
-  {id:'e4s301', nama:'Subbag Perencanaan Program dan Penyusunan Anggaran', eselon3:'e3s3'},
-  {id:'e4s302', nama:'Subbag Anggaran dan Perbendaharaan', eselon3:'e3s3'},
-  {id:'e4s303', nama:'Subbag Akuntansi', eselon3:'e3s3'},
-  // Bag. Umum
-  {id:'e4s401', nama:'Subbag Tata Usaha', eselon3:'e3s4'},
-  {id:'e4s402', nama:'Subbag Rumah Tangga', eselon3:'e3s4'},
-  {id:'e4s403', nama:'Subbag Perlengkapan', eselon3:'e3s4'},
-  // Subdit Bimbingan & Monitoring
-  {id:'e4a101', nama:'Kasi Bimbingan I', eselon3:'e3a1'},
-  {id:'e4a102', nama:'Kasi Bimbingan II', eselon3:'e3a1'},
-  {id:'e4a103', nama:'Kasi Monitoring dan Evaluasi', eselon3:'e3a1'},
-  // Subdit Syariah (Dit. Pranata dan Tatalaksana Perkara)
-  {id:'e4p101', nama:'Kasi Pengkajian Syariah dan Hisab Rukyat', eselon3:'e3p1'},
-  {id:'e4p102', nama:'Kasi Evaluasi dan Pengendalian', eselon3:'e3p1'},
-  {id:'e4p103', nama:'Kasi Kodifikasi dan Yurisprudensi', eselon3:'e3p1'},
-  // Subdit Tata Kelola
-  {id:'e4a301', nama:'Kasi Tata Persidangan', eselon3:'e3a3'},
-  {id:'e4a302', nama:'Kasi Sarana Kerja Pengadilan', eselon3:'e3a3'},
-  {id:'e4a303', nama:'Kasi Pelayanan Peradilan', eselon3:'e3a3'},
-  // Subdit Statistik & Dokumentasi
-  {id:'e4a401', nama:'Kasi Statistik', eselon3:'e3a4'},
-  {id:'e4a402', nama:'Kasi Dokumentasi Wilayah Hukum', eselon3:'e3a4'},
-  {id:'e4a403', nama:'Kasubbag Tata Usaha Dit. Adm. PA', eselon3:'e3a4'},
-  // Subdit Mutasi Hakim
-  {id:'e4t101', nama:'Kasi Mutasi I Hakim', eselon3:'e3t1'},
-  {id:'e4t102', nama:'Kasi Mutasi II Hakim', eselon3:'e3t1'},
-  {id:'e4t103', nama:'Kasi Tata Naskah Mutasi Hakim', eselon3:'e3t1'},
-  // Subdit Mutasi Panitera & Jurusita
-  {id:'e4t201', nama:'Kasi Mutasi I Panitera dan Jurusita', eselon3:'e3t2'},
-  {id:'e4t202', nama:'Kasi Mutasi II Panitera dan Jurusita', eselon3:'e3t2'},
-  {id:'e4t203', nama:'Kasi Tata Naskah Panitera dan Jurusita', eselon3:'e3t2'},
-  // Subdit Pengembangan
-  {id:'e4t301', nama:'Kasi Evaluasi dan Rasionalisasi', eselon3:'e3t3'},
-  {id:'e4t302', nama:'Kasi Peningkatan Mutu Hakim', eselon3:'e3t3'},
-  {id:'e4t303', nama:'Kasi Peningkatan Mutu Panitera dan Jurusita', eselon3:'e3t3'},
-  {id:'e4t304', nama:'Kasubbag Tata Usaha Dit. Tenaga Teknis', eselon3:'e3t3'},
-  // Subdit Data & Evaluasi
-  {id:'e4t401', nama:'Kasi Arsip dan Dokumentasi', eselon3:'e3t4'},
-  {id:'e4t402', nama:'Kasi Evaluasi dan Pelaporan', eselon3:'e3t4'},
-  {id:'e4t403', nama:'Kasi Data dan Informasi Tenaga Teknis', eselon3:'e3t4'},
+  // ── Bag. Kepegawaian (e3s1) ──
+  {id:'e4s101', nama:'Kasubbag Umum Kepegawaian',                    eselon3:'e3s1'},
+  {id:'e4s102', nama:'Kasubbag Mutasi Kepegawaian',                  eselon3:'e3s1'},
+  {id:'e4s103', nama:'Kasubbag Pemberhentian dan Pensiun',           eselon3:'e3s1'},
+  // ── Bag. Organisasi dan Tata Laksana (e3s2) ──
+  {id:'e4s201', nama:'Kasubbag Kelembagaan dan Pelaporan',           eselon3:'e3s2'},
+  {id:'e4s202', nama:'Kasubbag Dokumentasi dan Informasi',           eselon3:'e3s2'},
+  {id:'e4s203', nama:'Kasubbag Ketatalaksanaan',                     eselon3:'e3s2'},
+  // ── Bag. Perencanaan dan Keuangan (e3s3) ──
+  {id:'e4s301', nama:'Kasubbag Perencanaan Program dan Anggaran',    eselon3:'e3s3'},
+  {id:'e4s302', nama:'Kasubbag Anggaran dan Perbendaharaan',         eselon3:'e3s3'},
+  {id:'e4s303', nama:'Kasubbag Akuntansi',                           eselon3:'e3s3'},
+  // ── Bag. Umum (e3s4) ──
+  {id:'e4s401', nama:'Kasubbag Tata Usaha Bagian Umum',             eselon3:'e3s4'},
+  {id:'e4s402', nama:'Kasubbag Rumah Tangga',                        eselon3:'e3s4'},
+  {id:'e4s403', nama:'Kasubbag Perlengkapan',                        eselon3:'e3s4'},
+  // ── Subdit Bimbingan dan Monitoring / Bimon (e3a1) ──
+  {id:'e4a101', nama:'Kasi Bimbingan I',                             eselon3:'e3a1'},
+  {id:'e4a102', nama:'Kasi Bimbingan II',                            eselon3:'e3a1'},
+  {id:'e4a103', nama:'Kasi Monitoring dan Evaluasi',                 eselon3:'e3a1'},
+  // ── Subdit Tata Kelola / Takel (e3a2) ──
+  {id:'e4a201', nama:'Kasi Tata Persidangan',                        eselon3:'e3a2'},
+  {id:'e4a202', nama:'Kasi Sarana Kerja Pengadilan',                 eselon3:'e3a2'},
+  {id:'e4a203', nama:'Kasi Pelayanan Peradilan',                     eselon3:'e3a2'},
+  // ── Subdit Statistik dan Dokumentasi / Stadok (e3a3) ──
+  {id:'e4a301', nama:'Kasi Statistik',                               eselon3:'e3a3'},
+  {id:'e4a302', nama:'Kasi Dokumentasi Wilayah Hukum',               eselon3:'e3a3'},
+  {id:'e4a303', nama:'Kasubbag Tata Usaha Dit. Adm. PA',             eselon3:'e3a3'},
+  // ── Subdit Mutasi Hakim (e3t1) ──
+  {id:'e4t101', nama:'Kasi Mutasi I Hakim',                          eselon3:'e3t1'},
+  {id:'e4t102', nama:'Kasi Mutasi II Hakim',                         eselon3:'e3t1'},
+  {id:'e4t103', nama:'Kasi Tata Naskah Mutasi Hakim',                eselon3:'e3t1'},
+  // ── Subdit Mutasi Panitera dan Jurusita (e3t2) ──
+  {id:'e4t201', nama:'Kasi Mutasi I Panitera dan Jurusita',          eselon3:'e3t2'},
+  {id:'e4t202', nama:'Kasi Mutasi II Panitera dan Jurusita',         eselon3:'e3t2'},
+  {id:'e4t203', nama:'Kasi Tata Naskah Panitera dan Jurusita',       eselon3:'e3t2'},
+  // ── Subdit Pengembangan Tenaga Teknis (e3t3) ──
+  {id:'e4t301', nama:'Kasi Evaluasi dan Rasionalisasi',              eselon3:'e3t3'},
+  {id:'e4t302', nama:'Kasi Peningkatan Mutu Hakim',                  eselon3:'e3t3'},
+  {id:'e4t303', nama:'Kasi Peningkatan Mutu Panitera dan Jurusita',  eselon3:'e3t3'},
+  {id:'e4t304', nama:'Kasubbag Tata Usaha Dit. Tenaga Teknis',       eselon3:'e3t3'},
+  // ── Subdit Data dan Evaluasi (e3t4) ──
+  {id:'e4t401', nama:'Kasi Arsip dan Dokumentasi',                   eselon3:'e3t4'},
+  {id:'e4t402', nama:'Kasi Evaluasi dan Pelaporan',                  eselon3:'e3t4'},
+  {id:'e4t403', nama:'Kasi Data dan Informasi Tenaga Teknis',        eselon3:'e3t4'},
+  // ── Subdit Syariah — Dit. Pranata & Tatalaksana Perkara (e3p1) ──
+  {id:'e4p101', nama:'Kasi Pengkajian Syariah dan Hisab Rukyat',     eselon3:'e3p1'},
+  {id:'e4p102', nama:'Kasi Evaluasi dan Pengendalian Syariah',       eselon3:'e3p1'},
+  {id:'e4p103', nama:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah', eselon3:'e3p1'},
 ];
 
 function getE3Opts(e2Id, selId='') {
@@ -675,9 +683,72 @@ async function loadFromFirebase() {
 }
 // Preload data Ditjen Badilag v1.0 — dipanggil dari init
 function loadDefaultData() {
-if (!S.depts.length) { S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "s07", "name": "Subbag Kelembagaan dan Pelaporan", "icon": "📊"}, {"id": "s08", "name": "Subbag Dokumentasi dan Informasi", "icon": "📁"}, {"id": "s09", "name": "Subbag Ketatalaksanaan", "icon": "⚙️"}, {"id": "s10", "name": "Bagian Perencanaan dan Keuangan", "icon": "💰"}, {"id": "s11", "name": "Subbag Perencanaan Program dan Penyusunan Anggaran", "icon": "📈"}, {"id": "s12", "name": "Subbag Anggaran dan Perbendaharaan", "icon": "💵"}, {"id": "s13", "name": "Subbag Akuntansi", "icon": "🧾"}, {"id": "s14", "name": "Bagian Umum", "icon": "🏢"}, {"id": "s15", "name": "Subbag Tata Usaha Bagian Umum", "icon": "📮"}, {"id": "s16", "name": "Subbag Rumah Tangga", "icon": "🏠"}, {"id": "s17", "name": "Subbag Perlengkapan", "icon": "📦"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "a02", "name": "Subdit Bimbingan dan Monitoring", "icon": "🔍"}, {"id": "a03", "name": "Kasi Bimbingan I", "icon": "📋"}, {"id": "a04", "name": "Kasi Bimbingan II", "icon": "📋"}, {"id": "a05", "name": "Kasi Monitoring dan Evaluasi", "icon": "📊"}, {"id": "a06", "name": "Subdit Syariah", "icon": "🕌"}, {"id": "a07", "name": "Kasi Pengkajian Syariah dan Hisab Rukyat", "icon": "📜"}, {"id": "a08", "name": "Kasi Evaluasi dan Pengendalian Syariah", "icon": "✅"}, {"id": "a09", "name": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah", "icon": "📖"}, {"id": "a10", "name": "Subdit Tata Kelola", "icon": "🗂️"}, {"id": "a11", "name": "Kasi Tata Persidangan", "icon": "🏛️"}, {"id": "a12", "name": "Kasi Sarana Kerja Pengadilan", "icon": "🛠️"}, {"id": "a13", "name": "Kasi Pelayanan Peradilan", "icon": "🤝"}, {"id": "a14", "name": "Subdit Statistik dan Dokumentasi", "icon": "📊"}, {"id": "a15", "name": "Kasi Statistik", "icon": "📈"}, {"id": "a16", "name": "Kasi Dokumentasi Wilayah Hukum", "icon": "🗺️"}, {"id": "a17", "name": "Kasubbag Tata Usaha Dit. Adm. PA", "icon": "📮"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "t02", "name": "Subdit Mutasi Hakim", "icon": "👨‍⚖️"}, {"id": "t03", "name": "Kasi Mutasi I Hakim", "icon": "📋"}, {"id": "t04", "name": "Kasi Mutasi II Hakim", "icon": "📋"}, {"id": "t05", "name": "Kasi Tata Naskah Mutasi Hakim", "icon": "📝"}, {"id": "t06", "name": "Subdit Mutasi Panitera dan Jurusita", "icon": "⚖️"}, {"id": "t07", "name": "Kasi Mutasi I Panitera dan Jurusita", "icon": "📋"}, {"id": "t08", "name": "Kasi Mutasi II Panitera dan Jurusita", "icon": "📋"}, {"id": "t09", "name": "Kasi Tata Naskah Panitera dan Jurusita", "icon": "📝"}, {"id": "t10", "name": "Subdit Pengembangan Tenaga Teknis", "icon": "🎓"}, {"id": "t11", "name": "Kasi Evaluasi dan Rasionalisasi", "icon": "📊"}, {"id": "t12", "name": "Kasi Peningkatan Mutu Hakim", "icon": "⭐"}, {"id": "t13", "name": "Kasubbag Tata Usaha Dit. Tenaga Teknis", "icon": "📮"}, {"id": "t14", "name": "Subdit Data dan Evaluasi", "icon": "💾"}, {"id": "t15", "name": "Kasi Arsip dan Dokumentasi", "icon": "🗄️"}, {"id": "t16", "name": "Kasi Evaluasi dan Pelaporan", "icon": "📈"}, {"id": "t17", "name": "Kasi Data dan Informasi Tenaga Teknis", "icon": "💻"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
-}
-if (!S.emps.length && !fbLoaded)  { S.emps  = [{"id": "e_csv_0_1004", "name": "Drs. H. Muchlis, S.H., M.H.", "nip": "196608101993031004", "golongan": "Pembina Utama (IV/e)", "jabatan": "Direktur Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_1_1004", "name": "Drs. Arief Hidayat, S.H., M.M.", "nip": "196809041993031004", "golongan": "Pembina Utama Madya (IV/d)", "jabatan": "Sekretaris Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_2_2002", "name": "Hj. Nitasari, S.H., M.M.", "nip": "197108301992032002", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_3_1009", "name": "Zaenal Abidin, S.E.", "nip": "198103252011011009", "golongan": "Penata Tk I (III/d)", "jabatan": "Kepala Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_4_2005", "name": "Fenny Sulistyaningsih, S.E., M.M", "nip": "197804242006042005", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_5_1001", "name": "M.Yakub, S.E., M.M.", "nip": "198401042006041001", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_6_2014", "name": "Fitriza Agustina, S.E., M.M.", "nip": "198108022006042014", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Akuntansi pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_7_2003", "name": "Dian Puspita Rini, S.E. M.Si.", "nip": "198604142009122003", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Anggaran dan Perbendaharaan pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_8_2009", "name": "Inke Kurnia, S.Kom., M.M.", "nip": "198511162009042009", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Perencanaan Program dan Penyusunan Anggaran pada Bagian Perencanaan dan Keuangan Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_9_1002", "name": "Lilik Subagyo, S.Kom. M.H.", "nip": "197506292009121002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Umum Kepegawaian Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_10_2003", "name": "Afika Rahmah, S.Sos., M.H.", "nip": "198208272006042003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Mutasi Kepegawaian Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_11_1008", "name": "Achmad Suyatno, S.E., M.M.", "nip": "197610202006041008", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Pemberhentian dan Pensiun Bagian Kepegawaian Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_12_1001", "name": "Sumantri Tejo Kusumo, S.E. M.M", "nip": "197708082009121001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Kelembagaan dan Pelaporan Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_13_1001", "name": "Maimun, S.H.", "nip": "198012032006041001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Bagian Dokumentasi dan Informasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_14_2002", "name": "Nikmah Rahmawati, S.Kom.", "nip": "199006112015032002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Ketatalaksanaan Bagian Organisasi dan Tata Laksana Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_15_1003", "name": "Andhika Zaldy, S.H.", "nip": "198306072006041003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasubbag Tata Usaha Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_16_1002", "name": "Offend Adetriartna, S.Ap.", "nip": "199501122020121002", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Kasubbag Rumah Tangga Bagian Umum Sekretariat Direktoral Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_17_1002", "name": "Oktario Prastia Wildan, S.Kom.", "nip": "198810282015031002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Perlengkapan Bagian Umum Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_18_1001", "name": "Yudi Hermawan, S.H.I.", "nip": "198705112017121001", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_19_1006", "name": "Rendra Widyakso, S.H.", "nip": "199301012017121006", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_20_1004", "name": "Fahadil Amin AL Hasan, S.Sy., M.Si", "nip": "199112262017121004", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Hakim Yustisial", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_21_1003", "name": "Reza Dwi Ardianto, S.H. M.H.", "nip": "198805242009121003", "golongan": "Penata (III/c)", "jabatan": "Fungsional Pengelolaan Keuangan APBN Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_22_1007", "name": "Arief Kusuma Putra, S.Kom", "nip": "199011102020121007", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_23_2013", "name": "Septi Rahayu, S.S.T.Ars", "nip": "199209252020122013", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Arsiparis Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_24_2000", "name": "Nisa Tahaja Seadillah, S. Kom.", "nip": "199109192020122000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_25_2002", "name": "Mifta Hidayah, A.Md.Kb.N", "nip": "200011022022012002", "golongan": "Pengatur (II/c)", "jabatan": "Pranata Keuangan APBN Pelaksana/Terampil", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_26_2001", "name": "Dra. Arina Suyetty", "nip": "196805281995032001", "golongan": "Pembina (IV/a)", "jabatan": "Operator Penata Layanan Operasional", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_27_2002", "name": "Sri Harni, S.H.", "nip": "197205121994032002", "golongan": "Penata Tk I (III/d)", "jabatan": "Klerek - Konselor Kepegawaian, Sub Bagian Pemberhentian dan Pensiun", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_28_1001", "name": "Mohammad Taufik, S.H.", "nip": "198704182006041001", "golongan": "Penata (III/c)", "jabatan": "Operator - Penata Layanan Operasional, Sub Bagian Anggaran dan Perbendaharaan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_29_2000", "name": "Resgi Rishandita, S. E.", "nip": "198812012020122000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Operator - Penata Layanan Operasional, Subbagian Umum Kepegawaian", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_30_2001", "name": "Pebri Tripeni", "nip": "198502132006042001", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Sub Bagian Perencanaan Program dan Penyusunan Anggaran", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_31_2008", "name": "Ninda Afifah Permatasari, S.H.", "nip": "199406032022032008", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Klerek - Analis Perkara Peradilan, Subbagian Rumah Tangga", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_32_1006", "name": "Fariz Alwan, S.E.", "nip": "199707202022031006", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Penelaah Teknis Kebijakan, Subbagian Kelembagaan dan Pelaporan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_33_2005", "name": "Febi Rizkia, A. Md", "nip": "200002232022032005", "golongan": "Pengatur (II/c)", "jabatan": "Klerek - Pengolah Data dan Informasi, Subbagian Ketatalaksanaan", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_34_1000", "name": "Wildan Achsanul Fikri, S.E.", "nip": "199511292025061000", "golongan": "Penata Muda (III/a)", "jabatan": "Analis Pengelolaan Keuangan APBN Ahli Pertama, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_35_2000", "name": "Farah Mas'udatul Rahmadani, S.AK.", "nip": "200012082025062000", "golongan": "Penata Muda (III/a)", "jabatan": "Analis Pengelolaan Keuangan APBN Ahli Pertama, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_36_2043", "name": "Fatin Fiqruna, S.H.", "nip": "199208092023212043", "golongan": "IX", "jabatan": "Pengelola Pengadaan Barang/Jasa Ahli Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_37_1008", "name": "Mokhamad Subartin, S.H.", "nip": "197701202025211008", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_38_1023", "name": "Iwan Kartiwan, S.H.", "nip": "197607042025211023", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Perencanaan Program dan Penyusunan Anggaran Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_39_1030", "name": "Triyan Finoza, S.H.", "nip": "199101292025211030", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_40_1026", "name": "Abdul Rahman, S.H.", "nip": "198111092025211026", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_41_1047", "name": "Adhityas Prathama, S.H.", "nip": "199308072025211047", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_42_1041", "name": "Adithia Fadli, S.H.", "nip": "198708282025211041", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_43_1025", "name": "Hafzhani Ahmad, A.Md.", "nip": "199401182025211025", "golongan": "VII", "jabatan": "Pengelola Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_44_1032", "name": "Imam Santoso", "nip": "198702252025211032", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_45_1043", "name": "Yono Karyono", "nip": "198603012025211043", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Anggaran dan Perbendaharaan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_46_1013", "name": "Muhammad Andika Putra Bustan", "nip": "199901212025211013", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Akuntansi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_47_1066", "name": "Aulia Putera", "nip": "198505252025211066", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Dokumentasi dan Informasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_48_1006", "name": "Achmad Fauzan", "nip": "200110102025211006", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_49_1019", "name": "Hendra Friza", "nip": "198111242025211019", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Sekretariat Ditjen Badilag", "eselon2Icon": "🏛️", "bagian": "", "subbag": "", "deptId": "s01", "icon": "👤"}, {"id": "e_csv_50_1001", "name": "Sutarno, S.IP, M.M.", "nip": "197302171992031001", "golongan": "Pembina Utama Muda (IV/c)", "jabatan": "Direktur Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_51_1001", "name": "Pranasta Surga, S.H., M. Kom", "nip": "198709252006041001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kepala Sub Direktorat Bimbingan Dan Monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_52_1001", "name": "Daud Al Wadud, S.E., M.M.", "nip": "197302232006041001", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_53_2001", "name": "Itjah Minantika, S.E., S.H., M.H.", "nip": "197705302005022001", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Tata Kelola Direktorat Tata Kelola Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_54_2001", "name": "Hj. Lystia Paramita Amaliyah Rum, S.H., M.H.", "nip": "198406202008052001", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Statistik Dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_55_2004", "name": "Aulia Septiani, S.SI.", "nip": "199009042015032004", "golongan": "Penata (III/c)", "jabatan": "Kasi Bimbingan I Pada Sub. Direktorat Bimbingan dan monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_56_1003", "name": "Fajar Setiawan, S.Sos., MBA.", "nip": "198501162009041003", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Bimbingan II Pada Sub Direktorat Bimbingan dan Monitoring Direktorat Pembinaan Adminitrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_57_1003", "name": "Suryo Waskito Wirano, S. Kom", "nip": "198603082015031003", "golongan": "Penata (III/c)", "jabatan": "Kasi Monitoring dan Evaluasi Pada Sub. Direktorat Bimbingan dan Monitoring Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_58_1002", "name": "Wahyu Setiyawan, S.H.", "nip": "198705282006041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Pelayanan Peradilan Pada Sub Direktorat Tata Kelola Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_59_2003", "name": "Tri Hartatik, S.E.", "nip": "198112172009122003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Tata Persidangan Pada Sub Direktorat Tata Kelola Direktorat Pembinaan Administrai Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_60_1003", "name": "Agus Santosa, S.H.", "nip": "198406122006041003", "golongan": "Penata (III/c)", "jabatan": "Seksi Sarana Kerja Pengadilan, Direktorat Pembinaan Administrai Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_61_1004", "name": "Fathul Ma'rif, S.H., M.H.", "nip": "198604212006041004", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Statistik Pada Sub Direktorat Statistik dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_62_2001", "name": "Endah Purnamasari, S.Kom", "nip": "198405152008052001", "golongan": "Penata (III/c)", "jabatan": "Kasi Dokumentasi Wilayah Hukum Pada Sub Direktorat Statistik dan Dokumentasi Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_63_2011", "name": "Fitri Suryaningsih, S.Pd.", "nip": "197807072006042011", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Pengkajian Syariah dan Hisab Rukyat Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_64_2001", "name": "Dwiana Sri Handayani , S.H.", "nip": "196803051989032001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_65_2004", "name": "Nurhayati, S.E., M.M.", "nip": "197901162009042004", "golongan": "Penata (III/c)", "jabatan": "Kasi Evaluasi dan Pengendalian Pada Sub Direktorat Syariah Direktorat Pranata dan Tata Laksana Perkara Perdata Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_66_2002", "name": "Anna Tresnasari, S.H. M.H.", "nip": "197606052006042002", "golongan": "Penata (III/c)", "jabatan": "Kasubbag Tata Usaha Direktorat Pembinaan Administrasi Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_67_1004", "name": "Saryono, S.Kom", "nip": "198801082020121004", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_68_1002", "name": "Rizky Nur Ariansyah, S.H.", "nip": "199612032020121002", "golongan": "Penata Muda Tk.I III/b", "jabatan": "Klerek - Analis Perkara Peradilan, Seksi Monitoring dan Evaluasi", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_69_2003", "name": "Raden Desy Puspasari, A.Md", "nip": "197912182009042003", "golongan": "Penata III/c", "jabatan": "Klerek - Pengolah Data dan Informasi, Sub Bagian Tata Usaha", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_70_1003", "name": "Yusuf Nurullah", "nip": "198506292006041003", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Sub Bagian Tata Usaha", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_71_1002", "name": "Mochamad Zainuddin", "nip": "198202222006041002", "golongan": "Penata Muda (III/a)", "jabatan": "Klerek - Pengadministrasi Perkantoran, Seksi Pengkajian Syariah dan Hisab Rukyat", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_72_1000", "name": "Ilham Kholid Mubarok, S.T.", "nip": "199907062025061000", "golongan": "Penata Muda (III/a)", "jabatan": "Penata Kelola Sistem dan Teknologi Informasi, Subbagian Perlengkapan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_73_1013", "name": "Rizki Yansyah, S.Kom", "nip": "198309292023211013", "golongan": "IX", "jabatan": "Pranata Komputer Ahli Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_74_2038", "name": "Musyawirah Isra, S.H.", "nip": "199008072025212038", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Pelayanan Peradilan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_75_1033", "name": "Angga Setiawan, S.Kom.", "nip": "199609242025211033", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Bimbingan I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_76_1037", "name": "Surachman, A.Md.", "nip": "198409242025211037", "golongan": "VII", "jabatan": "Pengelola Layanan Operasional, Subbagian Umum Kepegawaian Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_77_2059", "name": "Nurul Mutmainnah", "nip": "199407102025212059", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Tata Persidangan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_78_1044", "name": "Reza Cahyadi", "nip": "199201132025211044", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Monitoring dan Evaluasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_79_1036", "name": "Rahmatullah", "nip": "198207072025211036", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Monitoring dan Evaluasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_80_2037", "name": "Renni Aprillia Ningsih", "nip": "198804182025212037", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Dokumentasi Wilayah Hukum Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_81_1030", "name": "Sahrudin", "nip": "197306122025211030", "golongan": "I", "jabatan": "Pengelola Umum Operasional, Subbagian Rumah Tangga Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Administrasi Peradilan Agama", "eselon2Icon": "⚖️", "bagian": "", "subbag": "", "deptId": "a01", "icon": "👤"}, {"id": "e_csv_83_1002", "name": "Ahyar Siddiq, S.E.I., M.H.I", "nip": "198107262007041002", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_84_1004", "name": "Mas Muhammad Ferdiansyah, S.E.", "nip": "198105132006041004", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Kepala Sub Direktorat Mutasi Panitera Dan Juru Sita Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_85_2003", "name": "Rina Herlina, S.H., M.H.", "nip": "197606132006042003", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_86_2002", "name": "Lala Umilah, S. Psi", "nip": "198109052006042002", "golongan": "Pembina (IV/a)", "jabatan": "Kepala Sub Direktorat Data Dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_87_1007", "name": "M. Tasdik, S.Pd., M.H.", "nip": "198101142006041007", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi II Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_88_2004", "name": "Siti Yanuarina Marhamah, S.H., M.H.", "nip": "198701092006042004", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi I Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_89_2002", "name": "Susi Ari Purwanti, S.H., M.M.", "nip": "196809291991032002", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Tata Naskah Mutasi Hakim Pada Sub Direktorat Mutasi Hakim Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_90_2001", "name": "Fitriati Anom, S.H.", "nip": "198204282007042001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi I Panitera dan jurusita Pada Sub Direktorat Mutasi Panitera dan Juru Sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_91_1002", "name": "Adnan Qori Widanu, S.E.", "nip": "198603012000041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Mutasi II Panitera dan Jurusita Pada Sub Direktorat Mutasi Panitera dan Juru sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama,", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_92_2002", "name": "Muthmainah, S.E., M.M.", "nip": "197606102006042002", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Tata Naskah Panitera dan Juru sita Pada Sub Direktorat Mutasi Panitera dan Juru Sita Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_93_1002", "name": "Herman Hermanto, S.Pd., M.H.", "nip": "197902272006041002", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Evaluasi dan Rasionalisasi Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_94_1002", "name": "Muhammad Fahrizal Adriyanto, S.Kom", "nip": "198712272015031002", "golongan": "Penata (III/c)", "jabatan": "Kasi Peningkatan Mutu Panitera dan Jurusita Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_95_1002", "name": "Budi Santoso, S.H.", "nip": "197306212006041002", "golongan": "Penata (III/c)", "jabatan": "Kasi Peningkatan Mutu Hakim Pada Sub Direktorat Pengembangan Tenaga Teknis Peradilan Direktorat Pembinaan Tenaga Tehnis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_96_1005", "name": "Reynul Ardi, S.E., M.M.", "nip": "197706072009041005", "golongan": "Pembina (IV/a)", "jabatan": "Kasi Data dan Informasi Tenaga Teknis Peradilan, Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_97_2003", "name": "Riskha Septilia, S.H.", "nip": "198209142006042003", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Arsip dan Dokumentasi Pada Sub Direktorat Data dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_98_2001", "name": "Wijayanti, S.H.", "nip": "198401192006042001", "golongan": "Penata Tk I (III/d)", "jabatan": "Kasi Evaluasi dan Pelaporan Sub Direktorat Data dan Evaluasi Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_99_2002", "name": "Lisa Harmayanti, S.Si., M.H.", "nip": "198401222009042002", "golongan": "Pembina (IV/a)", "jabatan": "Kasubbag Tata Usaha Direktorat Pembinaan Tenaga Teknis Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_100_2009", "name": "Rini Astuti, S.S.T.Ars", "nip": "199312082020122009", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Arsiparis Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_101_2000", "name": "Sitti Avania Rizki, S.I.A.", "nip": "199605042019032000", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Fungsional Analis Sumber Daya Manusia Aparatur Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_102_2006", "name": "Daryatul Choiriyah, S.T.", "nip": "199706122020122006", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Ahli Pertama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_103_2002", "name": "Firma Reza Fajriati, A.Md.T", "nip": "199702282020122002", "golongan": "Penata Muda (III/a)", "jabatan": "Fungsional Pranata Komputer Pelaksana / Terampil", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_104_2012", "name": "Aisyah Anani, S.H.", "nip": "199203232020122012", "golongan": "Penata Muda Tingkat I (III/b)", "jabatan": "Klerek - Analis Perkara Peradilan, Seksi Peningkatan Mutu Hakim", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_105_1002", "name": "Dika Andrian, S.Kom., S.H.", "nip": "198701262006041002", "golongan": "Penata Tk I (III/d)", "jabatan": "Panitera Pengganti pada Pengadilan Tinggi Agama Jakarta Diperbantukan pada Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_106_1010", "name": "Muhammad Hudri, S.Kom.", "nip": "199008042019031010", "golongan": "Penata Muda (III/a)", "jabatan": "Juru Sita pada Pengadilan Agama Depok Kelas I.A Diperbantukan pada Sub Direktorat Mutasi Panitera dan Juru Sita Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_107_1003", "name": "Rezza Rijki Adiputra, S.T.", "nip": "199609192019031003", "golongan": "Penata Muda (III/a)", "jabatan": "Juru Sita pada Pengadilan Agama Jakarta Timur Kelas I.A Diperbantukan pada Sub Direktorat Mutasi Panitera dan Juru Sita Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_108_1008", "name": "Romdlon Fauzi, A.Md.", "nip": "199602022019031008", "golongan": "Pembina Tk I (IV/b)", "jabatan": "Juru sita pada Pengadilan Agama Ngamprah Diperbantukan pada Direktorat Pembinaan Tenaga Tehnis Ditjen Badilag", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_109_2000", "name": "Wilda Aulia Rahma, S.Tr.S.I.", "nip": "200104272025062000", "golongan": "Penata Muda (III/a)", "jabatan": "Arsiparis Pertama, Sekretariat Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_110_2020", "name": "Zaza Ragillya, S.H.", "nip": "199807162025212020", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi I Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_111_1092", "name": "Okta Libriansyah Putra, S.Pd.I.", "nip": "198410102025211092", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Mutasi II Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_112_1038", "name": "Fredly Asmoro, S.H.", "nip": "198903082025211038", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Tata Naskah Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_113_2036", "name": "Qisthi Amali, S.E.", "nip": "199602052025212036", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Peningkatan Mutu Hakim Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_114_1020", "name": "Yuri Ostani, S.H.", "nip": "198501192025211020", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Arsip dan Dokumentasi Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_115_2027", "name": "Azizah Mufidati, S.E.", "nip": "197908052025212027", "golongan": "IX", "jabatan": "Penata Layanan Operasional, Seksi Evaluasi dan Pelaporan Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_116_2017", "name": "Yusrina Darneli", "nip": "199810252025212017", "golongan": "V", "jabatan": "Operator Layanan Operasional, Subbagian Tata Usaha Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}, {"id": "e_csv_117_1029", "name": "Achmad Ramadhon", "nip": "198206272025211029", "golongan": "V", "jabatan": "Operator Layanan Operasional, Seksi Peningkatan Mutu Panitera dan Juru Sita Direktorat Jenderal Badan Peradilan Agama", "eselon2": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "eselon2Icon": "👨‍⚖️", "bagian": "", "subbag": "", "deptId": "t01", "icon": "👤"}];}
+if (!S.depts.length) { S.depts = [
+  // ── Eselon I (induk) ──
+  {"id":"dj01","name":"Direktorat Jenderal Badan Peradilan Agama MA RI","icon":"🏛️"},
+
+  // ── 1. SEKRETARIAT DITJEN BADILAG ──
+  {"id":"s01","name":"Sekretariat Ditjen Badilag","icon":"🏛️"},
+  {"id":"s02","name":"Bagian Kepegawaian","icon":"🧑‍💼"},
+  {"id":"s03","name":"Kasubbag Umum Kepegawaian","icon":"👥"},
+  {"id":"s04","name":"Kasubbag Mutasi Kepegawaian","icon":"🔄"},
+  {"id":"s05","name":"Kasubbag Pemberhentian dan Pensiun","icon":"📋"},
+  {"id":"s06","name":"Bagian Organisasi dan Tata Laksana","icon":"📐"},
+  {"id":"s07","name":"Kasubbag Kelembagaan dan Pelaporan","icon":"📊"},
+  {"id":"s08","name":"Kasubbag Dokumentasi dan Informasi","icon":"📁"},
+  {"id":"s09","name":"Kasubbag Ketatalaksanaan","icon":"⚙️"},
+  {"id":"s10","name":"Bagian Perencanaan dan Keuangan","icon":"💰"},
+  {"id":"s11","name":"Kasubbag Perencanaan Program dan Anggaran","icon":"📈"},
+  {"id":"s12","name":"Kasubbag Anggaran dan Perbendaharaan","icon":"💵"},
+  {"id":"s13","name":"Kasubbag Akuntansi","icon":"🧾"},
+  {"id":"s14","name":"Bagian Umum","icon":"🏢"},
+  {"id":"s15","name":"Kasubbag Tata Usaha Bagian Umum","icon":"📮"},
+  {"id":"s16","name":"Kasubbag Rumah Tangga","icon":"🏠"},
+  {"id":"s17","name":"Kasubbag Perlengkapan","icon":"📦"},
+
+  // ── 2. DIT. PEMBINAAN ADMINISTRASI PERKARA PERADILAN AGAMA ──
+  // (3 Subdit — Subdit Syariah sudah PINDAH ke Dit. Pranata)
+  {"id":"a01","name":"Dit. Pembinaan Administrasi Perkara Peradilan Agama","icon":"⚖️"},
+  {"id":"a02","name":"Subdit Bimbingan dan Monitoring","icon":"🔍"},
+  {"id":"a03","name":"Kasi Bimbingan I","icon":"📋"},
+  {"id":"a04","name":"Kasi Bimbingan II","icon":"📋"},
+  {"id":"a05","name":"Kasi Monitoring dan Evaluasi","icon":"📊"},
+  {"id":"a06","name":"Subdit Tata Kelola","icon":"🗂️"},
+  {"id":"a07","name":"Kasi Tata Persidangan","icon":"🏛️"},
+  {"id":"a08","name":"Kasi Sarana Kerja Pengadilan","icon":"🛠️"},
+  {"id":"a09","name":"Kasi Pelayanan Peradilan","icon":"🤝"},
+  {"id":"a10","name":"Subdit Statistik dan Dokumentasi","icon":"📊"},
+  {"id":"a11","name":"Kasi Statistik","icon":"📈"},
+  {"id":"a12","name":"Kasi Dokumentasi Wilayah Hukum","icon":"🗺️"},
+  {"id":"a13","name":"Kasubbag Tata Usaha Dit. Adm. PA","icon":"📮"},
+
+  // ── 3. DIT. PEMBINAAN TENAGA TEKNIS PERADILAN AGAMA ──
+  {"id":"t01","name":"Dit. Pembinaan Tenaga Teknis Peradilan Agama","icon":"👨‍⚖️"},
+  {"id":"t02","name":"Subdit Mutasi Hakim","icon":"👨‍⚖️"},
+  {"id":"t03","name":"Kasi Mutasi I Hakim","icon":"📋"},
+  {"id":"t04","name":"Kasi Mutasi II Hakim","icon":"📋"},
+  {"id":"t05","name":"Kasi Tata Naskah Mutasi Hakim","icon":"📝"},
+  {"id":"t06","name":"Subdit Mutasi Panitera dan Jurusita","icon":"⚖️"},
+  {"id":"t07","name":"Kasi Mutasi I Panitera dan Jurusita","icon":"📋"},
+  {"id":"t08","name":"Kasi Mutasi II Panitera dan Jurusita","icon":"📋"},
+  {"id":"t09","name":"Kasi Tata Naskah Panitera dan Jurusita","icon":"📝"},
+  {"id":"t10","name":"Subdit Pengembangan Tenaga Teknis","icon":"🎓"},
+  {"id":"t11","name":"Kasi Evaluasi dan Rasionalisasi","icon":"📊"},
+  {"id":"t12","name":"Kasi Peningkatan Mutu Hakim","icon":"⭐"},
+  {"id":"t13","name":"Kasi Peningkatan Mutu Panitera dan Jurusita","icon":"⭐"},
+  {"id":"t14","name":"Kasubbag Tata Usaha Dit. Tenaga Teknis","icon":"📮"},
+  {"id":"t15","name":"Subdit Data dan Evaluasi","icon":"💾"},
+  {"id":"t16","name":"Kasi Arsip dan Dokumentasi","icon":"🗄️"},
+  {"id":"t17","name":"Kasi Evaluasi dan Pelaporan","icon":"📈"},
+  {"id":"t18","name":"Kasi Data dan Informasi Tenaga Teknis","icon":"💻"},
+
+  // ── 4. DIT. PRANATA DAN TATALAKSANA PERKARA (BARU) ──
+  {"id":"p01","name":"Dit. Pranata dan Tatalaksana Perkara","icon":"📋"},
+  {"id":"p02","name":"Subdit Syariah","icon":"🕌"},
+  {"id":"p03","name":"Kasi Pengkajian Syariah dan Hisab Rukyat","icon":"📜"},
+  {"id":"p04","name":"Kasi Evaluasi dan Pengendalian Syariah","icon":"✅"},
+  {"id":"p05","name":"Kasi Kodifikasi dan Yurisprudensi Perkara Syariah","icon":"📖"},
+];}
 } // end loadDefaultData
 
 async function persist() {
@@ -2007,44 +2078,46 @@ function downloadQR(qrId, title) {
 
 
 function resetToDefaultDepts() {
-  showConfirm('Muat Struktur Badilag?',
-    'Ini akan menambahkan semua unit kerja Ditjen Badilag (52 unit). Data unit yang sudah ada tetap tersimpan.',
-    () => {
+  showConfirm('Muat Struktur Badilag Terbaru?',
+    'Ini akan menambahkan semua unit kerja Ditjen Badilag (54 unit, struktur terbaru). Data unit yang sudah ada tetap tersimpan.',
+    async () => {
       const defaultDepts = [
+        // ── Eselon I ──
+        {id:'dj01',name:'Direktorat Jenderal Badan Peradilan Agama MA RI',icon:'🏛️'},
+        // ── 1. SEKRETARIAT DITJEN BADILAG ──
         {id:'s01',name:'Sekretariat Ditjen Badilag',icon:'🏛️'},
         {id:'s02',name:'Bagian Kepegawaian',icon:'🧑‍💼'},
-        {id:'s03',name:'Subbag Umum Kepegawaian',icon:'👥'},
-        {id:'s04',name:'Subbag Mutasi Kepegawaian',icon:'🔄'},
-        {id:'s05',name:'Subbag Pemberhentian dan Pensiun',icon:'📋'},
+        {id:'s03',name:'Kasubbag Umum Kepegawaian',icon:'👥'},
+        {id:'s04',name:'Kasubbag Mutasi Kepegawaian',icon:'🔄'},
+        {id:'s05',name:'Kasubbag Pemberhentian dan Pensiun',icon:'📋'},
         {id:'s06',name:'Bagian Organisasi dan Tata Laksana',icon:'📐'},
-        {id:'s07',name:'Subbag Kelembagaan dan Pelaporan',icon:'📊'},
-        {id:'s08',name:'Subbag Dokumentasi dan Informasi',icon:'📁'},
-        {id:'s09',name:'Subbag Ketatalaksanaan',icon:'⚙️'},
+        {id:'s07',name:'Kasubbag Kelembagaan dan Pelaporan',icon:'📊'},
+        {id:'s08',name:'Kasubbag Dokumentasi dan Informasi',icon:'📁'},
+        {id:'s09',name:'Kasubbag Ketatalaksanaan',icon:'⚙️'},
         {id:'s10',name:'Bagian Perencanaan dan Keuangan',icon:'💰'},
-        {id:'s11',name:'Subbag Perencanaan Program dan Penyusunan Anggaran',icon:'📈'},
-        {id:'s12',name:'Subbag Anggaran dan Perbendaharaan',icon:'💵'},
-        {id:'s13',name:'Subbag Akuntansi',icon:'🧾'},
+        {id:'s11',name:'Kasubbag Perencanaan Program dan Anggaran',icon:'📈'},
+        {id:'s12',name:'Kasubbag Anggaran dan Perbendaharaan',icon:'💵'},
+        {id:'s13',name:'Kasubbag Akuntansi',icon:'🧾'},
         {id:'s14',name:'Bagian Umum',icon:'🏢'},
-        {id:'s15',name:'Subbag Tata Usaha Bagian Umum',icon:'📮'},
-        {id:'s16',name:'Subbag Rumah Tangga',icon:'🏠'},
-        {id:'s17',name:'Subbag Perlengkapan',icon:'📦'},
-        {id:'a01',name:'Dit. Pembinaan Administrasi Peradilan Agama',icon:'⚖️'},
+        {id:'s15',name:'Kasubbag Tata Usaha Bagian Umum',icon:'📮'},
+        {id:'s16',name:'Kasubbag Rumah Tangga',icon:'🏠'},
+        {id:'s17',name:'Kasubbag Perlengkapan',icon:'📦'},
+        // ── 2. DIT. PEMBINAAN ADMINISTRASI PERKARA PERADILAN AGAMA ──
+        // (Subdit Syariah sudah PINDAH ke Dit. Pranata)
+        {id:'a01',name:'Dit. Pembinaan Administrasi Perkara Peradilan Agama',icon:'⚖️'},
         {id:'a02',name:'Subdit Bimbingan dan Monitoring',icon:'🔍'},
         {id:'a03',name:'Kasi Bimbingan I',icon:'📋'},
         {id:'a04',name:'Kasi Bimbingan II',icon:'📋'},
         {id:'a05',name:'Kasi Monitoring dan Evaluasi',icon:'📊'},
-        {id:'a06',name:'Subdit Syariah',icon:'🕌'},
-        {id:'a07',name:'Kasi Pengkajian Syariah dan Hisab Rukyat',icon:'📜'},
-        {id:'a08',name:'Kasi Evaluasi dan Pengendalian Syariah',icon:'✅'},
-        {id:'a09',name:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah',icon:'📖'},
-        {id:'a10',name:'Subdit Tata Kelola',icon:'🗂️'},
-        {id:'a11',name:'Kasi Tata Persidangan',icon:'🏛️'},
-        {id:'a12',name:'Kasi Sarana Kerja Pengadilan',icon:'🛠️'},
-        {id:'a13',name:'Kasi Pelayanan Peradilan',icon:'🤝'},
-        {id:'a14',name:'Subdit Statistik dan Dokumentasi',icon:'📊'},
-        {id:'a15',name:'Kasi Statistik',icon:'📈'},
-        {id:'a16',name:'Kasi Dokumentasi Wilayah Hukum',icon:'🗺️'},
-        {id:'a17',name:'Kasubbag Tata Usaha Dit. Adm. PA',icon:'📮'},
+        {id:'a06',name:'Subdit Tata Kelola',icon:'🗂️'},
+        {id:'a07',name:'Kasi Tata Persidangan',icon:'🏛️'},
+        {id:'a08',name:'Kasi Sarana Kerja Pengadilan',icon:'🛠️'},
+        {id:'a09',name:'Kasi Pelayanan Peradilan',icon:'🤝'},
+        {id:'a10',name:'Subdit Statistik dan Dokumentasi',icon:'📊'},
+        {id:'a11',name:'Kasi Statistik',icon:'📈'},
+        {id:'a12',name:'Kasi Dokumentasi Wilayah Hukum',icon:'🗺️'},
+        {id:'a13',name:'Kasubbag Tata Usaha Dit. Adm. PA',icon:'📮'},
+        // ── 3. DIT. PEMBINAAN TENAGA TEKNIS PERADILAN AGAMA ──
         {id:'t01',name:'Dit. Pembinaan Tenaga Teknis Peradilan Agama',icon:'👨‍⚖️'},
         {id:'t02',name:'Subdit Mutasi Hakim',icon:'👨‍⚖️'},
         {id:'t03',name:'Kasi Mutasi I Hakim',icon:'📋'},
@@ -2057,25 +2130,46 @@ function resetToDefaultDepts() {
         {id:'t10',name:'Subdit Pengembangan Tenaga Teknis',icon:'🎓'},
         {id:'t11',name:'Kasi Evaluasi dan Rasionalisasi',icon:'📊'},
         {id:'t12',name:'Kasi Peningkatan Mutu Hakim',icon:'⭐'},
-        {id:'t13',name:'Kasubbag Tata Usaha Dit. Tenaga Teknis',icon:'📮'},
-        {id:'t14',name:'Subdit Data dan Evaluasi',icon:'💾'},
-        {id:'t15',name:'Kasi Arsip dan Dokumentasi',icon:'🗄️'},
-        {id:'t16',name:'Kasi Evaluasi dan Pelaporan',icon:'📈'},
-        {id:'t17',name:'Kasi Data dan Informasi Tenaga Teknis',icon:'💻'},
+        {id:'t13',name:'Kasi Peningkatan Mutu Panitera dan Jurusita',icon:'⭐'},
+        {id:'t14',name:'Kasubbag Tata Usaha Dit. Tenaga Teknis',icon:'📮'},
+        {id:'t15',name:'Subdit Data dan Evaluasi',icon:'💾'},
+        {id:'t16',name:'Kasi Arsip dan Dokumentasi',icon:'🗄️'},
+        {id:'t17',name:'Kasi Evaluasi dan Pelaporan',icon:'📈'},
+        {id:'t18',name:'Kasi Data dan Informasi Tenaga Teknis',icon:'💻'},
+        // ── 4. DIT. PRANATA DAN TATALAKSANA PERKARA (BARU) ──
+        {id:'p01',name:'Dit. Pranata dan Tatalaksana Perkara',icon:'📋'},
+        {id:'p02',name:'Subdit Syariah',icon:'🕌'},
+        {id:'p03',name:'Kasi Pengkajian Syariah dan Hisab Rukyat',icon:'📜'},
+        {id:'p04',name:'Kasi Evaluasi dan Pengendalian Syariah',icon:'✅'},
+        {id:'p05',name:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah',icon:'📖'},
       ];
-      // Tambahkan yang belum ada
       let added = 0;
+      const toSave = [];
       defaultDepts.forEach(d => {
         if(!S.depts.find(x=>x.id===d.id)) {
-          S.depts.push(d); added++;
+          S.depts.push(d); toSave.push(d); added++;
+        } else {
+          // Update nama & icon jika sudah ada (migrasi struktur lama)
+          const existing = S.depts.find(x=>x.id===d.id);
+          if(existing.name !== d.name || existing.icon !== d.icon) {
+            existing.name = d.name; existing.icon = d.icon;
+            toSave.push(existing);
+          }
         }
       });
-      persist(); renderAdmin();
-      toast('✅ ' + added + ' unit berhasil dimuat!');
+      // Hapus unit lama yang tidak ada di struktur baru (a06-a09 Syariah lama)
+      const obsoleteIds = ['a06','a07','a08','a09']; // Syariah lama di Dit. Adm
+      obsoleteIds.forEach(id => {
+        if(S.depts.find(x=>x.id===id) && !S.drives.find(d=>d.deptId===id) && !S.emps.find(e=>e.deptId===id)) {
+          S.depts = S.depts.filter(x=>x.id!==id);
+        }
+      });
+      for(const d of toSave) await fbSaveDept(d);
+      renderAdmin();
+      toast('✅ Struktur terbaru dimuat! ' + added + ' unit baru ditambahkan');
     }
   );
 }
-
 // ══ IMPORT CSV ══
 function triggerFileInput() {
   const inp = document.getElementById('csvFile');
@@ -2372,7 +2466,7 @@ window.addEventListener('load', async ()=>{
   // Jika Firebase gagal, gunakan data lokal bawaan
   loadDefaultData();
   if(!fbLoaded || !S.depts.length) {
-    S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
+    S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "p01", "name": "Dit. Pranata dan Tatalaksana Perkara Perdata Agama", "icon": "📋"}, {"id": "p02", "name": "Subdit Syariah", "icon": "🕌"}, {"id": "p03", "name": "Kasi Pengkajian Syariah dan Hisab Rukyat", "icon": "📜"}, {"id": "p04", "name": "Kasi Evaluasi dan Pengendalian Syariah", "icon": "✅"}, {"id": "p05", "name": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah", "icon": "📖"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
   }
   if(!fbLoaded || !S.emps.length) {
     // Load emps dari localStorage sebagai fallback
