@@ -1315,16 +1315,36 @@ function renderAdmin(){const b=document.getElementById('adminBody');if(S.tab==='
 
 // ── DEPT ──
 function rDepts(c){
-  // Grouping berdasarkan 4 Eselon II resmi
-  const groups = [
-    { label: '🏛️ Sekretariat Ditjen Badilag',                      prefixes: ['s'] },
-    { label: '⚖️ Dit. Pembinaan Administrasi Peradilan Agama',     prefixes: ['a'] },
-    { label: '👨‍⚖️ Dit. Pembinaan Tenaga Teknis Peradilan Agama', prefixes: ['t'] },
-    { label: '📋 Dit. Pranata dan Tatalaksana Perkara',            prefixes: ['p'] },
-    { label: '🏛️ Ditjen Badan Peradilan Agama (Induk)',           prefixes: ['dj'] },
-    { label: '➕ Unit Lainnya',                                     prefixes: [] },
-  ];
-  const knownPrefixes = ['s','a','t','p','dj'];
+  // ── Peta hierarki resmi Eselon II → III → IV ──
+  // Menggunakan ESELON2/3/4 + S.depts untuk render 3-level hirarki
+  // Tidak ada "Unit Lainnya" — semua unit dipetakan ke strukturnya
+
+  // Helper: cari dept dari S.depts berdasarkan nama (case-insensitive)
+  function findDept(nama) {
+    if(!nama) return null;
+    return S.depts.find(d => d.name.trim().toLowerCase() === nama.trim().toLowerCase()) || null;
+  }
+
+  // Helper: render satu baris unit (acard)
+  function cardRow(d, indentPx, borderOpacity) {
+    if(!d) return '';
+    const nD = S.drives.filter(x=>x.deptId===d.id).length;
+    const nE = S.emps.filter(x=>x.deptId===d.id).length;
+    const style = indentPx > 0
+      ? `margin-left:${indentPx}px;border-left:2px solid rgba(0,245,212,${borderOpacity});padding-left:10px;`
+      : '';
+    return `<div class="acard" style="${style}">
+      <span class="acard-ico">${d.icon||'🏢'}</span>
+      <div class="acard-info">
+        <div class="acard-name">${d.name}</div>
+        <div class="acard-sub">${nE} pegawai · ${nD} SOP</div>
+      </div>
+      <div class="acard-acts">
+        <button class="bedit" onclick="editDept('${d.id}')">✏️</button>
+        <button class="bdel"  onclick="delDeptConfirm('${d.id}')">🗑</button>
+      </div>
+    </div>`;
+  }
 
   let h = '<div class="sectitle">Tambah Unit Baru</div>';
   h += '<div class="addbox"><h4>+ Unit Baru</h4>';
@@ -1333,41 +1353,61 @@ function rDepts(c){
   h += '<label class="flabel">Pilih Ikon</label><div id="wND"></div>';
   h += '<button class="addbtn" onclick="addDept()">+ Tambah Unit</button></div>';
 
-  h += '<div class="sectitle">Struktur Organisasi ('+S.depts.length+' unit)</div>';
+  h += '<div class="sectitle">Struktur Organisasi Ditjen Badilag</div>';
   if(S.depts.length <= 5) {
-    h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--amber);">⚠️ Unit masih sedikit. <button onclick="resetToDefaultDepts()" style="background:rgba(255,183,3,.2);border:1px solid rgba(255,183,3,.4);color:var(--amber);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;">Muat Struktur Badilag Lengkap</button></div>';
+    h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);">⚠️ Unit masih sedikit. <button onclick="resetToDefaultDepts()" style="background:rgba(255,183,3,.2);border:1px solid rgba(255,183,3,.4);color:var(--amber);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;">Muat Struktur Badilag Lengkap</button></div>';
   }
 
-  groups.forEach(grp => {
-    let items;
-    if(grp.prefixes.length === 0) {
-      // Unit lainnya = yang tidak masuk prefix manapun
-      items = S.depts.filter(d => !knownPrefixes.some(p => d.id.startsWith(p)));
-    } else {
-      items = S.depts.filter(d => grp.prefixes.some(p => d.id.startsWith(p)));
-    }
-    if(!items.length) return;
+  // Render hierarki 3-level berdasarkan ESELON2 → ESELON3 → ESELON4
+  ESELON2.forEach(e2 => {
+    const dE2 = findDept(e2.name);
 
-    h += '<div style="font-size:10px;color:var(--cyan);letter-spacing:1px;font-weight:800;margin:16px 0 6px;text-transform:uppercase;padding:8px 12px;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.12);border-radius:10px;">'+grp.label+'</div>';
+    // ── Header Eselon II ──
+    h += `<div style="font-size:10px;color:var(--cyan);letter-spacing:1px;font-weight:800;
+                      margin:18px 0 6px;text-transform:uppercase;padding:8px 12px;
+                      background:rgba(0,245,212,.07);border:1px solid rgba(0,245,212,.18);
+                      border-radius:10px;display:flex;align-items:center;gap:6px;">
+            ${e2.icon} ${e2.name}
+          </div>`;
 
-    items.forEach((d, idx) => {
-      const nD = S.drives.filter(x=>x.deptId===d.id).length;
-      const nE = S.emps.filter(x=>x.deptId===d.id).length;
-      // Indentasi: s01/a01/t01/p01/dj01 = Eselon II (indent 0), sisanya sub-unit
-      const isE2 = /^(s01|a01|t01|p01|dj01)$/.test(d.id);
-      const indent = isE2 ? '' : 'margin-left:14px;border-left:2px solid rgba(0,245,212,.12);padding-left:10px;';
-      h += `<div class="acard" style="${indent}">`;
-      h += `<span class="acard-ico">${d.icon}</span>`;
-      h += `<div class="acard-info">`;
-      h += `<div class="acard-name">${d.name}</div>`;
-      h += `<div class="acard-sub">${nE} pegawai · ${nD} SOP</div>`;
-      h += `</div>`;
-      h += `<div class="acard-acts">`;
-      h += `<button class="bedit" onclick="editDept('${d.id}')">✏️</button>`;
-      h += `<button class="bdel" onclick="delDeptConfirm('${d.id}')">🗑</button>`;
-      h += `</div></div>`;
+    // Baris Eselon II (induk direktorat)
+    if(dE2) h += cardRow(dE2, 0, '0');
+
+    // ── Eselon III di bawah e2 ini ──
+    const e3list = ESELON3.filter(e3 => e3.eselon2 === e2.id);
+    e3list.forEach(e3 => {
+      const dE3 = findDept(e3.nama);
+
+      // Baris Eselon III
+      if(dE3) h += cardRow(dE3, 12, '.20');
+
+      // ── Eselon IV di bawah e3 ini ──
+      const e4list = ESELON4.filter(e4 => e4.eselon3 === e3.id);
+      e4list.forEach(e4 => {
+        const dE4 = findDept(e4.nama);
+        if(dE4) h += cardRow(dE4, 26, '.10');
+      });
     });
   });
+
+  // ── Unit tidak terpetakan (custom) — tampilkan di bawah tanpa label Lainnya ──
+  const mappedNames = new Set([
+    ...ESELON2.map(e=>e.name.trim().toLowerCase()),
+    ...ESELON3.map(e=>e.nama.trim().toLowerCase()),
+    ...ESELON4.map(e=>e.nama.trim().toLowerCase()),
+  ]);
+  const extras = S.depts.filter(d =>
+    d.id !== 'dj01' &&
+    !mappedNames.has(d.name.trim().toLowerCase())
+  );
+  if(extras.length) {
+    h += `<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;
+                      margin:18px 0 6px;text-transform:uppercase;padding:6px 10px;
+                      background:var(--s1);border-radius:8px;">
+            🗂️ Unit Tambahan (${extras.length})
+          </div>`;
+    extras.forEach(d => { h += cardRow(d, 0, '0'); });
+  }
 
   c.innerHTML = h;
   setTimeout(()=>initPicker('wND','🏢','newDept'), 10);
