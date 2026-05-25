@@ -545,8 +545,9 @@ function gIco(key,fb){ return (IPS[key]&&IPS[key].sel)?IPS[key].sel:(fb||'🏢')
 // ══ ESELON II MAPPING ══
 const ESELON2 = [
   { id: 'e2_sek', name: 'Sekretariat Ditjen Badilag', icon: '🏛️' },
-  { id: 'e2_adm', name: 'Dit. Pembinaan Administrasi Peradilan Agama', icon: '⚖️' },
-  { id: 'e2_ttk', name: 'Dit. Pembinaan Tenaga Teknis Peradilan Agama', icon: '👨‍⚖️' },
+  { id: 'e2_adm', name: 'Dit. Pembinaan Administrasi Perkara Peradilan', icon: '⚖️' },
+  { id: 'e2_ttk', name: 'Dit. Pembinaan Tenaga Teknis Peradilan', icon: '👨‍⚖️' },
+  { id: 'e2_prt', name: 'Dit. Pranata dan Tatalaksana Perkara', icon: '📋' },
 ];
 
 
@@ -557,7 +558,7 @@ const ESELON3 = [
   {id:'e3s3', nama:'Bagian Perencanaan dan Keuangan', eselon2:'e2_sek'},
   {id:'e3s4', nama:'Bagian Umum', eselon2:'e2_sek'},
   {id:'e3a1', nama:'Subdit Bimbingan dan Monitoring', eselon2:'e2_adm'},
-  {id:'e3a2', nama:'Subdit Syariah', eselon2:'e2_adm'},
+  {id:'e3p1', nama:'Subdit Syariah', eselon2:'e2_prt'},
   {id:'e3a3', nama:'Subdit Tata Kelola', eselon2:'e2_adm'},
   {id:'e3a4', nama:'Subdit Statistik dan Dokumentasi', eselon2:'e2_adm'},
   {id:'e3t1', nama:'Subdit Mutasi Hakim', eselon2:'e2_ttk'},
@@ -587,10 +588,10 @@ const ESELON4 = [
   {id:'e4a101', nama:'Kasi Bimbingan I', eselon3:'e3a1'},
   {id:'e4a102', nama:'Kasi Bimbingan II', eselon3:'e3a1'},
   {id:'e4a103', nama:'Kasi Monitoring dan Evaluasi', eselon3:'e3a1'},
-  // Subdit Syariah
-  {id:'e4a201', nama:'Kasi Pengkajian Syariah dan Hisab Rukyat', eselon3:'e3a2'},
-  {id:'e4a202', nama:'Kasi Evaluasi dan Pengendalian Syariah', eselon3:'e3a2'},
-  {id:'e4a203', nama:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah', eselon3:'e3a2'},
+  // Subdit Syariah (Dit. Pranata dan Tatalaksana Perkara)
+  {id:'e4p101', nama:'Kasi Pengkajian Syariah dan Hisab Rukyat', eselon3:'e3p1'},
+  {id:'e4p102', nama:'Kasi Evaluasi dan Pengendalian', eselon3:'e3p1'},
+  {id:'e4p103', nama:'Kasi Kodifikasi dan Yurisprudensi', eselon3:'e3p1'},
   // Subdit Tata Kelola
   {id:'e4a301', nama:'Kasi Tata Persidangan', eselon3:'e3a3'},
   {id:'e4a302', nama:'Kasi Sarana Kerja Pengadilan', eselon3:'e3a3'},
@@ -610,7 +611,8 @@ const ESELON4 = [
   // Subdit Pengembangan
   {id:'e4t301', nama:'Kasi Evaluasi dan Rasionalisasi', eselon3:'e3t3'},
   {id:'e4t302', nama:'Kasi Peningkatan Mutu Hakim', eselon3:'e3t3'},
-  {id:'e4t303', nama:'Kasubbag Tata Usaha Dit. Tenaga Teknis', eselon3:'e3t3'},
+  {id:'e4t303', nama:'Kasi Peningkatan Mutu Panitera dan Jurusita', eselon3:'e3t3'},
+  {id:'e4t304', nama:'Kasubbag Tata Usaha Dit. Tenaga Teknis', eselon3:'e3t3'},
   // Subdit Data & Evaluasi
   {id:'e4t401', nama:'Kasi Arsip dan Dokumentasi', eselon3:'e3t4'},
   {id:'e4t402', nama:'Kasi Evaluasi dan Pelaporan', eselon3:'e3t4'},
