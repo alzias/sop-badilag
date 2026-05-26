@@ -1698,4 +1698,1249 @@ function rDrives(c){
       h += '<div class="acard-sub">'+nm+tg+e4lbl+'</div>';
       h += '<div class="acard-sub">'+(d.desc||'—')+'</div>';
       h += '</div>';
-      h += '<div class="acard-acts"><button class="bedit"
+      h += '<div class="acard-acts"><button class="bedit" onclick="editDrive(\''+d.id+'\')">✏️</button><button class="bdel" onclick="delDriveConfirm(\''+d.id+'\')">🗑</button></div></div>';
+    });
+  });
+  c.innerHTML=h;
+}
+// ══ CASCADE DROPDOWN HANDLERS (FORM TAMBAH SOP) ══
+function onE2ChangeDr() {
+  const e2Id = document.getElementById('aDrE2').value;
+  const e3El = document.getElementById('aDrE3');
+  const e4El = document.getElementById('aDrE4');
+  e3El.innerHTML = '<option value="">— Pilih Eselon III —</option>';
+  e4El.innerHTML = '<option value="">— Pilih Eselon III dulu —</option>';
+  if(!e2Id) return;
+  ESELON3.filter(e=>e.eselon2===e2Id).forEach(e=>{
+    e3El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
+  });
+  // Auto-sync deptId saat E2 dipilih
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+  window._selectedDeptId = e2ToDept[e2Id] || '';
+}
+
+function onE3ChangeDr() {
+  const e3Id = document.getElementById('aDrE3').value;
+  const e4El = document.getElementById('aDrE4');
+  e4El.innerHTML = '<option value="">— Pilih Eselon IV (opsional) —</option>';
+  if(!e3Id) return;
+  ESELON4.filter(e=>e.eselon3===e3Id).forEach(e=>{
+    e4El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
+  });
+}
+
+async function addDrive(){
+  const e2Id = document.getElementById('aDrE2')?.value;
+  const e3Id = document.getElementById('aDrE3')?.value;
+  const e4Id = document.getElementById('aDrE4')?.value;
+  if(!e2Id){toast('⚠ Pilih Unit Eselon II');return;}
+  if(!e3Id){toast('⚠ Pilih Unit Eselon III');return;}
+  const t=document.getElementById('aDrT').value.trim();
+  const l=document.getElementById('aDrL').value.trim();
+  if(!t){toast('⚠ Judul SOP wajib diisi');return;}
+
+  // Map eselon2 ke deptId (mencakup 4 Eselon II + Dit. Pranata)
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+  // Cari deptId terbaik: prioritas E4 > E3 > E2
+  const e4obj = e4Id ? ESELON4.find(e=>e.id===e4Id) : null;
+  const e3obj = e3Id ? ESELON3.find(e=>e.id===e3Id) : null;
+  const e2obj = ESELON2.find(e=>e.id===e2Id);
+  // Cari dept yang sesuai nama eselon terpilih
+  const targetName = e4obj ? e4obj.nama : (e3obj ? e3obj.nama : (e2obj ? e2obj.name : ''));
+  const matchedDept = S.depts.find(d => d.name.toLowerCase() === targetName.toLowerCase());
+  const deptId = matchedDept ? matchedDept.id : (e2ToDept[e2Id] || 's01');
+
+  const newDrive = {
+    id:'dr'+Date.now(),
+    eselon1: 'Direktorat Jenderal Badan Peradilan Agama MA RI',
+    eselon2Id: e2Id,
+    eselon2: e2obj ? e2obj.name : '',
+    eselon3Id: e3Id || '',
+    eselon3: e3obj ? e3obj.nama : '',
+    eselon4Id: e4Id || '',
+    eselon4: e4obj ? e4obj.nama : '',
+    deptId: deptId,
+    title: t,
+    nomor: document.getElementById('aDrNomor')?.value.trim() || '',
+    tanggal: document.getElementById('aDrTanggal')?.value || '',
+    status: document.getElementById('aDrStatus')?.value || 'Aktif',
+    link: l,
+    desc: document.getElementById('aDrDesc')?.value.trim() || '',
+    content: document.getElementById('aDrContent')?.value.trim() || ''
+  };
+
+  S.drives.push(newDrive);
+  await fbSaveDrive(newDrive);
+  renderAdmin();
+  toast('✅ SOP berhasil ditambahkan');
+}
+function editDrive(id){
+  const d=S.drives.find(x=>x.id===id);
+  const safeContent = (d.content||'').split('<').join('&lt;').split('>').join('&gt;');
+  const statusOpts = '<option value="Aktif"'+((!d.status||d.status==='Aktif')?' selected':'')+'>✅ Aktif</option><option value="Tidak Aktif"'+(d.status==='Tidak Aktif'?' selected':'')+'>❌ Tidak Aktif</option>';
+
+  // Build eselon dropdowns with current values
+  const e2opts = ESELON2.map(e=>'<option value="'+e.id+'"'+(e.id===d.eselon2Id?' selected':'')+'>'+e.icon+' '+e.name+'</option>').join('');
+  const e3opts = d.eselon2Id ? ESELON3.filter(e=>e.eselon2===d.eselon2Id).map(e=>'<option value="'+e.id+'"'+(e.id===d.eselon3Id?' selected':'')+'>'+e.nama+'</option>').join('') : '';
+  const e4opts = d.eselon3Id ? ESELON4.filter(e=>e.eselon3===d.eselon3Id).map(e=>'<option value="'+e.id+'"'+(e.id===d.eselon4Id?' selected':'')+'>'+e.nama+'</option>').join('') : '';
+
+  openForm('✏️ Edit SOP',
+    '<div style="background:rgba(0,245,212,.05);border:1px solid rgba(0,245,212,.15);border-radius:12px;padding:12px;margin-bottom:12px;">'+
+    '<div style="font-size:10px;color:var(--mu);font-weight:700;letter-spacing:1px;margin-bottom:8px;">🏛️ STRUKTUR UNIT KERJA</div>'+
+    '<label class="flabel">Eselon I (Baku)</label>'+
+    '<input class="finput" value="Direktorat Jenderal Badan Peradilan Agama MA RI" disabled style="opacity:.6;cursor:not-allowed;"/>'+
+    '<label class="flabel">Unit Eselon II</label>'+
+    '<select class="fselect" id="eDrE2" onchange="onE2ChangeEdit()"><option value="">— Pilih —</option>'+e2opts+'</select>'+
+    '<label class="flabel">Unit Eselon III</label>'+
+    '<select class="fselect" id="eDrE3" onchange="onE3ChangeEdit()"><option value="">— Pilih —</option>'+e3opts+'</select>'+
+    '<label class="flabel">Unit Eselon IV</label>'+
+    '<select class="fselect" id="eDrE4"><option value="">— Pilih —</option>'+e4opts+'</select>'+
+    '</div>'+
+    '<label class="flabel">Judul SOP</label><input class="finput" id="eDrT" value="'+d.title+'"/>'+
+    '<label class="flabel">Nomor Dokumen</label><input class="finput" id="eDrNomor" value="'+(d.nomor||'')+'"/>'+
+    '<div style="display:flex;gap:10px;">'+
+    '<div style="flex:1;"><label class="flabel">Tanggal Dokumen</label><input class="finput" id="eDrTanggal" type="date" value="'+(d.tanggal||'')+'" style="color:var(--tx);"/></div>'+
+    '<div style="flex:1;"><label class="flabel">Masa Berlaku</label><select class="fselect" id="eDrStatus">'+statusOpts+'</select></div>'+
+    '</div>'+
+    '<label class="flabel">Link Google Drive</label><input class="finput" id="eDrL" value="'+d.link+'"/>'+
+    '<label class="flabel">Deskripsi</label><input class="finput" id="eDrDesc" value="'+(d.desc||'')+'"/>'+
+    '<label class="flabel">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;">(untuk AI)</span></label>'+
+    '<textarea class="finput" id="eDrContent" rows="5" style="resize:vertical;line-height:1.5;font-size:13px;">'+safeContent+'</textarea>'+
+    '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(\'mForm\')">Batal</button><button class="mbtn ok" id="btnSaveDrive">Simpan</button></div>'
+  );
+  setTimeout(()=>{
+    const btn=document.getElementById('btnSaveDrive');
+    if(btn) btn.onclick=()=>saveDrive(id);
+  },50);
+}
+// Edit form cascade handlers
+function onE2ChangeEdit() {
+  const e2Id = document.getElementById('eDrE2').value;
+  const e3El = document.getElementById('eDrE3');
+  const e4El = document.getElementById('eDrE4');
+  e3El.innerHTML = '<option value="">— Pilih Eselon III —</option>';
+  e4El.innerHTML = '<option value="">— Pilih Eselon III dulu —</option>';
+  if(!e2Id) return;
+  ESELON3.filter(e=>e.eselon2===e2Id).forEach(e=>{
+    e3El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
+  });
+}
+function onE3ChangeEdit() {
+  const e3Id = document.getElementById('eDrE3').value;
+  const e4El = document.getElementById('eDrE4');
+  e4El.innerHTML = '<option value="">— Pilih Eselon IV —</option>';
+  if(!e3Id) return;
+  ESELON4.filter(e=>e.eselon3===e3Id).forEach(e=>{
+    e4El.innerHTML += '<option value="'+e.id+'">'+e.nama+'</option>';
+  });
+}
+
+async function saveDrive(id){
+  const t=document.getElementById('eDrT').value.trim();
+  const l=document.getElementById('eDrL').value.trim();
+  if(!t){toast('⚠ Judul SOP wajib diisi');return;}
+  const d=S.drives.find(x=>x.id===id);
+
+  // Update eselon fields if changed
+  const e2Id = document.getElementById('eDrE2')?.value || d.eselon2Id;
+  const e3Id = document.getElementById('eDrE3')?.value || d.eselon3Id;
+  const e4Id = document.getElementById('eDrE4')?.value || d.eselon4Id;
+  const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+  const e2obj = ESELON2.find(e=>e.id===e2Id);
+  const e3obj = e3Id ? ESELON3.find(e=>e.id===e3Id) : null;
+  const e4obj = e4Id ? ESELON4.find(e=>e.id===e4Id) : null;
+
+  // Cari deptId terbaik berdasarkan nama unit yang dipilih
+  const targetNameE = e4obj ? e4obj.nama : (e3obj ? e3obj.nama : (e2obj ? e2obj.name : ''));
+  const matchedDeptE = S.depts.find(dp => dp.name.toLowerCase() === targetNameE.toLowerCase());
+
+  d.eselon1 = 'Direktorat Jenderal Badan Peradilan Agama MA RI';
+  d.eselon2Id = e2Id; d.eselon2 = e2obj ? e2obj.name : d.eselon2 || '';
+  d.eselon3Id = e3Id || ''; d.eselon3 = e3obj ? e3obj.nama : d.eselon3 || '';
+  d.eselon4Id = e4Id || ''; d.eselon4 = e4obj ? e4obj.nama : d.eselon4 || '';
+  d.deptId = matchedDeptE ? matchedDeptE.id : (e2ToDept[e2Id] || d.deptId);
+  d.title=t; d.link=l;
+  d.nomor=(document.getElementById('eDrNomor')||{value:''}).value.trim();
+  d.tanggal=(document.getElementById('eDrTanggal')||{value:''}).value;
+  d.status=(document.getElementById('eDrStatus')||{value:'Aktif'}).value;
+  d.desc=document.getElementById('eDrDesc').value.trim();
+  d.content=(document.getElementById('eDrContent')||{value:''}).value.trim();
+  fbSaveDrive(S.drives.find(x=>x.id===arguments[0])||S.drives[S.drives.length-1]);closeModal('mForm');renderAdmin();toast('✅ SOP berhasil diperbarui');
+}
+function delDriveConfirm(id){const d=S.drives.find(x=>x.id===id);showConfirm('Hapus Drive?','"'+d.title+'" akan dihapus permanen.',()=>delDrive(id));}
+async function delDrive(id){S.drives=S.drives.filter(d=>d.id!==id);await fbDeleteDrive(id);renderAdmin();toast('🗑 Drive dihapus');}
+
+
+// ══ ANALISIS DOKUMEN ══
+function switchDocTab(tab) {
+  const isPaste = tab === 'paste';
+  document.getElementById('panePaste').style.display = isPaste ? 'block' : 'none';
+  document.getElementById('paneLink').style.display  = isPaste ? 'none' : 'block';
+  document.getElementById('tabPaste').className = isPaste ? 'mbtn ok' : 'mbtn cancel';
+  document.getElementById('tabLink').className  = isPaste ? 'mbtn cancel' : 'mbtn ok';
+}
+
+async function analyzeText() {
+  const text = document.getElementById('docText').value.trim();
+  const q    = document.getElementById('docQuestion').value.trim();
+  if (!text) { toast('⚠ Paste isi dokumen terlebih dahulu'); return; }
+  const question = q || 'Tolong analisis dan ringkas dokumen ini.';
+  closeModal('mDoc');
+  const preview = text.length > 60 ? text.slice(0,60)+'...' : text;
+  addMsg(`📄 Analisis dokumen:
+"${preview}"
+
+Pertanyaan: ${question}`, true);
+  await callAIWithDoc(text, question);
+}
+
+async function fetchAndAnalyze() {
+  const link = document.getElementById('docLink').value.trim();
+  const q    = document.getElementById('docLinkQuestion').value.trim();
+  if (!link) { toast('⚠ Masukkan link terlebih dahulu'); return; }
+  const question = q || 'Tolong analisis dan ringkas dokumen ini.';
+
+  const statusEl = document.getElementById('fetchStatus');
+  function setStatus(type, msg) {
+    statusEl.style.display = 'block';
+    statusEl.style.whiteSpace = 'pre-line';
+    statusEl.style.lineHeight = '1.6';
+    statusEl.style.background = type==='ok' ? 'rgba(0,245,212,.06)' : 'rgba(255,77,109,.08)';
+    statusEl.style.border = type==='ok' ? '1px solid rgba(0,245,212,.2)' : '1px solid rgba(255,77,109,.2)';
+    statusEl.style.color = type==='ok' ? 'var(--cyan)' : 'var(--red)';
+    statusEl.textContent = msg;
+  }
+
+  const exportUrl = convertToExportUrl(link);
+  if (!exportUrl) {
+    setStatus('err', '❌ Format link tidak dikenali.\nGunakan link Google Docs, Sheets, Slides, atau Drive publik.');
+    return;
+  }
+
+  setStatus('ok', '⏳ Mengambil isi dokumen...');
+
+  // Multi-proxy fallback
+  const proxies = [
+    () => fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(exportUrl))
+            .then(r => r.json()).then(d => d.contents || ''),
+    () => fetch('https://corsproxy.io/?' + encodeURIComponent(exportUrl))
+            .then(r => r.text()),
+    () => fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(exportUrl))
+            .then(r => r.text()),
+  ];
+
+  let content = '';
+  for (const proxyFn of proxies) {
+    try {
+      const raw = await Promise.race([
+        proxyFn(),
+        new Promise((_,rej) => setTimeout(() => rej('timeout'), 9000))
+      ]);
+      const cleaned = (raw || '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+        .replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+
+
+      if (cleaned.length >= 80) { content = cleaned; break; }
+    } catch(e) { continue; }
+  }
+
+  if (!content) {
+    setStatus('err', '❌ Tidak bisa membaca isi file.\n\nPastikan:\n• File diset "Anyone with link can view"\n• Tipe: Google Docs / Sheets / Slides\n\nAlternatif: Gunakan tab 📋 Paste Teks.');
+    return;
+  }
+
+  const trimmed = content.length > 8000 ? content.slice(0,8000) + '\n...[konten dipotong]' : content;
+  closeModal('mDoc');
+  addMsg('🔗 Menganalisis file dari Drive:\n' + link + '\n\nInstruksi: ' + question, true);
+  await callAIWithDoc(trimmed, question);
+}
+
+
+function convertToExportUrl(link) {
+  // Google Docs → export as plain text
+  const docsMatch = link.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (docsMatch) return `https://docs.google.com/document/d/${docsMatch[1]}/export?format=txt`;
+
+  // Google Sheets → export as CSV
+  const sheetsMatch = link.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (sheetsMatch) return `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/export?format=csv`;
+
+  // Google Slides → export as plain text
+  const slidesMatch = link.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+  if (slidesMatch) return `https://docs.google.com/presentation/d/${slidesMatch[1]}/export?format=txt`;
+
+  // Google Drive file (PDF/txt) → direct view
+  const driveMatch = link.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+
+  // Drive open link
+  const driveOpen = link.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (driveOpen) return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
+
+  return null;
+}
+
+async function callAIWithDoc(docContent, question) {
+  document.getElementById('qarea').style.display = 'none';
+  showTyping();
+  document.getElementById('stText').textContent = 'NexusAI menganalisis dokumen...';
+
+  const myDr = S.drives.filter(d => d.deptId === S.user.dept.id);
+  const sys = `Kamu adalah Asisten SOP Ditjen Badilag MA RI. Berbicara Bahasa Indonesia, profesional dan cerdas.
+Pengguna: **${S.user.name}** | Unit: **${S.user.dept.name}** ${S.user.dept.icon}
+Kamu diberikan ISI DOKUMEN SOP untuk dianalisis. Jawab pertanyaan berdasarkan isi dokumen tersebut.
+Jika diminta meringkas, buat ringkasan terstruktur dan mudah dipahami.`
+
+  const userMsg = `Berikut isi dokumen yang perlu dianalisis:
+
+---
+${docContent}
+---
+
+Pertanyaan/Instruksi: ${question}`;
+
+  try {
+    const reply = await callGemini(sys, [{ role:'user', content: userMsg }]);
+    hideTyping();
+    document.getElementById('stText').textContent = 'Online · AI Aktif';
+    S.history.push({role:'user', content: userMsg});
+    S.history.push({role:'assistant', content: reply});
+    addMsg(reply, false);
+  } catch(e) {
+    hideTyping();
+    document.getElementById('stText').textContent = '⚠ Koneksi terputus';
+    addMsg('Koneksi bermasalah saat menganalisis 📶', false);
+  }
+}
+
+
+// ══ QR CODE ══
+function rQR(c) {
+  const appUrl = window.location.href;
+  let h = `<div class="sectitle">QR Code Aplikasi</div>
+  <div class="addbox" style="text-align:center;">
+    <h4>🔲 QR Code Akses Aplikasi</h4>
+    <p style="font-size:12px;color:var(--mu2);margin-bottom:14px;line-height:1.6;">Scan QR Code ini untuk membuka SOP Digital di browser HP.</p>
+    <div id="qrApp" style="display:inline-block;background:white;padding:16px;border-radius:12px;margin-bottom:14px;"></div><br>
+    <button class="addbtn" style="width:auto;padding:8px 20px;" onclick="printQR('qrApp','SOP Digital')">🖨️ Cetak QR Aplikasi</button>
+  </div>
+  <div class="sectitle">QR Code per Dokumen SOP (${S.drives.length} dokumen)</div>`;
+
+  if (!S.drives.length) {
+    h += '<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada SOP. Tambahkan di tab 📋 SOP.</div>';
+  } else {
+    S.depts.forEach(dept => {
+      const dd = S.drives.filter(d => d.deptId === dept.id);
+      if (!dd.length) return;
+      h += '<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:14px 0 8px;text-transform:uppercase;">' + dept.icon + ' ' + dept.name + '</div>';
+      dd.forEach((d, i) => {
+        const qid = 'qr_' + d.id;
+        const safeTitle = d.title.split('"').join('&quot;');
+        h += '<div class="acard" style="flex-direction:column;align-items:flex-start;gap:10px;">';
+        h += '<div style="display:flex;align-items:center;gap:10px;width:100%;">';
+        h += '<span style="font-size:22px;">📋</span>';
+        h += '<div style="flex:1;min-width:0;">';
+        h += '<div class="acard-name">' + safeTitle + '</div>';
+        h += '<div class="acard-sub">' + (d.desc || '—') + '</div>';
+        h += '</div></div>';
+        h += '<div style="display:flex;gap:10px;align-items:center;">';
+        h += '<div id="' + qid + '" style="background:white;padding:10px;border-radius:8px;display:inline-block;"></div>';
+        h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        h += '<button class="bedit" style="font-size:11px;padding:6px 12px;" id="btn_print_' + d.id + '">🖨️ Cetak</button>';
+        h += '<button class="bedit" style="font-size:11px;padding:6px 12px;" id="btn_dl_' + d.id + '">⬇️ Simpan</button>';
+        h += '</div></div></div>';
+      });
+    });
+  }
+
+  c.innerHTML = h;
+
+  // Generate QR app
+  setTimeout(() => {
+    try {
+      new QRCode(document.getElementById('qrApp'), {
+        text: appUrl, width: 160, height: 160,
+        colorDark: "#1a1a2e", colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {}
+
+    // Generate QR per SOP + bind tombol
+    S.depts.forEach(dept => {
+      S.drives.filter(d => d.deptId === dept.id).forEach(d => {
+        const qid = 'qr_' + d.id;
+        const el = document.getElementById(qid);
+        if (!el) return;
+        try {
+          new QRCode(el, {
+            text: d.link, width: 120, height: 120,
+            colorDark: "#1a1a2e", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } catch(e) {}
+
+        // Bind tombol cetak & download
+        const btnPrint = document.getElementById('btn_print_' + d.id);
+        const btnDl    = document.getElementById('btn_dl_'    + d.id);
+        if (btnPrint) btnPrint.onclick = () => printQR(qid, d.title);
+        if (btnDl)    btnDl.onclick    = () => downloadQR(qid, d.title);
+      });
+    });
+  }, 200);
+}
+
+function printQR(qrId, title) {
+  const el = document.getElementById(qrId);
+  if (!el) return;
+  const img = el.querySelector('img') || el.querySelector('canvas');
+  let imgSrc = '';
+  if (img && img.tagName === 'IMG') imgSrc = img.src;
+  else if (img && img.tagName === 'CANVAS') imgSrc = img.toDataURL();
+  if (!imgSrc) { toast('⚠ QR Code belum siap, tunggu sebentar'); return; }
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>QR Code — ${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;text-align:center;padding:40px;background:#fff;}
+      h2{font-size:18px;color:#1a1a2e;margin-bottom:8px;}
+      p{font-size:13px;color:#666;margin-bottom:24px;}
+      img{border:2px solid #eee;border-radius:8px;padding:8px;}
+      .footer{margin-top:20px;font-size:11px;color:#aaa;}
+    </style></head>
+    <body>
+      <h2>${title}</h2>
+      <p>Scan QR Code ini untuk mengakses dokumen SOP</p>
+      <img src="${imgSrc}" width="200" height="200"/>
+      <div class="footer">SOP Digital — Ditjen Badan Peradilan Agama MA RI</div>
+    </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+function downloadQR(qrId, title) {
+  const el = document.getElementById(qrId);
+  if (!el) return;
+  const img = el.querySelector('img') || el.querySelector('canvas');
+  let imgSrc = '';
+  if (img && img.tagName === 'IMG') imgSrc = img.src;
+  else if (img && img.tagName === 'CANVAS') imgSrc = img.toDataURL('image/png');
+  if (!imgSrc) { toast('⚠ QR Code belum siap'); return; }
+  const a = document.createElement('a');
+  a.href = imgSrc;
+  a.download = 'QR-SOP.png';
+  a.click();
+  toast('✅ QR Code disimpan!');
+}
+
+
+function resetToDefaultDepts() {
+  showConfirm('Muat Struktur Badilag Terbaru?',
+    'Ini akan menambahkan semua unit kerja Ditjen Badilag (54 unit, struktur terbaru). Data unit yang sudah ada tetap tersimpan.',
+    async () => {
+      const defaultDepts = [
+        // ── Eselon I ──
+        {id:'dj01',name:'Direktorat Jenderal Badan Peradilan Agama MA RI',icon:'🏛️'},
+        // ── 1. SEKRETARIAT DITJEN BADILAG ──
+        {id:'s01',name:'Sekretariat Ditjen Badilag',icon:'🏛️'},
+        {id:'s02',name:'Bagian Kepegawaian',icon:'🧑‍💼'},
+        {id:'s03',name:'Kasubbag Umum Kepegawaian',icon:'👥'},
+        {id:'s04',name:'Kasubbag Mutasi Kepegawaian',icon:'🔄'},
+        {id:'s05',name:'Kasubbag Pemberhentian dan Pensiun',icon:'📋'},
+        {id:'s06',name:'Bagian Organisasi dan Tata Laksana',icon:'📐'},
+        {id:'s07',name:'Kasubbag Kelembagaan dan Pelaporan',icon:'📊'},
+        {id:'s08',name:'Kasubbag Dokumentasi dan Informasi',icon:'📁'},
+        {id:'s09',name:'Kasubbag Ketatalaksanaan',icon:'⚙️'},
+        {id:'s10',name:'Bagian Perencanaan dan Keuangan',icon:'💰'},
+        {id:'s11',name:'Kasubbag Perencanaan Program dan Anggaran',icon:'📈'},
+        {id:'s12',name:'Kasubbag Anggaran dan Perbendaharaan',icon:'💵'},
+        {id:'s13',name:'Kasubbag Akuntansi',icon:'🧾'},
+        {id:'s14',name:'Bagian Umum',icon:'🏢'},
+        {id:'s15',name:'Kasubbag Tata Usaha Bagian Umum',icon:'📮'},
+        {id:'s16',name:'Kasubbag Rumah Tangga',icon:'🏠'},
+        {id:'s17',name:'Kasubbag Perlengkapan',icon:'📦'},
+        // ── 2. DIT. PEMBINAAN ADMINISTRASI PERKARA PERADILAN AGAMA ──
+        // (Subdit Syariah sudah PINDAH ke Dit. Pranata)
+        {id:'a01',name:'Dit. Pembinaan Administrasi Perkara Peradilan Agama',icon:'⚖️'},
+        {id:'a02',name:'Subdit Bimbingan dan Monitoring',icon:'🔍'},
+        {id:'a03',name:'Kasi Bimbingan I',icon:'📋'},
+        {id:'a04',name:'Kasi Bimbingan II',icon:'📋'},
+        {id:'a05',name:'Kasi Monitoring dan Evaluasi',icon:'📊'},
+        {id:'a06',name:'Subdit Tata Kelola',icon:'🗂️'},
+        {id:'a07',name:'Kasi Tata Persidangan',icon:'🏛️'},
+        {id:'a08',name:'Kasi Sarana Kerja Pengadilan',icon:'🛠️'},
+        {id:'a09',name:'Kasi Pelayanan Peradilan',icon:'🤝'},
+        {id:'a10',name:'Subdit Statistik dan Dokumentasi',icon:'📊'},
+        {id:'a11',name:'Kasi Statistik',icon:'📈'},
+        {id:'a12',name:'Kasi Dokumentasi Wilayah Hukum',icon:'🗺️'},
+        {id:'a13',name:'Kasubbag Tata Usaha Dit. Adm. PA',icon:'📮'},
+        // ── 3. DIT. PEMBINAAN TENAGA TEKNIS PERADILAN AGAMA ──
+        {id:'t01',name:'Dit. Pembinaan Tenaga Teknis Peradilan Agama',icon:'👨‍⚖️'},
+        {id:'t02',name:'Subdit Mutasi Hakim',icon:'👨‍⚖️'},
+        {id:'t03',name:'Kasi Mutasi I Hakim',icon:'📋'},
+        {id:'t04',name:'Kasi Mutasi II Hakim',icon:'📋'},
+        {id:'t05',name:'Kasi Tata Naskah Mutasi Hakim',icon:'📝'},
+        {id:'t06',name:'Subdit Mutasi Panitera dan Jurusita',icon:'⚖️'},
+        {id:'t07',name:'Kasi Mutasi I Panitera dan Jurusita',icon:'📋'},
+        {id:'t08',name:'Kasi Mutasi II Panitera dan Jurusita',icon:'📋'},
+        {id:'t09',name:'Kasi Tata Naskah Panitera dan Jurusita',icon:'📝'},
+        {id:'t10',name:'Subdit Pengembangan Tenaga Teknis',icon:'🎓'},
+        {id:'t11',name:'Kasi Evaluasi dan Rasionalisasi',icon:'📊'},
+        {id:'t12',name:'Kasi Peningkatan Mutu Hakim',icon:'⭐'},
+        {id:'t13',name:'Kasi Peningkatan Mutu Panitera dan Jurusita',icon:'⭐'},
+        {id:'t14',name:'Kasubbag Tata Usaha Dit. Tenaga Teknis',icon:'📮'},
+        {id:'t15',name:'Subdit Data dan Evaluasi',icon:'💾'},
+        {id:'t16',name:'Kasi Arsip dan Dokumentasi',icon:'🗄️'},
+        {id:'t17',name:'Kasi Evaluasi dan Pelaporan',icon:'📈'},
+        {id:'t18',name:'Kasi Data dan Informasi Tenaga Teknis',icon:'💻'},
+        // ── 4. DIT. PRANATA DAN TATALAKSANA PERKARA (BARU) ──
+        {id:'p01',name:'Dit. Pranata dan Tatalaksana Perkara',icon:'📋'},
+        {id:'p02',name:'Subdit Syariah',icon:'🕌'},
+        {id:'p03',name:'Kasi Pengkajian Syariah dan Hisab Rukyat',icon:'📜'},
+        {id:'p04',name:'Kasi Evaluasi dan Pengendalian Syariah',icon:'✅'},
+        {id:'p05',name:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah',icon:'📖'},
+      ];
+      let added = 0;
+      const toSave = [];
+      defaultDepts.forEach(d => {
+        if(!S.depts.find(x=>x.id===d.id)) {
+          S.depts.push(d); toSave.push(d); added++;
+        } else {
+          // Update nama & icon jika sudah ada (migrasi struktur lama)
+          const existing = S.depts.find(x=>x.id===d.id);
+          if(existing.name !== d.name || existing.icon !== d.icon) {
+            existing.name = d.name; existing.icon = d.icon;
+            toSave.push(existing);
+          }
+        }
+      });
+      // Hapus unit lama yang tidak ada di struktur baru (a06-a09 Syariah lama)
+      const obsoleteIds = ['a06','a07','a08','a09']; // Syariah lama di Dit. Adm
+      obsoleteIds.forEach(id => {
+        if(S.depts.find(x=>x.id===id) && !S.drives.find(d=>d.deptId===id) && !S.emps.find(e=>e.deptId===id)) {
+          S.depts = S.depts.filter(x=>x.id!==id);
+        }
+      });
+      for(const d of toSave) await fbSaveDept(d);
+      renderAdmin();
+      toast('✅ Struktur terbaru dimuat! ' + added + ' unit baru ditambahkan');
+    }
+  );
+}
+// ══ IMPORT CSV ══
+function triggerFileInput() {
+  const inp = document.getElementById('csvFile');
+  if(inp) inp.click();
+}
+
+function onCSVFileChange(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const lbl = document.getElementById('csvFileName');
+  if(lbl) lbl.textContent = file.name;
+  const st = document.getElementById('csvStatus');
+  if(st) st.style.display = 'none';
+}
+
+function importCSV() {
+  const fileEl = document.getElementById('csvFile');
+  const statusEl = document.getElementById('csvStatus');
+
+  function setStatus(type, msg) {
+    if(!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.style.whiteSpace = 'pre-line';
+    statusEl.style.lineHeight = '1.6';
+    statusEl.style.background = type==='ok' ? 'rgba(6,214,160,.08)' : type==='err' ? 'rgba(255,77,109,.08)' : 'rgba(0,245,212,.06)';
+    statusEl.style.border = type==='ok' ? '1px solid rgba(6,214,160,.3)' : type==='err' ? '1px solid rgba(255,77,109,.3)' : '1px solid rgba(0,245,212,.2)';
+    statusEl.style.color = type==='ok' ? 'var(--green)' : type==='err' ? 'var(--red)' : 'var(--cyan)';
+    statusEl.textContent = msg;
+  }
+
+  if(!fileEl || !fileEl.files || !fileEl.files[0]) {
+    setStatus('err', 'Pilih file CSV terlebih dahulu.');
+    return;
+  }
+
+  const file = fileEl.files[0];
+  setStatus('info', 'Membaca file CSV...');
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      // Hapus BOM, normalize line endings
+      const text = e.target.result.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+
+
+
+
+      const lines = text.split('\n').filter(l => l.trim());
+
+
+      if(lines.length < 2) { setStatus('err', 'File CSV kosong atau tidak valid.'); return; }
+
+      // Parse header - deteksi kolom
+      const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+      const iNama = header.findIndex(h => h.includes('nama'));
+      const iNIP  = header.findIndex(h => h.includes('nip'));
+      const iGol  = header.findIndex(h => h.includes('golongan'));
+      const iUnit = header.findIndex(h => h.includes('unit'));
+      const iJab  = header.findIndex(h => h.includes('jabatan'));
+
+      if(iNama < 0 || iNIP < 0) {
+        setStatus('err', 'Kolom Nama dan NIP wajib ada. Header terdeteksi: ' + header.join(', '));
+        return;
+      }
+
+      let added = 0, skipped = 0, duplikat = 0;
+      const errors = [];
+
+      for(let i = 1; i < lines.length; i++) {
+        if(!lines[i].trim()) continue;
+        const cols = parseCSVLine(lines[i]);
+
+        const nama     = (cols[iNama] || '').trim();
+        const nipRaw   = (cols[iNIP]  || '').trim();
+        const golongan = iGol  >= 0 ? (cols[iGol]  || '').trim() : '';
+        const unitKerja= iUnit >= 0 ? (cols[iUnit] || '').trim() : '';
+        const jabatan  = iJab  >= 0 ? (cols[iJab]  || '').trim() : '';
+
+        // NIP: hapus semua spasi
+        const nip = nipRaw.split(' ').join('');
+
+        // Skip baris tidak valid
+        if(!nama || nama === 'Kosong' || nama === '-') { skipped++; continue; }
+        if(!nip || nip.length < 8) {
+          errors.push('Baris ' + (i+1) + ': NIP tidak valid (' + nipRaw + ')');
+          skipped++; continue;
+        }
+
+        // Cek duplikat NIP
+        if(S.emps.find(e => e.nip === nip)) { duplikat++; continue; }
+
+        // Cari atau auto-buat unit kerja
+        let dept = S.depts.find(d => d.name.toLowerCase().trim() === unitKerja.toLowerCase().trim());
+        if(!dept && unitKerja) {
+          dept = {
+            id: 'd' + Date.now() + '_' + Math.floor(Math.random()*9999),
+            name: unitKerja, icon: '🏢'
+          };
+          S.depts.push(dept);
+        }
+        if(!dept) { errors.push('Baris ' + (i+1) + ': Unit kerja kosong'); skipped++; continue; }
+
+        S.emps.push({
+          id: 'e' + Date.now() + '_' + Math.floor(Math.random()*9999),
+          name: nama,
+          nip: nip,          // tanpa spasi - untuk login
+          golongan: golongan,
+          jabatan: jabatan,
+          deptId: dept.id,
+          icon: '👤'
+        });
+        added++;
+      }
+
+      persist();
+
+      let msg = 'Import selesai!\n' + added + ' pegawai berhasil diimport\n' + duplikat + ' dilewati (NIP sudah ada)\n' + skipped + ' baris dilewati (kosong/tidak valid)';
+
+
+
+
+
+
+
+      if(errors.length) msg += '\n\nError:\n' + errors.slice(0,5).join('\n');
+
+
+
+      setStatus('ok', msg);
+
+      closeModal('mImportCSV');
+      const csvFileEl = document.getElementById('csvFile');
+      if(csvFileEl) csvFileEl.value = '';
+      setTimeout(() => renderAdmin(), 600);
+
+    } catch(err) {
+      setStatus('err', 'Gagal membaca CSV: ' + err.message);
+    }
+  };
+  reader.onerror = () => setStatus('err', 'Gagal membuka file.');
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSVLine(line) {
+  const cols = [];
+  let cur = '';
+  let inQ = false;
+  for(let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if(ch === '"') {
+      if(inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if(ch === ',' && !inQ) {
+      cols.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cols.push(cur);
+  return cols;
+}
+
+function formatTanggal(dateStr) {
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  return d.getDate()+' '+bulan[d.getMonth()]+' '+d.getFullYear();
+}
+
+function updateBagianOptions() {
+  // Placeholder - Bagian ditampilkan semua, tidak perlu filter per eselon
+  // Bisa dikembangkan nanti jika perlu filter
+}
+
+function exportPegawaiCSV() {
+  if(!S.emps.length){
+    toast('⚠ Belum ada data pegawai');
+    return;
+  }
+
+  // Header CSV
+  const headers = ['No','Nama','NIP','Golongan','Unit Kerja','Jabatan','Eselon II','Bagian','Sub Bagian/Kasi'];
+
+  // Data rows
+  const rows = S.emps.map((e, i) => {
+    const dept = S.depts.find(d=>d.id===e.deptId);
+    return [
+      i+1,
+      e.name || '',
+      e.nip  || '',
+      e.golongan || '',
+      dept ? dept.name : (e.eselon2 || ''),
+      e.jabatan  || '',
+      e.eselon2  || '',
+      e.bagian   || '',
+      e.subbag   || '',
+    ];
+  });
+
+  // Buat konten CSV
+  const escape = val => {
+    const s = String(val);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(escape).join(','))
+    .join('\n');
+
+  // Download file
+  const bom = '\uFEFF'; // BOM agar Excel baca UTF-8 dengan benar
+  const blob = new Blob([bom + csvContent], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'Data_Pegawai_Badilag_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  toast('✅ ' + S.emps.length + ' pegawai berhasil diexport!');
+}
+
+function filterPegawai(query) {
+  const q = query.toLowerCase().trim();
+  const cards = document.querySelectorAll('#adminBody .emp-card');
+  let visible = 0;
+
+  cards.forEach(card => {
+    const text = card.dataset.search || '';
+    const match = !q || text.includes(q);
+    card.style.display = match ? 'flex' : 'none';
+    if(match) visible++;
+  });
+
+  const countEl = document.getElementById('empCount');
+  if(countEl) {
+    if(q) {
+      countEl.textContent = visible + ' dari ' + S.emps.length + ' pegawai ditemukan';
+      countEl.style.color = visible > 0 ? 'var(--cyan)' : 'var(--red)';
+    } else {
+      countEl.textContent = '';
+    }
+  }
+}
+
+
+// ══ FIREBASE SYNC HELPERS ══
+// ══════════════════════════════════════════════════════════════
+// MIGRASI DATA FIRESTORE — Sinkronisasi ke Struktur Organisasi Baru
+// ══════════════════════════════════════════════════════════════
+
+async function runMigration() {
+  // ── Tabel pemetaan nama lama → ID baru di S.depts ──
+  // Key  : nama lama yang mungkin tersimpan di Firestore
+  // Value: id baru yang benar di struktur terbaru
+  const NAME_TO_ID = {};
+  // Bangun dari S.depts saat ini (nama → id)
+  S.depts.forEach(d => { NAME_TO_ID[d.name.toLowerCase().trim()] = d.id; });
+
+  // Tambahan alias nama lama → id baru (kasus perubahan nama)
+  const ALIASES = {
+    // Dit. Adm — nama lama vs baru
+    'dit. pembinaan administrasi peradilan agama'         : 'a01',
+    'direktorat pembinaan administrasi peradilan agama'   : 'a01',
+    // Subdit Syariah lama (dulu di Dit. Adm) → sekarang di Dit. Pranata
+    'subdit syariah'                                       : 'p02',
+    'kasi pengkajian syariah dan hisab rukyat'            : 'p03',
+    'kasi evaluasi dan pengendalian syariah'               : 'p04',
+    'kasi evaluasi dan pengendalian'                       : 'p04',
+    'kasi kodifikasi dan yurisprudensi perkara syariah'   : 'p05',
+    'kasi kodifikasi dan yurisprudensi'                   : 'p05',
+    // Kasubbag lama (nama berubah)
+    'subbag umum kepegawaian'                             : 's03',
+    'subbag mutasi kepegawaian'                           : 's04',
+    'subbag pemberhentian dan pensiun'                    : 's05',
+    'subbag kelembagaan dan pelaporan'                    : 's07',
+    'subbag dokumentasi dan informasi'                    : 's08',
+    'subbag ketatalaksanaan'                              : 's09',
+    'subbag perencanaan program dan penyusunan anggaran'  : 's11',
+    'subbag perencanaan program dan anggaran'             : 's11',
+    'subbag anggaran dan perbendaharaan'                  : 's12',
+    'subbag akuntansi'                                    : 's13',
+    'subbag tata usaha'                                   : 's15',
+    'subbag tata usaha bagian umum'                       : 's15',
+    'subbag rumah tangga'                                 : 's16',
+    'subbag perlengkapan'                                 : 's17',
+    // Dit. Adm Perkara — subdit & kasi
+    'subdit bimbingan dan monitoring'                     : 'a02',
+    'kasi bimbingan i'                                    : 'a03',
+    'kasi bimbingan ii'                                   : 'a04',
+    'kasi monitoring dan evaluasi'                        : 'a05',
+    'subdit tata kelola'                                  : 'a06',
+    'kasi tata persidangan'                               : 'a07',
+    'kasi sarana kerja pengadilan'                        : 'a08',
+    'kasi pelayanan peradilan'                            : 'a09',
+    'subdit statistik dan dokumentasi'                    : 'a10',
+    'kasi statistik'                                      : 'a11',
+    'kasi dokumentasi wilayah hukum'                      : 'a12',
+    'kasubbag tata usaha dit. adm. pa'                    : 'a13',
+    'kasubbag tata usaha direktorat pembinaan administrasi peradilan agama' : 'a13',
+    // Dit. Tenaga Teknis
+    'dit. pembinaan tenaga teknis peradilan agama'        : 't01',
+    'direktorat pembinaan tenaga teknis peradilan agama'  : 't01',
+    'subdit mutasi hakim'                                 : 't02',
+    'kasi mutasi i hakim'                                 : 't03',
+    'kasi mutasi ii hakim'                                : 't04',
+    'kasi tata naskah mutasi hakim'                       : 't05',
+    'subdit mutasi panitera dan jurusita'                 : 't06',
+    'kasi mutasi i panitera dan jurusita'                 : 't07',
+    'kasi mutasi ii panitera dan jurusita'                : 't08',
+    'kasi tata naskah panitera dan jurusita'              : 't09',
+    'subdit pengembangan tenaga teknis'                   : 't10',
+    'kasi evaluasi dan rasionalisasi'                     : 't11',
+    'kasi peningkatan mutu hakim'                         : 't12',
+    'kasi peningkatan mutu panitera dan jurusita'         : 't13',
+    'kasubbag tata usaha dit. tenaga teknis'              : 't14',
+    'kasubbag tata usaha direktorat pembinaan tenaga teknis peradilan agama': 't14',
+    'subdit data dan evaluasi'                            : 't15',
+    'kasi arsip dan dokumentasi'                          : 't16',
+    'kasi evaluasi dan pelaporan'                         : 't17',
+    'kasi data dan informasi tenaga teknis'               : 't18',
+    // Dit. Pranata (baru)
+    'dit. pranata dan tatalaksana perkara'                : 'p01',
+    'direktorat pranata dan tatalaksana perkara'          : 'p01',
+  };
+
+  // Helper: resolve nama → deptId
+  function resolveName(nama) {
+    if(!nama) return null;
+    const key = nama.toLowerCase().trim();
+    return ALIASES[key] || NAME_TO_ID[key] || null;
+  }
+
+  // ── Analisis perubahan yang diperlukan ──
+  let deptChanges = [], empChanges = [], driveChanges = [];
+  const STRUCT_DEPTS = [
+    {id:'dj01',name:'Direktorat Jenderal Badan Peradilan Agama MA RI',icon:'🏛️'},
+    {id:'s01',name:'Sekretariat Ditjen Badilag',icon:'🏛️'},
+    {id:'s02',name:'Bagian Kepegawaian',icon:'🧑‍💼'},
+    {id:'s03',name:'Kasubbag Umum Kepegawaian',icon:'👥'},
+    {id:'s04',name:'Kasubbag Mutasi Kepegawaian',icon:'🔄'},
+    {id:'s05',name:'Kasubbag Pemberhentian dan Pensiun',icon:'📋'},
+    {id:'s06',name:'Bagian Organisasi dan Tata Laksana',icon:'📐'},
+    {id:'s07',name:'Kasubbag Kelembagaan dan Pelaporan',icon:'📊'},
+    {id:'s08',name:'Kasubbag Dokumentasi dan Informasi',icon:'📁'},
+    {id:'s09',name:'Kasubbag Ketatalaksanaan',icon:'⚙️'},
+    {id:'s10',name:'Bagian Perencanaan dan Keuangan',icon:'💰'},
+    {id:'s11',name:'Kasubbag Perencanaan Program dan Anggaran',icon:'📈'},
+    {id:'s12',name:'Kasubbag Anggaran dan Perbendaharaan',icon:'💵'},
+    {id:'s13',name:'Kasubbag Akuntansi',icon:'🧾'},
+    {id:'s14',name:'Bagian Umum',icon:'🏢'},
+    {id:'s15',name:'Kasubbag Tata Usaha Bagian Umum',icon:'📮'},
+    {id:'s16',name:'Kasubbag Rumah Tangga',icon:'🏠'},
+    {id:'s17',name:'Kasubbag Perlengkapan',icon:'📦'},
+    {id:'a01',name:'Dit. Pembinaan Administrasi Perkara Peradilan Agama',icon:'⚖️'},
+    {id:'a02',name:'Subdit Bimbingan dan Monitoring',icon:'🔍'},
+    {id:'a03',name:'Kasi Bimbingan I',icon:'📋'},
+    {id:'a04',name:'Kasi Bimbingan II',icon:'📋'},
+    {id:'a05',name:'Kasi Monitoring dan Evaluasi',icon:'📊'},
+    {id:'a06',name:'Subdit Tata Kelola',icon:'🗂️'},
+    {id:'a07',name:'Kasi Tata Persidangan',icon:'🏛️'},
+    {id:'a08',name:'Kasi Sarana Kerja Pengadilan',icon:'🛠️'},
+    {id:'a09',name:'Kasi Pelayanan Peradilan',icon:'🤝'},
+    {id:'a10',name:'Subdit Statistik dan Dokumentasi',icon:'📊'},
+    {id:'a11',name:'Kasi Statistik',icon:'📈'},
+    {id:'a12',name:'Kasi Dokumentasi Wilayah Hukum',icon:'🗺️'},
+    {id:'a13',name:'Kasubbag Tata Usaha Dit. Adm. PA',icon:'📮'},
+    {id:'t01',name:'Dit. Pembinaan Tenaga Teknis Peradilan Agama',icon:'👨‍⚖️'},
+    {id:'t02',name:'Subdit Mutasi Hakim',icon:'👨‍⚖️'},
+    {id:'t03',name:'Kasi Mutasi I Hakim',icon:'📋'},
+    {id:'t04',name:'Kasi Mutasi II Hakim',icon:'📋'},
+    {id:'t05',name:'Kasi Tata Naskah Mutasi Hakim',icon:'📝'},
+    {id:'t06',name:'Subdit Mutasi Panitera dan Jurusita',icon:'⚖️'},
+    {id:'t07',name:'Kasi Mutasi I Panitera dan Jurusita',icon:'📋'},
+    {id:'t08',name:'Kasi Mutasi II Panitera dan Jurusita',icon:'📋'},
+    {id:'t09',name:'Kasi Tata Naskah Panitera dan Jurusita',icon:'📝'},
+    {id:'t10',name:'Subdit Pengembangan Tenaga Teknis',icon:'🎓'},
+    {id:'t11',name:'Kasi Evaluasi dan Rasionalisasi',icon:'📊'},
+    {id:'t12',name:'Kasi Peningkatan Mutu Hakim',icon:'⭐'},
+    {id:'t13',name:'Kasi Peningkatan Mutu Panitera dan Jurusita',icon:'⭐'},
+    {id:'t14',name:'Kasubbag Tata Usaha Dit. Tenaga Teknis',icon:'📮'},
+    {id:'t15',name:'Subdit Data dan Evaluasi',icon:'💾'},
+    {id:'t16',name:'Kasi Arsip dan Dokumentasi',icon:'🗄️'},
+    {id:'t17',name:'Kasi Evaluasi dan Pelaporan',icon:'📈'},
+    {id:'t18',name:'Kasi Data dan Informasi Tenaga Teknis',icon:'💻'},
+    {id:'p01',name:'Dit. Pranata dan Tatalaksana Perkara',icon:'📋'},
+    {id:'p02',name:'Subdit Syariah',icon:'🕌'},
+    {id:'p03',name:'Kasi Pengkajian Syariah dan Hisab Rukyat',icon:'📜'},
+    {id:'p04',name:'Kasi Evaluasi dan Pengendalian Syariah',icon:'✅'},
+    {id:'p05',name:'Kasi Kodifikasi dan Yurisprudensi Perkara Syariah',icon:'📖'},
+  ];
+
+  // 1. Analisis DEPTS
+  STRUCT_DEPTS.forEach(sd => {
+    const existing = S.depts.find(d => d.id === sd.id);
+    if(!existing) {
+      deptChanges.push({ type:'add', dept: sd, desc: `Tambah unit baru: "${sd.name}"` });
+    } else if(existing.name !== sd.name || existing.icon !== sd.icon) {
+      deptChanges.push({ type:'update', dept: sd, old: existing.name, desc: `Update "${existing.name}" → "${sd.name}"` });
+    }
+  });
+
+  // 2. Analisis EMPS — cari deptId yang tidak match
+  S.emps.forEach(e => {
+    const deptOk = S.depts.find(d => d.id === e.deptId);
+    if(!deptOk) {
+      // Coba resolve dari subbag/bagian/eselon2
+      const newDeptId = resolveName(e.subbag) || resolveName(e.bagian) || resolveName(e.eselon2);
+      if(newDeptId && newDeptId !== e.deptId) {
+        const newDept = STRUCT_DEPTS.find(d => d.id === newDeptId);
+        empChanges.push({
+          emp: e,
+          newDeptId,
+          desc: `${e.name} (${e.nip||'?'}): deptId "${e.deptId}" → "${newDeptId}" (${newDept?newDept.name:'?'})`
+        });
+      }
+    }
+  });
+
+  // 3. Analisis DRIVES — cari yang deptId tidak match
+  S.drives.forEach(d => {
+    const deptOk = S.depts.find(x => x.id === d.deptId);
+    const e2ToDept = {'e2_sek':'s01','e2_adm':'a01','e2_ttk':'t01','e2_prt':'p01'};
+    let newDeptId = null;
+    if(!deptOk) {
+      // Coba dari eselon4/3/2
+      const e4obj = d.eselon4Id ? ESELON4.find(e=>e.id===d.eselon4Id) : null;
+      const e3obj = d.eselon3Id ? ESELON3.find(e=>e.id===d.eselon3Id) : null;
+      const targetName = e4obj ? e4obj.nama : (e3obj ? e3obj.nama : null);
+      newDeptId = (targetName ? resolveName(targetName) : null)
+               || (d.eselon2Id ? e2ToDept[d.eselon2Id] : null);
+    }
+    // Cek juga eselon3Id yang mungkin lama (e3a3 → e3a2 untuk Takel)
+    const e3IdFix = {
+      'e3a3': 'e3a2', // Subdit Tata Kelola (dulu e3a3, sekarang e3a2)
+      'e3a4': 'e3a3', // Subdit Statistik & Dokumentasi (dulu e3a4, sekarang e3a3)
+    };
+    const needE3Fix = e3IdFix[d.eselon3Id];
+    if(newDeptId || needE3Fix) {
+      driveChanges.push({
+        drive: d,
+        newDeptId: newDeptId || d.deptId,
+        newEselon3Id: needE3Fix || d.eselon3Id,
+        desc: `SOP "${d.title}": deptId "${d.deptId}"→"${newDeptId||d.deptId}"${needE3Fix?' | e3Id '+d.eselon3Id+'→'+needE3Fix:''}`
+      });
+    }
+  });
+
+  // ── Tampilkan preview modal ──
+  const total = deptChanges.length + empChanges.length + driveChanges.length;
+  let preview = '';
+
+  if(!total) {
+    toast('✅ Semua data sudah sinkron! Tidak ada yang perlu dimigrasi.');
+    return;
+  }
+
+  if(deptChanges.length) {
+    preview += `<div style="font-size:11px;font-weight:700;color:var(--cyan);margin:10px 0 4px;letter-spacing:.5px;">🏢 UNIT (${deptChanges.length} perubahan)</div>`;
+    deptChanges.forEach(c => {
+      preview += `<div style="font-size:11px;color:var(--mu2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:${c.type==='add'?'var(--green)':'var(--amber)'};">${c.type==='add'?'➕':'✏️'}</span> ${c.desc}
+      </div>`;
+    });
+  }
+  if(empChanges.length) {
+    preview += `<div style="font-size:11px;font-weight:700;color:var(--cyan);margin:10px 0 4px;letter-spacing:.5px;">👤 PEGAWAI (${empChanges.length} perubahan)</div>`;
+    empChanges.slice(0,10).forEach(c => {
+      preview += `<div style="font-size:11px;color:var(--mu2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">✏️ ${c.desc}</div>`;
+    });
+    if(empChanges.length > 10) preview += `<div style="font-size:11px;color:var(--mu);padding:4px 0;">...dan ${empChanges.length-10} pegawai lainnya</div>`;
+  }
+  if(driveChanges.length) {
+    preview += `<div style="font-size:11px;font-weight:700;color:var(--cyan);margin:10px 0 4px;letter-spacing:.5px;">📋 SOP/DRIVE (${driveChanges.length} perubahan)</div>`;
+    driveChanges.slice(0,5).forEach(c => {
+      preview += `<div style="font-size:11px;color:var(--mu2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">✏️ ${c.desc}</div>`;
+    });
+    if(driveChanges.length > 5) preview += `<div style="font-size:11px;color:var(--mu);padding:4px 0;">...dan ${driveChanges.length-5} SOP lainnya</div>`;
+  }
+
+  openForm('🔄 Preview Migrasi Data',
+    `<div style="background:rgba(255,183,3,.06);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--amber);">
+      ⚠️ Total <strong>${total} perubahan</strong> akan disimpan ke Firestore. Data nama/NIP/jabatan/konten SOP <strong>tidak akan diubah</strong>.
+    </div>
+    <div style="max-height:320px;overflow-y:auto;padding-right:4px;">${preview}</div>
+    <div class="mrow" style="margin-top:14px;">
+      <button class="mbtn cancel" onclick="closeModal('mForm')">Batal</button>
+      <button class="mbtn ok" id="btnExecMigration">🚀 Jalankan Migrasi</button>
+    </div>`
+  );
+
+  // Pasang handler eksekusi
+  setTimeout(() => {
+    const btn = document.getElementById('btnExecMigration');
+    if(btn) btn.onclick = () => executeMigration(deptChanges, empChanges, driveChanges, STRUCT_DEPTS);
+  }, 80);
+}
+
+async function executeMigration(deptChanges, empChanges, driveChanges, STRUCT_DEPTS) {
+  const btn = document.getElementById('btnExecMigration');
+  if(btn) { btn.textContent = '⏳ Memproses...'; btn.disabled = true; }
+
+  let saved = 0, errors = 0;
+
+  try {
+    // 1. Migrasi DEPTS
+    for(const c of deptChanges) {
+      const sd = c.dept;
+      const existing = S.depts.find(d => d.id === sd.id);
+      if(!existing) {
+        S.depts.push(sd);
+      } else {
+        existing.name = sd.name;
+        existing.icon = sd.icon;
+      }
+      try { await fbSaveDept(sd); saved++; } catch(e) { errors++; }
+    }
+
+    // 2. Migrasi EMPS
+    for(const c of empChanges) {
+      const e = S.emps.find(x => x.id === c.emp.id);
+      if(e) {
+        e.deptId = c.newDeptId;
+        try { await fbSaveEmp(e); saved++; } catch(err) { errors++; }
+      }
+    }
+
+    // 3. Migrasi DRIVES
+    for(const c of driveChanges) {
+      const d = S.drives.find(x => x.id === c.drive.id);
+      if(d) {
+        d.deptId     = c.newDeptId;
+        d.eselon3Id  = c.newEselon3Id;
+        try { await fbSaveDrive(d); saved++; } catch(err) { errors++; }
+      }
+    }
+
+    closeModal('mForm');
+    renderAdmin();
+    toast(`✅ Migrasi selesai! ${saved} record diperbarui${errors?` (${errors} error, cek console)`:''}.`);
+
+  } catch(err) {
+    console.error('Migration error:', err);
+    toast('❌ Migrasi gagal: ' + err.message);
+  }
+}
+
+async function fbSaveDept(dept) {
+  try {
+    const {id, ...data} = dept;
+    await db.collection('depts').doc(id).set(data);
+  } catch(e) { console.error('Save dept error:', e); }
+}
+async function fbDeleteDept(id) {
+  try { await db.collection('depts').doc(id).delete(); } catch(e) { console.error(e); }
+}
+async function fbSaveEmp(emp) {
+  try {
+    const {id, ...data} = emp;
+    await db.collection('emps').doc(id).set(data);
+  } catch(e) { console.error('Save emp error:', e); }
+}
+async function fbDeleteEmp(id) {
+  try { await db.collection('emps').doc(id).delete(); } catch(e) { console.error(e); }
+}
+async function fbSaveDrive(drive) {
+  try {
+    const {id, ...data} = drive;
+    await db.collection('drives').doc(id).set(data);
+  } catch(e) { console.error('Save drive error:', e); }
+}
+async function fbDeleteDrive(id) {
+  try { await db.collection('drives').doc(id).delete(); } catch(e) { console.error(e); }
+}
+
+// ══ INIT ══
+window.addEventListener('load', async ()=>{
+  // Init Firebase
+  try {
+    db   = firebase.firestore();
+    auth = firebase.auth();
+  } catch(e) { console.warn('Firebase init error:', e); }
+  // Tampilkan loading state
+  const loginBtn = document.getElementById('btnDoLogin');
+  if(loginBtn) loginBtn.textContent = '⏳ Memuat data...';
+  
+  // Load data dari Firebase
+  await loadFromFirebase();
+  
+  // Jika Firebase gagal, gunakan data lokal bawaan
+  loadDefaultData();
+  if(!fbLoaded || !S.depts.length) {
+    S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "p01", "name": "Dit. Pranata dan Tatalaksana Perkara Perdata Agama", "icon": "📋"}, {"id": "p02", "name": "Subdit Syariah", "icon": "🕌"}, {"id": "p03", "name": "Kasi Pengkajian Syariah dan Hisab Rukyat", "icon": "📜"}, {"id": "p04", "name": "Kasi Evaluasi dan Pengendalian Syariah", "icon": "✅"}, {"id": "p05", "name": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah", "icon": "📖"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
+  }
+  if(!fbLoaded || !S.emps.length) {
+    // Load emps dari localStorage sebagai fallback
+    const localEmps = localStorage.getItem('nx_emps');
+    if(localEmps) S.emps = JSON.parse(localEmps);
+  }
+  if(!fbLoaded || !S.drives.length) {
+    const localDrives = localStorage.getItem('nx_drives');
+    if(localDrives) S.drives = JSON.parse(localDrives);
+  }
+
+  if(loginBtn) loginBtn.textContent = 'Masuk →';
+  populateDepts(); // untuk admin panel
+  // Bind login buttons safely after DOM ready
+  const btnAdminLink = document.getElementById('btnAdminLink');
+  if(btnAdminLink) btnAdminLink.onclick = openAdminLogin;
+  const btnDoLogin = document.getElementById('btnDoLogin');
+  if(btnDoLogin) btnDoLogin.onclick = doLogin;
+  const btnDoAdminLogin = document.getElementById('btnDoAdminLogin');
+  if(btnDoAdminLogin) btnDoAdminLogin.onclick = doAdminLogin;
+  const btnClose = document.getElementById('btnCloseAdminLogin');
+  if(btnClose) btnClose.onclick = closeAdminLogin;
+
+  // Enter key on login fields
+  const loginNIP = document.getElementById('loginNIP');
+  if(loginNIP) loginNIP.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  const btnGuest = document.getElementById('btnGuestLogin');
+  if(btnGuest) btnGuest.onclick = loginGuest;
+  const aUser = document.getElementById('aUser');
+  if(aUser) aUser.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  const aPass = document.getElementById('aPass');
+  if(aPass) aPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+});
+</script>
+
+<!-- 
+UPDATE CLOUDFLARE WORKER dengan kode ini untuk streaming:
+
+export default {
+  async fetch(request, env) {
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': 'https://alzias.github.io',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+    try {
+      const { systemPrompt, messages, stream } = await request.json();
+
+      const geminiContents = [];
+      const sysText = systemPrompt || 'Kamu asisten SOP Badilag. Jawab dalam Bahasa Indonesia.';
+      geminiContents.push({ role: 'user', parts: [{ text: sysText }] });
+      geminiContents.push({ role: 'model', parts: [{ text: 'Siap membantu!' }] });
+
+      if (Array.isArray(messages)) {
+        for (const msg of messages) {
+          const text = String(msg.content || '').trim();
+          if (!text) continue;
+          const role = msg.role === 'user' ? 'user' : 'model';
+          const last = geminiContents[geminiContents.length - 1];
+          if (last && last.role === role) continue;
+          geminiContents.push({ role, parts: [{ text }] });
+        }
+      }
+
+      const lastMsg = geminiContents[geminiContents.length - 1];
+      if (!lastMsg || lastMsg.role !== 'user') {
+        geminiContents.push({ role: 'user', parts: [{ text: 'Halo' }] });
+      }
+
+      const endpoint = stream
+        ? 'streamGenerateContent?alt=sse'
+        : 'generateContent';
+
+      const geminiRes = await fetch(
+        'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:' + endpoint + '&key=' + env.GEMINI_KEY,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: geminiContents,
+            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+          })
+        }
+      );
+
+      if (stream) {
+        return new Response(geminiRes.body, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          }
+        });
+      }
+
+      const data = await geminiRes.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+  }
+};
+-->
+</body>
+</html>
