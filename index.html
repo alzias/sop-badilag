@@ -1240,6 +1240,7 @@ async function sendMsg(){
   }
 
   // ── Analisis kelengkapan SOP (hanya untuk pejabat Es II ke atas) ──
+  // ── Opsi A+C: Ringkas sopAnalysisCtx — hanya data kunci, format tabel singkat ──
   let sopAnalysisCtx = '';
   if(_isTopLevel && S.drives.length > 0) {
     const sopPerDept = {};
@@ -1247,38 +1248,53 @@ async function sendMsg(){
       if(!sopPerDept[d.deptId]) sopPerDept[d.deptId] = 0;
       sopPerDept[d.deptId]++;
     });
-    const unitAda   = S.depts.filter(function(d){ return (sopPerDept[d.id]||0)>0; });
+    const unitAda    = S.depts.filter(function(d){ return (sopPerDept[d.id]||0)>0; });
     const unitKosong = S.depts.filter(function(d){ return (sopPerDept[d.id]||0)===0; });
+    const persen     = Math.round(unitAda.length/S.depts.length*100);
+
+    // Rekap per Eselon II — format ringkas satu baris per direktorat
     const rekapE2 = ESELON2.map(function(e2) {
-      const e3list = ESELON3.filter(function(e3){ return e3.eselon2===e2.id; });
-      const namaAll = [e2.name].concat(e3list.map(function(e){ return e.nama; }));
-      e3list.forEach(function(e3){
-        ESELON4.filter(function(e4){ return e4.eselon3===e3.id; })
-          .forEach(function(e4){ namaAll.push(e4.nama); });
-      });
-      const ids = S.depts.filter(function(d){
+      const e3list  = ESELON3.filter(function(e3){ return e3.eselon2===e2.id; });
+      const namaAll = [e2.name].concat(
+        e3list.map(function(e){ return e.nama; }),
+        e3list.reduce(function(acc,e3){
+          return acc.concat(ESELON4.filter(function(e4){ return e4.eselon3===e3.id; }).map(function(e4){ return e4.nama; }));
+        },[])
+      );
+      const ids  = S.depts.filter(function(d){
         return namaAll.some(function(n){ return n&&d.name&&n.toLowerCase()===d.name.toLowerCase(); });
       }).map(function(d){ return d.id; });
-      const ada = ids.filter(function(id){ return (sopPerDept[id]||0)>0; }).length;
-      return e2.icon+' '+e2.name+': '+ada+'/'+ids.length+' unit punya SOP';
-    }).join('\n');
+      const ada  = ids.filter(function(id){ return (sopPerDept[id]||0)>0; }).length;
+      const sisa = ids.length - ada;
+      return e2.icon+' '+e2.name+': '+ada+'/'+ids.length+(sisa>0?' (kurang '+sisa+')':'✅');
+    }).join(' | ');
 
-    var NL = '\n';
+    // Kelompokkan unit kosong per Eselon II — lebih ringkas dari flat list
+    const kosongPerE2 = ESELON2.map(function(e2) {
+      const e3list  = ESELON3.filter(function(e3){ return e3.eselon2===e2.id; });
+      const namaAll = [e2.name].concat(
+        e3list.map(function(e){ return e.nama; }),
+        e3list.reduce(function(acc,e3){
+          return acc.concat(ESELON4.filter(function(e4){ return e4.eselon3===e3.id; }).map(function(e4){ return e4.nama; }));
+        },[])
+      );
+      const kosong = S.depts.filter(function(d){
+        return (sopPerDept[d.id]||0)===0 &&
+          namaAll.some(function(n){ return n&&d.name&&n.toLowerCase()===d.name.toLowerCase(); });
+      }).map(function(d){ return d.name; });
+      if(!kosong.length) return '';
+      return e2.icon+' '+e2.name+' ('+kosong.length+' unit): '+kosong.join(', ');
+    }).filter(Boolean).join('\n');
+
     sopAnalysisCtx = [
-      'ANALISIS KELENGKAPAN SOP DITJEN BADILAG:',
-      'Total unit: '+S.depts.length+' | Sudah SOP: '+unitAda.length+' | Belum SOP: '+unitKosong.length,
-      '',
-      'REKAP PER DIREKTORAT:',
-      rekapE2,
-      '',
-      'UNIT SUDAH ADA SOP:',
-      unitAda.map(function(d){ return '\u2705 '+d.name+' ('+sopPerDept[d.id]+' SOP)'; }).join(NL),
-      '',
-      'UNIT BELUM ADA SOP:',
-      unitKosong.length ? unitKosong.map(function(d){ return '\u274c '+d.name; }).join(NL) : '(semua sudah punya SOP!)',
-      '',
-      'INSTRUKSI: Gunakan data ini jika ditanya unit mana yang belum punya SOP, rekap kelengkapan, persentase, atau perbandingan antar direktorat.'
-    ].join(NL);
+      'KELENGKAPAN SOP DITJEN BADILAG:',
+      'Total: '+S.depts.length+' unit | Sudah SOP: '+unitAda.length+' ('+persen+'%) | Belum SOP: '+unitKosong.length+' ('+(100-persen)+'%)',
+      'Rekap: '+rekapE2,
+      unitAda.length ? 'Sudah SOP: '+unitAda.map(function(d){ return d.name+'('+sopPerDept[d.id]+')'; }).join(', ') : '',
+      'Belum SOP per direktorat:',
+      kosongPerE2 || '(semua unit sudah punya SOP!)',
+      'INSTRUKSI: Jawab ringkas dan terstruktur jika ditanya kelengkapan SOP. Sebutkan rekap per direktorat dulu, baru detail unit jika diminta.'
+    ].filter(Boolean).join('\n');
   }
 
   const sys = [
@@ -2255,11 +2271,10 @@ function rBackup(c) {
   h += '⚠️ <strong>Perhatian:</strong> Import akan <strong>menghapus seluruh data lama</strong> (unit, pegawai, SOP) dan menggantinya dengan data dari file backup. Pastikan file backup yang dipilih benar.';
   h += '</div>';
   h += '<p style="font-size:12px;color:var(--mu2);margin-bottom:12px;">Pilih file JSON backup yang sebelumnya sudah di-download:</p>';
-  h += '<div id="backupFileLabel" onclick="triggerBackupInput()" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;">';
-  h += '  style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;">';
-  h += '  <span style="font-size:20px;">📂</span>';
-  h += '  <span id="backupFileName">Tap di sini untuk pilih file backup JSON...</span>';
-  h += '</div>';
+  h += '<div id="backupFileLabel" onclick="triggerBackupInput()" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;">'
+    + '<span style="font-size:20px;">📂</span>'
+    + '<span id="backupFileName">Tap di sini untuk pilih file backup JSON...</span>'
+    + '</div>';
   h += '<input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="onBackupFileSelect(event)"/>';
   h += '<div id="backupPreview" style="display:none;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--mu2);line-height:1.8;"></div>';
   h += '<button class="addbtn" id="btnDoRestore" onclick="confirmRestore()" style="display:none;background:linear-gradient(135deg,rgba(255,183,3,.2),rgba(255,100,0,.15));border-color:rgba(255,183,3,.3);color:var(--amber);">🔄 Restore Data Sekarang</button>';
