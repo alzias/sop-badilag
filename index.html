@@ -1023,6 +1023,22 @@ function addMsg(text,isOut,card=null) {
 }
 function getDN(id){const d=S.depts.find(x=>x.id===id);return d?d.icon+' '+d.name:'?';}
 
+
+// ── Cek apakah user adalah pejabat Eselon II ke atas ──
+function isPejabatEselon2() {
+  if(!S.user) return false;
+  const jab = (S.user.jabatan || '').toLowerCase();
+  return jab.includes('direktur jenderal') ||
+         jab.includes('dirjen') ||
+         jab.includes('sekretaris direktorat jenderal') ||
+         jab.includes('sekretaris ditjen') ||
+         jab.includes('direktur pembinaan') ||
+         jab.includes('direktur pranata') ||
+         jab.includes('direktur administrasi') ||
+         jab.includes('direktur tenaga') ||
+         // fallback: cek dept id level eselon 2
+         ['s01','a01','t01','p01','dj01'].includes(S.user.dept?.id || '');
+}
 // ── Cek apakah user boleh akses drive tertentu ──
 // Cocokkan via: deptId exact, eselon4/3/2 Id, atau nama unit
 function canUserAccessDrive(drive) {
@@ -1196,6 +1212,25 @@ async function sendMsg(){
     'Tutup dengan: "Sesi ini akan ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera."',
   ].join('\n') : '';
 
+  // ── Kalkulasi konteks pegawai (di luar array agar tidak syntax error) ──
+  let pegawaiCtx = '';
+  if(!isGuest && isPejabatEselon2()) {
+    const empData = S.emps.map(e => {
+      const dept = S.depts.find(d=>d.id===e.deptId);
+      let line = '\u2022 '+e.name+' | '+(e.jabatan||'-')+' | '+(e.subbag||e.bagian||e.eselon2||'?');
+      if(dept) line += ' ['+dept.name+']';
+      if(e.telepon) line += ' | WA: '+e.telepon;
+      return line;
+    }).join('\n');
+    pegawaiCtx = 'DATA KEPEGAWAIAN DITJEN BADILAG ('+S.emps.length+' pegawai):\n'+empData
+      +'\n\nINSTRUKSI DATA PEGAWAI:'
+      +'\n- Gunakan data di atas untuk menjawab pertanyaan tentang siapa pejabat/pegawai di unit tertentu'
+      +'\n- Tampilkan: Nama, Jabatan, Unit, dan No. WA jika tersedia'
+      +'\n- Jika tidak ditemukan di data, sampaikan data belum tersedia di sistem';
+  } else if(!isGuest) {
+    pegawaiCtx = 'PEMBATASAN AKSES DATA PEGAWAI: Pengguna ('+jabatan+') tidak memiliki hak akses data kepegawaian. Jika ditanya tentang data/informasi pegawai lain, tolak dengan sopan: Mohon maaf, informasi kepegawaian hanya dapat diakses oleh pimpinan Eselon II ke atas.';
+  }
+
   const sys = [
     'Kamu adalah SOPI (SOP Intelligence), asisten virtual resmi Direktorat Jenderal Badan Peradilan Agama (Ditjen Badilag) Mahkamah Agung Republik Indonesia.',
     '',
@@ -1213,6 +1248,8 @@ async function sendMsg(){
     '- Unit Kerja: ' + (unitKerja || 'Akses Publik'),
     '- Waktu: ' + getTimeGreeting() + ' (' + new Date().getHours() + ':' + String(new Date().getMinutes()).padStart(2,'0') + ')',
     '- Pertanyaan: ' + txt,
+    '',
+    pegawaiCtx,
     '',
     sopUnitInfo ? 'SOP UNIT KERJA ' + unitKerja + ':\n' + sopUnitInfo : '',
     !isGuest && driveAccessLevel ? '\nLEVEL AKSES DRIVE: ' + driveAccessLevel + ' — ' + 
@@ -1498,6 +1535,8 @@ function rEmps(c){
   h += '<input class="finput" id="aEN" placeholder="Nama lengkap..."/>';
   h += '<label class="flabel">Jabatan</label>';
   h += '<input class="finput" id="aEJ" placeholder="Jabatan..."/>';
+  h += '<label class="flabel">No. Telp / WA <span style="color:var(--mu);font-size:10px;font-weight:400;">(opsional)</span></label>';
+  h += '<input class="finput" id="aETlp" placeholder="Contoh: 08123456789..." inputmode="tel" maxlength="15"/>';
   h += '<label class="flabel">Unit Eselon II</label>';
   h += '<select class="fselect" id="aEEselon2" onchange="onE2Change(&quot;a&quot;)"><option value="">— Pilih Eselon II —</option>'+e2opts+'</select>';
   h += '<label class="flabel">Bagian / Subdit (Eselon III)</label>';
@@ -1526,6 +1565,7 @@ function rEmps(c){
     h += '<div class="acard-name">'+e.name+(e.nip?' <span style="font-size:11px;color:var(--mu);">NIP: '+e.nip+'</span>':'')+'</div>';
     if(e2b) h += '<div class="acard-sub">'+e2b+'</div>';
     h += '<div class="acard-sub">'+(e.bagian||'')+sub+(e.jabatan?' · '+e.jabatan:'')+'</div>';
+    if(e.telepon) h += '<div class="acard-sub" style="color:var(--cyan);font-size:11px;">📱 '+e.telepon+'</div>';
     h += '</div>';
     h += '<div class="acard-acts">';
     h += '<button class="bedit" onclick="editEmp(\'' + e.id + '\')">✏️</button>';
@@ -1562,13 +1602,14 @@ async function addEmp(){
   S.emps.push({
     id: 'e'+Date.now(),
     name, nip,
-    jabatan: document.getElementById('aEJ').value.trim(),
-    eselon2: e2 ? e2.name : '',
+    jabatan : document.getElementById('aEJ').value.trim(),
+    telepon : document.getElementById('aETlp').value.trim(),
+    eselon2 : e2 ? e2.name : '',
     eselon2Icon: e2 ? e2.icon : '',
-    bagian: e3 ? e3.nama : '',
-    subbag: e4 ? e4.nama : '',
+    bagian  : e3 ? e3.nama : '',
+    subbag  : e4 ? e4.nama : '',
     deptId,
-    icon: gIco('newEmp','👤')
+    icon    : gIco('newEmp','👤')
   });
   await fbSaveEmp(S.emps[S.emps.length-1]);
   renderAdmin();toast('✅ Pegawai ditambahkan');
@@ -1591,6 +1632,8 @@ function editEmp(id){
     '<input class="finput" id="eEN" value="'+e.name+'"/>'+
     '<label class="flabel">Jabatan</label>'+
     '<input class="finput" id="eEJ" value="'+(e.jabatan||'')+'"/>'+
+    '<label class="flabel">No. Telp / WA <span style="color:var(--mu);font-size:10px;font-weight:400;">(opsional)</span></label>'+
+    '<input class="finput" id="eETlp" value="'+(e.telepon||'')+'" placeholder="08123456789..." inputmode="tel" maxlength="15"/>'+
     '<label class="flabel">Unit Eselon II</label>'+
     '<select class="fselect" id="eEEselon2" onchange="onE2Change(&quot;e&quot;)">'+e2opts+'</select>'+
     '<label class="flabel">Bagian / Subdit (Eselon III)</label>'+
@@ -1639,6 +1682,7 @@ async function saveEmp(id){
   e.name       = name;
   e.nip        = document.getElementById('eEP').value.trim();
   e.jabatan    = jabatanBaru;
+  e.telepon    = document.getElementById('eETlp').value.trim();
   e.eselon2    = e2 ? e2.name : '';
   e.eselon2Icon= e2 ? e2.icon : '';
   e.bagian     = e3 ? e3.nama : '';
