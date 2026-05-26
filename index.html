@@ -901,13 +901,22 @@ function doLogin() {
   if(!dept && found.bagian)  dept = S.depts.find(d => d.name.toLowerCase().trim() === found.bagian.toLowerCase().trim());
   if(!dept && found.eselon2) dept = S.depts.find(d => d.name.toLowerCase().trim() === found.eselon2.toLowerCase().trim());
   if(!dept){
-    // Last resort: gunakan eselon2 sebagai fallback dept sementara
-    const e2obj = found.eselon2 ? ESELON2.find(e => e.name.toLowerCase().trim() === found.eselon2.toLowerCase().trim()) : null;
-    if(e2obj) {
-      dept = { id: e2obj.id, name: e2obj.name, icon: e2obj.icon };
+    const jabatanLow = (found.jabatan || '').toLowerCase();
+    // Khusus Dirjen — dept selalu dj01
+    if(jabatanLow.includes('direktur jenderal') || jabatanLow.includes('dirjen')) {
+      dept = S.depts.find(d=>d.id==='dj01') ||
+             { id:'dj01', name:'Direktorat Jenderal Badan Peradilan Agama MA RI', icon:'🏛️' };
     } else {
-      showLoginErr('❌ Unit kerja tidak ditemukan. Hubungi admin untuk update data pegawai.');
-      return;
+      // Fallback: gunakan eselon2 sebagai dept sementara
+      const e2obj = found.eselon2
+        ? ESELON2.find(e => e.name.toLowerCase().trim() === found.eselon2.toLowerCase().trim())
+        : null;
+      if(e2obj) {
+        dept = { id: e2obj.id, name: e2obj.name, icon: e2obj.icon };
+      } else {
+        showLoginErr('❌ Unit kerja tidak ditemukan. Hubungi admin untuk update data pegawai.');
+        return;
+      }
     }
   }
 
@@ -1018,7 +1027,8 @@ function getDN(id){const d=S.depts.find(x=>x.id===id);return d?d.icon+' '+d.name
 // Cocokkan via: deptId exact, eselon4/3/2 Id, atau nama unit
 function canUserAccessDrive(drive) {
   if(!drive) return false;
-  if(!S.user || !S.user.dept) return false;
+  // Guard: pastikan S.user sudah ter-set sebelum akses propertinya
+  if(!S || !S.user || !S.user.dept) return false;
   const u = S.user;
 
   // Dirjen & Sekretaris Ditjen — akses semua SOP
@@ -1610,11 +1620,25 @@ async function saveEmp(id){
   const e2   = e2El ? ESELON2.find(x=>x.id===e2El.value) : null;
   const e3   = e3El ? ESELON3.find(x=>x.id===e3El.value) : null;
   const e4   = e4El ? ESELON4.find(x=>x.id===e4El.value) : null;
+  const jabatanBaru = document.getElementById('eEJ').value.trim();
+  const jabatanLow  = jabatanBaru.toLowerCase();
+  // Tentukan deptId: Dirjen selalu dj01, lainnya dari eselon IV→III→II
   let deptId = e.deptId;
-  if(e3){ const found=S.depts.find(d=>d.name===e3.nama); if(found) deptId=found.id; }
+  if(jabatanLow.includes('direktur jenderal') || jabatanLow.includes('dirjen')) {
+    deptId = 'dj01';
+  } else if(e4) {
+    const foundE4 = S.depts.find(d=>d.name.toLowerCase()===e4.nama.toLowerCase());
+    if(foundE4) deptId = foundE4.id;
+  } else if(e3) {
+    const foundE3 = S.depts.find(d=>d.name.toLowerCase()===e3.nama.toLowerCase());
+    if(foundE3) deptId = foundE3.id;
+  } else if(e2) {
+    const foundE2 = S.depts.find(d=>d.name.toLowerCase()===e2.name.toLowerCase());
+    if(foundE2) deptId = foundE2.id;
+  }
   e.name       = name;
   e.nip        = document.getElementById('eEP').value.trim();
-  e.jabatan    = document.getElementById('eEJ').value.trim();
+  e.jabatan    = jabatanBaru;
   e.eselon2    = e2 ? e2.name : '';
   e.eselon2Icon= e2 ? e2.icon : '';
   e.bagian     = e3 ? e3.nama : '';
