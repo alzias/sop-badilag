@@ -411,6 +411,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="atab" id="tabEmp" onclick="switchTab('emp')">👤 Pegawai</div>
     <div class="atab" id="tabDrive" onclick="switchTab('drive')">📋 SOP</div>
     <div class="atab" id="tabQR" onclick="switchTab('qr')">🔲 QR Code</div>
+    <div class="atab" id="tabBackup" onclick="switchTab('backup')">💾 Backup</div>
   </div>
   <div class="abody" id="adminBody"></div>
 </div>
@@ -1238,6 +1239,48 @@ async function sendMsg(){
     pegawaiCtx = 'PEMBATASAN AKSES DATA PEGAWAI: Pengguna ('+jabatan+') tidak memiliki hak akses data kepegawaian. Jika ditanya tentang data/informasi pegawai lain, tolak dengan sopan: Mohon maaf, informasi kepegawaian hanya dapat diakses oleh pimpinan Eselon II ke atas.';
   }
 
+  // ── Analisis kelengkapan SOP (hanya untuk pejabat Es II ke atas) ──
+  let sopAnalysisCtx = '';
+  if(_isTopLevel && S.drives.length > 0) {
+    const sopPerDept = {};
+    S.drives.forEach(function(d) {
+      if(!sopPerDept[d.deptId]) sopPerDept[d.deptId] = 0;
+      sopPerDept[d.deptId]++;
+    });
+    const unitAda   = S.depts.filter(function(d){ return (sopPerDept[d.id]||0)>0; });
+    const unitKosong = S.depts.filter(function(d){ return (sopPerDept[d.id]||0)===0; });
+    const rekapE2 = ESELON2.map(function(e2) {
+      const e3list = ESELON3.filter(function(e3){ return e3.eselon2===e2.id; });
+      const namaAll = [e2.name].concat(e3list.map(function(e){ return e.nama; }));
+      e3list.forEach(function(e3){
+        ESELON4.filter(function(e4){ return e4.eselon3===e3.id; })
+          .forEach(function(e4){ namaAll.push(e4.nama); });
+      });
+      const ids = S.depts.filter(function(d){
+        return namaAll.some(function(n){ return n&&d.name&&n.toLowerCase()===d.name.toLowerCase(); });
+      }).map(function(d){ return d.id; });
+      const ada = ids.filter(function(id){ return (sopPerDept[id]||0)>0; }).length;
+      return e2.icon+' '+e2.name+': '+ada+'/'+ids.length+' unit punya SOP';
+    }).join('\n');
+
+    var NL = '\n';
+    sopAnalysisCtx = [
+      'ANALISIS KELENGKAPAN SOP DITJEN BADILAG:',
+      'Total unit: '+S.depts.length+' | Sudah SOP: '+unitAda.length+' | Belum SOP: '+unitKosong.length,
+      '',
+      'REKAP PER DIREKTORAT:',
+      rekapE2,
+      '',
+      'UNIT SUDAH ADA SOP:',
+      unitAda.map(function(d){ return '\u2705 '+d.name+' ('+sopPerDept[d.id]+' SOP)'; }).join(NL),
+      '',
+      'UNIT BELUM ADA SOP:',
+      unitKosong.length ? unitKosong.map(function(d){ return '\u274c '+d.name; }).join(NL) : '(semua sudah punya SOP!)',
+      '',
+      'INSTRUKSI: Gunakan data ini jika ditanya unit mana yang belum punya SOP, rekap kelengkapan, persentase, atau perbandingan antar direktorat.'
+    ].join(NL);
+  }
+
   const sys = [
     'Kamu adalah SOPI (SOP Intelligence), asisten virtual resmi Direktorat Jenderal Badan Peradilan Agama (Ditjen Badilag) Mahkamah Agung Republik Indonesia.',
     '',
@@ -1257,6 +1300,7 @@ async function sendMsg(){
     '- Pertanyaan: ' + txt,
     '',
     pegawaiCtx,
+    sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT KERJA ' + unitKerja + ':\n' + sopUnitInfo : '',
     !isGuest && driveAccessLevel ? '\nLEVEL AKSES DRIVE: ' + driveAccessLevel + ' — ' + 
@@ -1385,10 +1429,20 @@ function openAdmin(){document.getElementById('adminPanel').style.display='flex';
 function closeAdmin(){document.getElementById('adminPanel').style.display='none';populateDepts();}
 function switchTab(tab){
   S.tab=tab;
-  ['dept','emp','drive'].forEach(t=>document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('on',t===tab));
+  ['dept','emp','drive','qr','backup'].forEach(t=>{
+    const el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(el) el.classList.toggle('on',t===tab);
+  });
   renderAdmin();
 }
-function renderAdmin(){const b=document.getElementById('adminBody');if(S.tab==='dept')rDepts(b);else if(S.tab==='emp')rEmps(b);else if(S.tab==='drive')rDrives(b);else rQR(b);}
+function renderAdmin(){
+  const b=document.getElementById('adminBody');
+  if(S.tab==='dept')       rDepts(b);
+  else if(S.tab==='emp')   rEmps(b);
+  else if(S.tab==='drive') rDrives(b);
+  else if(S.tab==='backup') rBackup(b);
+  else rQR(b);
+}
 
 // ── DEPT ──
 function rDepts(c){
@@ -1881,7 +1935,7 @@ function editDrive(id){
     '<label class="flabel">Deskripsi</label><input class="finput" id="eDrDesc" value="'+(d.desc||'')+'"/>'+
     '<label class="flabel">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;">(untuk AI)</span></label>'+
     '<textarea class="finput" id="eDrContent" rows="5" style="resize:vertical;line-height:1.5;font-size:13px;">'+safeContent+'</textarea>'+
-    '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(\'mForm\')">Batal</button><button class="mbtn ok" id="btnSaveDrive">Simpan</button></div>'
+    '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(&quot;mForm&quot;)">Batal</button><button class="mbtn ok" id="btnSaveDrive">Simpan</button></div>'
   );
   setTimeout(()=>{
     const btn=document.getElementById('btnSaveDrive');
@@ -2167,6 +2221,204 @@ function rQR(c) {
       });
     });
   }, 200);
+}
+
+// ══ BACKUP & RESTORE ══
+function rBackup(c) {
+  const totalDepts  = S.depts.length;
+  const totalEmps   = S.emps.length;
+  const totalDrives = S.drives.length;
+  const now = new Date();
+  const tgl = now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  const jam = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+
+  let h = '<div class="sectitle">Backup & Restore Data</div>';
+
+  // ── EXPORT ──
+  h += '<div class="addbox">';
+  h += '<h4>📤 Export / Backup Data</h4>';
+  h += '<div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.12);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--mu2);line-height:1.8;">';
+  h += '<div style="font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Ringkasan Data Saat Ini:</div>';
+  h += '🏢 Unit/Departemen : <strong style="color:var(--tx);">'+totalDepts+' unit</strong><br>';
+  h += '👤 Pegawai         : <strong style="color:var(--tx);">'+totalEmps+' orang</strong><br>';
+  h += '📋 Dokumen SOP     : <strong style="color:var(--tx);">'+totalDrives+' dokumen</strong><br>';
+  h += '<div style="margin-top:8px;font-size:11px;color:var(--mu);">Terakhir dicek: '+tgl+', '+jam+'</div>';
+  h += '</div>';
+  h += '<p style="font-size:12px;color:var(--mu2);margin-bottom:14px;line-height:1.6;">Download semua data (unit, pegawai, SOP) sebagai file JSON. File ini bisa digunakan untuk restore data jika sewaktu-waktu diperlukan.</p>';
+  h += '<button class="addbtn" onclick="exportBackup()" style="background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(67,97,238,.15));border-color:rgba(0,245,212,.3);">📥 Download Backup JSON</button>';
+  h += '</div>';
+
+  // ── IMPORT / RESTORE ──
+  h += '<div class="addbox" style="border-color:rgba(255,183,3,.2);background:rgba(255,183,3,.03);">';
+  h += '<h4 style="color:var(--amber);">📂 Import / Restore Data</h4>';
+  h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);line-height:1.7;">';
+  h += '⚠️ <strong>Perhatian:</strong> Import akan <strong>menghapus seluruh data lama</strong> (unit, pegawai, SOP) dan menggantinya dengan data dari file backup. Pastikan file backup yang dipilih benar.';
+  h += '</div>';
+  h += '<p style="font-size:12px;color:var(--mu2);margin-bottom:12px;">Pilih file JSON backup yang sebelumnya sudah di-download:</p>';
+  h += '<div id="backupFileLabel" onclick="triggerBackupInput()" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;">';
+  h += '  style="width:100%;padding:12px 16px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:12px;color:var(--mu2);font-size:13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border .2s;">';
+  h += '  <span style="font-size:20px;">📂</span>';
+  h += '  <span id="backupFileName">Tap di sini untuk pilih file backup JSON...</span>';
+  h += '</div>';
+  h += '<input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="onBackupFileSelect(event)"/>';
+  h += '<div id="backupPreview" style="display:none;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--mu2);line-height:1.8;"></div>';
+  h += '<button class="addbtn" id="btnDoRestore" onclick="confirmRestore()" style="display:none;background:linear-gradient(135deg,rgba(255,183,3,.2),rgba(255,100,0,.15));border-color:rgba(255,183,3,.3);color:var(--amber);">🔄 Restore Data Sekarang</button>';
+  h += '</div>';
+
+  c.innerHTML = h;
+}
+
+// Data backup yang dipilih user (disimpan sementara)
+let _backupData = null;
+
+function closeRestoreModal(){ closeModal('mForm'); }
+function triggerBackupInput() {
+  var el = document.getElementById('backupFileInput');
+  if(el) el.click();
+}
+function exportBackup() {
+  const backup = {
+    _meta: {
+      app       : 'SOP Digital — Ditjen Badilag MA RI',
+      version   : '2.9',
+      exported  : new Date().toISOString(),
+      total     : { depts: S.depts.length, emps: S.emps.length, drives: S.drives.length }
+    },
+    depts  : S.depts,
+    emps   : S.emps,
+    drives : S.drives
+  };
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const tgl  = new Date().toISOString().split('T')[0];
+  a.href     = url;
+  a.download = 'backup_sop_badilag_' + tgl + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ Backup berhasil didownload!');
+}
+
+function onBackupFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('backupFileName').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      // Validasi struktur file
+      if(!data.depts || !data.emps || !data.drives) {
+        toast('❌ File backup tidak valid — struktur tidak sesuai');
+        return;
+      }
+      _backupData = data;
+
+      // Tampilkan preview
+      const meta = data._meta || {};
+      const tglExport = meta.exported ? new Date(meta.exported).toLocaleString('id-ID') : '?';
+      const preview = document.getElementById('backupPreview');
+      preview.innerHTML = '<strong style="color:var(--cyan);">✅ File valid! Preview data backup:</strong><br><br>'
+        + '🏢 Unit/Dept  : <strong>'+data.depts.length+' unit</strong><br>'
+        + '👤 Pegawai    : <strong>'+data.emps.length+' orang</strong><br>'
+        + '📋 SOP/Drive  : <strong>'+data.drives.length+' dokumen</strong><br>'
+        + '<br>📅 Dibuat pada: <strong>'+tglExport+'</strong>';
+      preview.style.display = 'block';
+      document.getElementById('btnDoRestore').style.display = 'block';
+    } catch(err) {
+      toast('❌ File tidak bisa dibaca — pastikan file JSON yang valid');
+      _backupData = null;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function confirmRestore() {
+  if(!_backupData) { toast('⚠ Pilih file backup terlebih dahulu'); return; }
+  var d = _backupData;
+  var html = '<div style="text-align:center;padding:8px 0 16px;">'
+    + '<div style="font-size:48px;margin-bottom:10px;">⚠️</div>'
+    + '<div style="font-size:15px;font-weight:800;color:var(--amber);margin-bottom:8px;">PERHATIAN — Tindakan Tidak Dapat Dibatalkan!</div>'
+    + '<div style="font-size:13px;color:var(--mu2);line-height:1.7;margin-bottom:16px;">'
+    + 'Restore akan <strong style="color:var(--red);">menghapus seluruh data saat ini</strong> dan menggantinya dengan data backup:<br><br>'
+    + '🏢 <strong>' + d.depts.length + ' unit</strong> → menggantikan <strong>' + S.depts.length + ' unit</strong> saat ini<br>'
+    + '👤 <strong>' + d.emps.length + ' pegawai</strong> → menggantikan <strong>' + S.emps.length + ' pegawai</strong> saat ini<br>'
+    + '📋 <strong>' + d.drives.length + ' SOP</strong> → menggantikan <strong>' + S.drives.length + ' SOP</strong> saat ini'
+    + '</div>'
+    + '<div style="background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;">'
+    + '🚨 Data lama akan DIHAPUS PERMANEN. Pastikan sudah backup data terkini!'
+    + '</div>'
+    + '</div>'
+    + '<div class="mrow">'
+    + '<button class="mbtn cancel" id="btnCancelRestore">❌ Batal</button>'
+    + '<button class="mbtn ok" style="background:linear-gradient(135deg,rgba(255,77,109,.8),rgba(200,0,50,.8));color:#fff;" id="btnConfirmRestore">🔄 Ya, Restore Sekarang</button>'
+    + '</div>';
+  openForm('⚠️ Konfirmasi Restore Data', html);
+  setTimeout(function(){
+    var bCancel = document.getElementById('btnCancelRestore');
+    var bOk     = document.getElementById('btnConfirmRestore');
+    if(bCancel) bCancel.onclick = function(){ closeModal('mForm'); };
+    if(bOk)     bOk.onclick     = executeRestore;
+  }, 80);
+}
+
+async function executeRestore() {
+  if(!_backupData) return;
+  closeModal('mForm');
+  toast('⏳ Menghapus data lama...');
+
+  try {
+    // Hapus semua data lama di Firestore
+    const [oldDepts, oldEmps, oldDrives] = await Promise.all([
+      db.collection('depts').get(),
+      db.collection('emps').get(),
+      db.collection('drives').get()
+    ]);
+
+    const delBatch = db.batch();
+    oldDepts.docs.forEach(d  => delBatch.delete(d.ref));
+    oldEmps.docs.forEach(d   => delBatch.delete(d.ref));
+    oldDrives.docs.forEach(d => delBatch.delete(d.ref));
+    await delBatch.commit();
+
+    toast('⏳ Menyimpan data backup...');
+
+    // Simpan data baru dari backup (batch per 400 doc)
+    const allDocs = [
+      ..._backupData.depts.map(d  => ({ col:'depts',  data:d })),
+      ..._backupData.emps.map(e   => ({ col:'emps',   data:e })),
+      ..._backupData.drives.map(dr=> ({ col:'drives',  data:dr }))
+    ];
+
+    const CHUNK = 400;
+    for(let i=0; i<allDocs.length; i+=CHUNK) {
+      const chunk = allDocs.slice(i, i+CHUNK);
+      const saveBatch = db.batch();
+      chunk.forEach(item => {
+        const { id, ...data } = item.data;
+        saveBatch.set(db.collection(item.col).doc(id), data);
+      });
+      await saveBatch.commit();
+    }
+
+    // Update state lokal
+    S.depts  = _backupData.depts;
+    S.emps   = _backupData.emps;
+    S.drives = _backupData.drives;
+    _backupData = null;
+
+    renderAdmin();
+    toast('✅ Restore berhasil! '+S.depts.length+' unit, '+S.emps.length+' pegawai, '+S.drives.length+' SOP dipulihkan.');
+
+  } catch(err) {
+    console.error('Restore error:', err);
+    toast('❌ Restore gagal: ' + err.message);
+  }
 }
 
 function printQR(qrId, title) {
