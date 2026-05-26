@@ -1028,7 +1028,8 @@ function getDN(id){const d=S.depts.find(x=>x.id===id);return d?d.icon+' '+d.name
 function isPejabatEselon2() {
   if(!S.user) return false;
   const jab = (S.user.jabatan || '').toLowerCase();
-  return jab.includes('direktur jenderal') ||
+  const deptId = S.user.dept?.id || '';
+  const result = jab.includes('direktur jenderal') ||
          jab.includes('dirjen') ||
          jab.includes('sekretaris direktorat jenderal') ||
          jab.includes('sekretaris ditjen') ||
@@ -1036,8 +1037,9 @@ function isPejabatEselon2() {
          jab.includes('direktur pranata') ||
          jab.includes('direktur administrasi') ||
          jab.includes('direktur tenaga') ||
-         // fallback: cek dept id level eselon 2
-         ['s01','a01','t01','p01','dj01'].includes(S.user.dept?.id || '');
+         ['s01','a01','t01','p01','dj01'].includes(deptId);
+  console.log('[SOPI] isPejabatEselon2:', result, '| jabatan:', S.user.jabatan, '| deptId:', deptId);
+  return result;
 }
 // ── Cek apakah user boleh akses drive tertentu ──
 // Cocokkan via: deptId exact, eselon4/3/2 Id, atau nama unit
@@ -1213,8 +1215,14 @@ async function sendMsg(){
   ].join('\n') : '';
 
   // ── Kalkulasi konteks pegawai (di luar array agar tidak syntax error) ──
+  // Cek akses data pegawai: Es II ke atas ATAU dept dj01/s01/a01/t01/p01
+  const _deptIdUser = S.user?.dept?.id || '';
+  const _isTopLevel = !isGuest && (
+    isPejabatEselon2() ||
+    ['dj01','s01','a01','t01','p01'].includes(_deptIdUser)
+  );
   let pegawaiCtx = '';
-  if(!isGuest && isPejabatEselon2()) {
+  if(!isGuest && _isTopLevel) {
     const empData = S.emps.map(e => {
       const dept = S.depts.find(d=>d.id===e.deptId);
       let line = '\u2022 '+e.name+' | '+(e.jabatan||'-')+' | '+(e.subbag||e.bagian||e.eselon2||'?');
@@ -1227,7 +1235,7 @@ async function sendMsg(){
       +'\n- Gunakan data di atas untuk menjawab pertanyaan tentang siapa pejabat/pegawai di unit tertentu'
       +'\n- Tampilkan: Nama, Jabatan, Unit, dan No. WA jika tersedia'
       +'\n- Jika tidak ditemukan di data, sampaikan data belum tersedia di sistem';
-  } else if(!isGuest) {
+  } else if(!isGuest && !_isTopLevel) {
     pegawaiCtx = 'PEMBATASAN AKSES DATA PEGAWAI: Pengguna ('+jabatan+') tidak memiliki hak akses data kepegawaian. Jika ditanya tentang data/informasi pegawai lain, tolak dengan sopan: Mohon maaf, informasi kepegawaian hanya dapat diakses oleh pimpinan Eselon II ke atas.';
   }
 
