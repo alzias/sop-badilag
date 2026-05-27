@@ -1157,12 +1157,12 @@ async function sendMsg(){
   // Batasi SOP info agar tidak melebihi token limit Gemini
   // Role-based: pegawai dapat SOP unit sendiri (cocok via eselon4/3/2 atau deptId)
   const myDrives = S.mode !== 'pegawai' || !S.user ? S.drives : S.drives.filter(d => canUserAccessDrive(d));
-  const sopInfo = myDrives.slice(0,15).map((d,i)=>{
+  const sopInfo = myDrives.slice(0,10).map((d,i)=>{
     const dept=S.depts.find(x=>x.id===d.deptId);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
     if(d.nomor) info += ' (No: '+d.nomor+')';
-    if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,150);
-    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,800);
+    if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,300);
+    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,3000);
     if(d.linkFinal) info += '\n   Link SOP Final (PDF): '+d.linkFinal;
     else if(d.link) info += '\n   Link Drive: '+d.link;
     return info;
@@ -1197,11 +1197,26 @@ async function sendMsg(){
   return '• "'+d.title+'" ['+(dept?dept.name:'?')+']'+linkInfo;
   }).join('\n') : '';
 
-  // Deteksi jika user sudah berikan email
+  // ══ DETEKSI STATE EMAIL — berbasis riwayat percakapan ══
   const emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
   const userGaveEmail = emailPattern.test(txt);
-  const userSaidYesEmail = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju)$/i.test(txt.trim());
-  const userSaidNoEmail  = /(tidak|ga|gak|nggak|no|ndak|nda|ngga|skip|lewati|tidak perlu|gausah|tidak mau|gaperluu|gak perlu|enggak|nggak mau)/i.test(txt.trim());
+  const userSaidYesEmail = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju|boleh|silakan)$/i.test(txt.trim());
+  const userSaidNoEmail  = /(^tidak$|^ga$|^gak$|^nggak$|^no$|^ndak$|^nda$|^enggak$|tidak perlu|gak perlu|gausah|nggak mau|skip)/i.test(txt.trim());
+
+  // Cek riwayat — apakah SOPI sudah tanya rekap email di pesan sebelumnya?
+  const recentReplies = S.history.filter(h=>h.role==='assistant').slice(-3).map(h=>
+    (typeof h.content === 'string' ? h.content : JSON.stringify(h.content)).toLowerCase()
+  );
+  const sopiSudahTanyaEmail = recentReplies.some(r =>
+    r.includes('rekap percakapan') && (r.includes('via email') || r.includes('email?'))
+  );
+  const sopiSudahMintaAlamatEmail = recentReplies.some(r =>
+    r.includes('ketikkan alamat email') || r.includes('silakan ketikkan') || r.includes('tuliskan email')
+  );
+
+  // State turunan — berbasis history
+  const awaitingEmailChoice = sopiSudahTanyaEmail && !sopiSudahMintaAlamatEmail;
+  const awaitingEmailAddress = sopiSudahMintaAlamatEmail && !userGaveEmail;
 
   // Pantun perpisahan — acak, pantun 3 adalah utama (bobot lebih tinggi)
   const pantunList = [
@@ -1223,14 +1238,15 @@ async function sendMsg(){
     'PENTING: Hentikan semua respons lain dan TUNGGU jawaban Ya atau Tidak dari pengguna.',
   ].join('\n') : '';
 
-  const emailWaitInstr = (isEnding && userSaidYesEmail) ? [
+  // emailWaitInstr: aktif jika SOPI sudah tanya email DAN user jawab Ya
+  const emailWaitInstr = ((isEnding && userSaidYesEmail) || (awaitingEmailChoice && userSaidYesEmail)) ? [
     '',
-    'INSTRUKSI: Pengguna bersedia kirim email. Minta alamat emailnya:',
-    'Katakan: "Baik ' + namaUser + ', silakan ketikkan alamat email Bapak/Ibu di sini, kami akan segera mengirimkan rekap percakapan ini."',
-    'Berikan waktu 20-30 detik untuk pengguna mengetik email.',
+    '⚠️ PERINTAH PRIORITAS: Pengguna BERSEDIA kirim rekap via email. JANGAN bicara topik lain.',
+    'Lakukan HANYA ini: "Baik ' + namaUser + '! Silakan ketikkan alamat email Bapak/Ibu di sini, rekap percakapan dan daftar SOP akan segera kami kirimkan. ✉️"',
+    'Tunggu pengguna mengetikkan alamat email. Jangan tambahkan kalimat lain.',
   ].join('\n') : '';
 
-  const emailConfirmInstr = userGaveEmail ? [
+  const emailConfirmInstr = (userGaveEmail && (sopiSudahMintaAlamatEmail || awaitingEmailChoice)) ? [
     '',
     'INSTRUKSI WAJIB: Pengguna sudah berikan email ' + txt + '. JANGAN bilang tidak bisa kirim email. Sistem AKAN mengirimkannya. Lakukan URUTAN BERIKUT:',
     'LANGKAH 1 — Konfirmasi hangat: "Terima kasih ' + namaUser + '! Email ' + txt + ' sudah kami catat dengan baik. Rekap percakapan dan daftar SOP terkait akan segera dikirimkan ke email tersebut. ✉️"',
@@ -1242,7 +1258,7 @@ async function sendMsg(){
   ].join('\n') : '';
 
   // Jika user jawab TIDAK untuk email — langsung tutup dengan pantun
-  const emailDeclineInstr = (isEnding && userSaidNoEmail) ? [
+  const emailDeclineInstr = ((isEnding && userSaidNoEmail) || (awaitingEmailChoice && userSaidNoEmail)) ? [
     '',
     '⚠️ PERINTAH PRIORITAS TERTINGGI: Pengguna MENOLAK rekap email. Lakukan HANYA urutan ini TANPA tambahan kalimat lain:',
     'LANGKAH 1 — Singkat & hangat: "Baik ' + namaUser + ', tidak masalah sama sekali! Senang bisa membantu hari ini 😊"',
@@ -1350,6 +1366,10 @@ async function sendMsg(){
        'Hanya dapat melihat folder unit ' + (S.user.subbag||unitKerja)) : '',
     'SOP SISTEM (semua unit):\n' + sopInfo,
     relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
+    '',
+    // Instruksi kontekstual jika user tanya detail isi SOP
+    txt.toLowerCase().match(/(dasar hukum|kualifikasi|peralatan|langkah|tahapan|prosedur|persyaratan|peringatan|pencatatan|isi sop|detail sop|jelaskan sop|konten sop)/) ?
+    '⚠️ PERINTAH KHUSUS: User bertanya tentang DETAIL ISI SOP. WAJIB tampilkan semua informasi yang tersedia dari field "Isi SOP" di data sistem. Jika field konten ada — tampilkan SELENGKAPNYA dengan bullet point. Jika tidak ada data konten — arahkan ke link PDF dan jelaskan apa yang ada di deskripsi.' : '',
     '',
     'PANDUAN MENJAWAB:',
     '1. Jawab dengan hangat dan komunikatif — tidak kaku seperti robot',
@@ -3296,7 +3316,7 @@ export default {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: geminiContents,
-            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+            generationConfig: { maxOutputTokens: 4396, temperature: 0.2 }
           })
         }
       );
