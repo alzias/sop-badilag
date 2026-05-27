@@ -682,7 +682,7 @@ async function loadFromFirebase() {
     fbLoaded = false;
   }
 }
-// Preload data Ditjen Badilag v1.0 — dipanggil dari init
+// Preload data Ditjen Badilag v2.0 — dipanggil dari init
 function loadDefaultData() {
 if (!S.depts.length) { S.depts = [
   // ── Eselon I (induk) ──
@@ -1199,13 +1199,24 @@ async function sendMsg(){
   const emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
   const userGaveEmail = emailPattern.test(txt);
   const userSaidYesEmail = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju)$/i.test(txt.trim());
+  const userSaidNoEmail  = /^(tidak|ga|gak|nggak|no|ndak|nda|ngga|skip|lewati|tidak perlu|gausah|tidak mau)$/i.test(txt.trim());
+
+  // Pantun perpisahan — acak, pantun 3 adalah utama (bobot lebih tinggi)
+  const pantunList = [
+    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
+    'Malam hari keliling Semarang,\nSinggah sebentar membeli lumpia.\nJika di sistem masih ada yang kurang,\nJangan sungkan kembali menyapa saya!',
+    'Pagi-pagi minum kopi hangat,\nDitemani pisang goreng yang renyah.\nSemoga hari Bapak/Ibu penuh semangat,\nSOPI selalu siap saat kembali bertugas!',
+    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
+    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
+  ];
+  const selectedPantun = pantunList[Math.floor(Math.random() * pantunList.length)];
 
   const endingInstr = isEnding ? [
     '',
     'INSTRUKSI PENUTUP PERCAKAPAN (WAJIB DIIKUTI URUTAN INI):',
-    'LANGKAH 1: Ucapkan terima kasih hangat: "Terima kasih ' + namaUser + ' telah menggunakan layanan SOPI hari ini"',
-    'LANGKAH 2: Sampaikan "Semoga hari ' + namaUser + ' menyenangkan dan selamat melanjutkan aktivitas"',
-    'LANGKAH 3: Tanyakan: "Apakah ' + namaUser + ' bersedia menerima rekap percakapan dan daftar SOP via email? (Ya / Tidak)" — tunggu jawaban',
+    'LANGKAH 1: Ucapkan terima kasih hangat: "Terima kasih ' + namaUser + ' telah menggunakan layanan SOPI hari ini. Senang bisa membantu Bapak/Ibu! 😊"',
+    'LANGKAH 2: Sampaikan doa/harapan: "Semoga hari ' + namaUser + ' penuh semangat dan aktivitas berjalan lancar."',
+    'LANGKAH 3: Tanyakan rekap email: "Sebelum menutup sesi, apakah ' + namaUser + ' bersedia menerima rekap percakapan dan daftar SOP terkait via email? (Ya / Tidak)" — tunggu jawaban.',
   ].join('\n') : '';
 
   const emailWaitInstr = (isEnding && userSaidYesEmail) ? [
@@ -1217,10 +1228,25 @@ async function sendMsg(){
 
   const emailConfirmInstr = userGaveEmail ? [
     '',
-    'INSTRUKSI: Pengguna sudah berikan email ' + txt + '. Konfirmasi dengan hangat:',
-    'Katakan: "Terima kasih ' + namaUser + ', email ' + txt + ' sudah kami catat. Rekap percakapan ini akan segera dikirimkan."',
-    'Lanjutkan: "Untuk konsultasi lebih lanjut terkait SOP, ' + namaUser + ' dapat menghubungi Bagian Ortala - Sub Bagian Ketatalaksanaan Ditjen Badan Peradilan Agama."',
-    'Tutup dengan: "Sesi ini akan ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera."',
+    'INSTRUKSI: Pengguna sudah berikan email ' + txt + '. Lakukan URUTAN BERIKUT:',
+    'LANGKAH 1 — Konfirmasi email: "Terima kasih ' + namaUser + ', email ' + txt + ' sudah kami catat. Rekap percakapan akan segera dikirimkan. ✉️"',
+    'LANGKAH 2 — Pantun perpisahan (WAJIB, tulis persis ini):',
+    selectedPantun,
+    'LANGKAH 3 — Pesan penutup: "Untuk konsultasi SOP lebih lanjut, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag."',
+    'LANGKAH 4 — Tutup sesi: "Sesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏"',
+    'LANGKAH 5 — Setelah respons ini, sistem akan otomatis logout.',
+  ].join('\n') : '';
+
+  // Jika user jawab TIDAK untuk email — langsung tutup dengan pantun
+  const emailDeclineInstr = (isEnding && userSaidNoEmail) ? [
+    '',
+    'INSTRUKSI: Pengguna tidak ingin rekap email. Lakukan URUTAN BERIKUT:',
+    'LANGKAH 1 — Respons sopan: "Baik ' + namaUser + ', tidak masalah sama sekali! 😊"',
+    'LANGKAH 2 — Pantun perpisahan (WAJIB, tulis persis ini):',
+    selectedPantun,
+    'LANGKAH 3 — Pesan penutup: "Untuk konsultasi SOP lebih lanjut, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag."',
+    'LANGKAH 4 — Tutup sesi: "Sesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏"',
+    'LANGKAH 5 — Setelah respons ini, sistem akan otomatis logout.',
   ].join('\n') : '';
 
   // ── Konteks pegawai — SEMUA user boleh akses nama & unit, WA hanya login NIP ──
@@ -1330,9 +1356,18 @@ async function sendMsg(){
     '5. Rekomendasikan SOP terkait dari unit lain jika relevan',
     '6. Boleh bertanya balik untuk memahami kebutuhan pengguna lebih baik',
     '7. Jika nama pengguna belum diketahui, gunakan Bapak/Ibu — jangan sebut variabel apapun',
+    '',
+    'ATURAN PANJANG JAWABAN (WAJIB DIIKUTI):',
+    '1. RINGKAS & PADAT: Maksimal 3-4 paragraf per respons. Utamakan kualitas bukan kuantitas.',
+    '2. GUNAKAN BULLET POINT untuk daftar, langkah, atau informasi yang lebih dari 2 item — lebih efisien dari paragraf panjang.',
+    '3. JANGAN POTONG DI TENGAH: Jika topik kompleks dan butuh penjelasan lebih panjang, selesaikan 1 bagian dulu lalu TAWARKAN untuk lanjut. Contoh: "Apakah Bapak/Ibu ingin saya jelaskan lebih lanjut tentang [topik berikutnya]?"',
+    '4. PRIORITAS INFO: Jawab pertanyaan utama dulu, detail tambahan hanya jika relevan atau diminta.',
+    '5. TOPIK KELENGKAPAN SOP: Cukup berikan rekap per direktorat + total. Jangan listing semua unit satu per satu kecuali diminta.',
+    '6. DATA PEGAWAI: Tampilkan max 5 nama terkait, jika lebih tawarkan untuk filter per unit.',
     endingInstr,
     emailWaitInstr,
-    emailConfirmInstr
+    emailConfirmInstr,
+    emailDeclineInstr
   ].filter(Boolean).join('\n'); 
   try{
     const reply = await callGemini(sys, recentHistory);
@@ -1353,7 +1388,7 @@ async function sendMsg(){
       addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
     }
     // Auto logout setelah konfirmasi email atau penolakan
-    const closingWords = ['sesi ini akan ditutup','sesi akan ditutup','wassalamualaikum','salam sejahtera'];
+    const closingWords = ['sesi ini akan ditutup','sesi akan ditutup','wassalamualaikum','salam sejahtera','sampai jumpa di lain kesempatan','kembali menyapa saya','kembali bertugas'];
     const isClosing = closingWords.some(w=>reply.toLowerCase().includes(w));
     if(isClosing) {
       let sec = 15;
