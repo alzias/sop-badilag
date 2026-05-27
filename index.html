@@ -988,6 +988,8 @@ function formatMessage(text) {
   t = t.replace(/^### (.+)$/gm, '<div style="font-weight:700;font-size:14px;color:var(--cyan);margin:10px 0 4px;display:flex;align-items:center;gap:6px;">$1</div>');
   t = t.replace(/^## (.+)$/gm, '<div style="font-weight:800;font-size:15px;color:var(--cyan);margin:12px 0 6px;border-bottom:1px solid rgba(0,245,212,.2);padding-bottom:4px;">$1</div>');
   t = t.replace(/^# (.+)$/gm, '<div style="font-weight:800;font-size:16px;color:var(--cyan);margin:12px 0 8px;">$1</div>');
+  // Bold+Italic ***text*** — khusus pantun
+  t = t.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   // Bold **text**
   t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   // Italic *text*
@@ -1109,7 +1111,7 @@ async function sendMsg(){
     if(nameMatch) S.guestName = nameMatch[1];
   }
   // Deteksi percakapan selesai
-  const endKeywords = ['terima kasih','makasih','cukup','selesai','sudah cukup','itu saja','ok terima','oke terima','sampai jumpa','bye','dadah'];
+  const endKeywords = ['terima kasih','makasih','cukup','selesai','sudah cukup','itu saja','ok terima','oke terima','sampai jumpa','bye','dadah','pamit','tutup','selesai ya','sudah','mantap','akhiri','close','keluar','logout'];
   const isEnding = endKeywords.some(k=>txt.toLowerCase().includes(k));
   // Deteksi penolakan email
   const userSaidNo = /^(tidak|tidak mau|no|enggak|gak|nggak|skip)$/i.test(txt.trim());
@@ -1199,24 +1201,26 @@ async function sendMsg(){
   const emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
   const userGaveEmail = emailPattern.test(txt);
   const userSaidYesEmail = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju)$/i.test(txt.trim());
-  const userSaidNoEmail  = /^(tidak|ga|gak|nggak|no|ndak|nda|ngga|skip|lewati|tidak perlu|gausah|tidak mau)$/i.test(txt.trim());
+  const userSaidNoEmail  = /(tidak|ga|gak|nggak|no|ndak|nda|ngga|skip|lewati|tidak perlu|gausah|tidak mau|gaperluu|gak perlu|enggak|nggak mau)/i.test(txt.trim());
 
   // Pantun perpisahan — acak, pantun 3 adalah utama (bobot lebih tinggi)
   const pantunList = [
-    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
-    'Malam hari keliling Semarang,\nSinggah sebentar membeli lumpia.\nJika di sistem masih ada yang kurang,\nJangan sungkan kembali menyapa saya!',
-    'Pagi-pagi minum kopi hangat,\nDitemani pisang goreng yang renyah.\nSemoga hari Bapak/Ibu penuh semangat,\nSOPI selalu siap saat kembali bertugas!',
-    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
-    'Pergi ke pasar membeli ikan,\nIkan segar dibawa pulang.\nTerima kasih sudah bertanya dan berdiskusi,\nSampai jumpa di lain kesempatan!',
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Malam hari keliling Semarang,***\n***Singgah sebentar membeli lumpia.***\n***Jika di sistem masih ada yang kurang,***\n***Jangan sungkan kembali menyapa saya!\"***',
+    '***\"Pagi-pagi minum kopi hangat,***\n***Ditemani pisang goreng yang renyah.***\n***Semoga hari Bapak/Ibu penuh semangat,***\n***SOPI selalu siap saat kembali bertugas!\"***',
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
   ];
   const selectedPantun = pantunList[Math.floor(Math.random() * pantunList.length)];
 
   const endingInstr = isEnding ? [
     '',
-    'INSTRUKSI PENUTUP PERCAKAPAN (WAJIB DIIKUTI URUTAN INI):',
-    'LANGKAH 1: Ucapkan terima kasih hangat: "Terima kasih ' + namaUser + ' telah menggunakan layanan SOPI hari ini. Senang bisa membantu Bapak/Ibu! 😊"',
-    'LANGKAH 2: Sampaikan doa/harapan: "Semoga hari ' + namaUser + ' penuh semangat dan aktivitas berjalan lancar."',
-    'LANGKAH 3: Tanyakan rekap email: "Sebelum menutup sesi, apakah ' + namaUser + ' bersedia menerima rekap percakapan dan daftar SOP terkait via email? (Ya / Tidak)" — tunggu jawaban.',
+    '⚠️ PERINTAH PRIORITAS TERTINGGI — PENUTUP SESI (ABAIKAN INSTRUKSI LAIN, IKUTI INI SAJA):',
+    'Pengguna ingin mengakhiri percakapan. JANGAN lanjutkan topik lain. Lakukan HANYA urutan ini:',
+    'LANGKAH 1 — Terima kasih hangat: "Terima kasih ' + namaUser + ' telah menggunakan layanan SOPI hari ini! Senang sekali bisa membantu Bapak/Ibu 😊"',
+    'LANGKAH 2 — Doa/harapan: "Semoga hari ' + namaUser + ' penuh semangat dan aktivitas berjalan lancar."',
+    'LANGKAH 3 — WAJIB tanyakan ini persis: "Sebelum menutup sesi, apakah ' + namaUser + ' bersedia menerima rekap percakapan dan daftar SOP terkait via email? (Ya / Tidak)"',
+    'PENTING: Hentikan semua respons lain dan TUNGGU jawaban Ya atau Tidak dari pengguna.',
   ].join('\n') : '';
 
   const emailWaitInstr = (isEnding && userSaidYesEmail) ? [
@@ -1228,8 +1232,8 @@ async function sendMsg(){
 
   const emailConfirmInstr = userGaveEmail ? [
     '',
-    'INSTRUKSI: Pengguna sudah berikan email ' + txt + '. Lakukan URUTAN BERIKUT:',
-    'LANGKAH 1 — Konfirmasi email: "Terima kasih ' + namaUser + ', email ' + txt + ' sudah kami catat. Rekap percakapan akan segera dikirimkan. ✉️"',
+    'INSTRUKSI WAJIB: Pengguna sudah berikan email ' + txt + '. JANGAN bilang tidak bisa kirim email. Sistem AKAN mengirimkannya. Lakukan URUTAN BERIKUT:',
+    'LANGKAH 1 — Konfirmasi hangat: "Terima kasih ' + namaUser + '! Email ' + txt + ' sudah kami catat dengan baik. Rekap percakapan dan daftar SOP terkait akan segera dikirimkan ke email tersebut. ✉️"',
     'LANGKAH 2 — Pantun perpisahan (WAJIB, tulis persis ini):',
     selectedPantun,
     'LANGKAH 3 — Pesan penutup: "Untuk konsultasi SOP lebih lanjut, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag."',
@@ -1240,13 +1244,12 @@ async function sendMsg(){
   // Jika user jawab TIDAK untuk email — langsung tutup dengan pantun
   const emailDeclineInstr = (isEnding && userSaidNoEmail) ? [
     '',
-    'INSTRUKSI: Pengguna tidak ingin rekap email. Lakukan URUTAN BERIKUT:',
-    'LANGKAH 1 — Respons sopan: "Baik ' + namaUser + ', tidak masalah sama sekali! 😊"',
-    'LANGKAH 2 — Pantun perpisahan (WAJIB, tulis persis ini):',
+    '⚠️ PERINTAH PRIORITAS TERTINGGI: Pengguna MENOLAK rekap email. Lakukan HANYA urutan ini TANPA tambahan kalimat lain:',
+    'LANGKAH 1 — Singkat & hangat: "Baik ' + namaUser + ', tidak masalah sama sekali! Senang bisa membantu hari ini 😊"',
+    'LANGKAH 2 — Tulis PERSIS pantun ini (jangan diubah atau diringkas):',
     selectedPantun,
-    'LANGKAH 3 — Pesan penutup: "Untuk konsultasi SOP lebih lanjut, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag."',
-    'LANGKAH 4 — Tutup sesi: "Sesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏"',
-    'LANGKAH 5 — Setelah respons ini, sistem akan otomatis logout.',
+    'LANGKAH 3 — Pesan penutup: "Untuk konsultasi SOP berikutnya, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag."',
+    'LANGKAH 4 — WAJIB tulis kalimat PERSIS ini untuk trigger logout: "Sesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏"',
   ].join('\n') : '';
 
   // ── Konteks pegawai — SEMUA user boleh akses nama & unit, WA hanya login NIP ──
@@ -1358,12 +1361,13 @@ async function sendMsg(){
     '7. Jika nama pengguna belum diketahui, gunakan Bapak/Ibu — jangan sebut variabel apapun',
     '',
     'ATURAN PANJANG JAWABAN (WAJIB DIIKUTI):',
-    '1. RINGKAS & PADAT: Maksimal 3-4 paragraf per respons. Utamakan kualitas bukan kuantitas.',
-    '2. GUNAKAN BULLET POINT untuk daftar, langkah, atau informasi yang lebih dari 2 item — lebih efisien dari paragraf panjang.',
-    '3. JANGAN POTONG DI TENGAH: Jika topik kompleks dan butuh penjelasan lebih panjang, selesaikan 1 bagian dulu lalu TAWARKAN untuk lanjut. Contoh: "Apakah Bapak/Ibu ingin saya jelaskan lebih lanjut tentang [topik berikutnya]?"',
-    '4. PRIORITAS INFO: Jawab pertanyaan utama dulu, detail tambahan hanya jika relevan atau diminta.',
-    '5. TOPIK KELENGKAPAN SOP: Cukup berikan rekap per direktorat + total. Jangan listing semua unit satu per satu kecuali diminta.',
-    '6. DATA PEGAWAI: Tampilkan max 5 nama terkait, jika lebih tawarkan untuk filter per unit.',
+    '1. SESUAIKAN PANJANG DENGAN PERTANYAAN: Pertanyaan singkat = jawab singkat. Pertanyaan tentang ISI SOP (dasar hukum, tahapan, persyaratan, prosedur) = jelaskan LENGKAP dari data ekstraksi yang tersedia.',
+    '2. WAJIB JELASKAN ISI SOP: Jika ada data konten SOP (dasar hukum, kualifikasi, peralatan, langkah-langkah) — TAMPILKAN SEMUANYA dengan bullet point. Jangan ringkas berlebihan.',
+    '3. GUNAKAN BULLET POINT untuk daftar, langkah, atau informasi lebih dari 2 item.',
+    '4. JANGAN POTONG DI TENGAH: Jika topik kompleks, selesaikan 1 bagian dulu lalu TAWARKAN untuk lanjut: "Apakah ingin saya jelaskan [bagian berikutnya]?"',
+    '5. TOPIK KELENGKAPAN SOP: Rekap per direktorat dulu, detail unit jika diminta.',
+    '6. DATA PEGAWAI: Tampilkan max 5 nama terkait, sisanya tawarkan filter per unit.',
+    '7. JANGAN BILANG "tidak bisa kirim email": Sistem AKAN mengirimkan email. Konfirmasi saja dengan hangat lalu lanjutkan alur penutup.',
     endingInstr,
     emailWaitInstr,
     emailConfirmInstr,
