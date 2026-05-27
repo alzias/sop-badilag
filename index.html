@@ -1023,7 +1023,7 @@ function addMsg(text,isOut,card=null) {
       ?`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" href="${card.link}" target="_blank">↗ Buka di Drive</a></div></div><div class="bmeta">${now()}</div>`
       :`<div class="dcard"><div class="dcard-hd locked">🔒 ${card.title}<span class="dpill">${dn}</span></div><div class="lockmsg">🚫 Akses ditolak — hanya ${dn} yang dapat mengakses.</div></div><div class="bmeta">${now()}</div>`;
   } else {
-    const fmt=fmtMsg(text);
+    const fmt=formatMessage(text);
     w.innerHTML=`<div class="bubble">${fmt}</div><div class="bmeta">${now()}${isOut?' <span class="ck">✓✓</span>':''}</div>`;
   }
   area.appendChild(w); const sb=document.getElementById("scrollBody"); if(sb) sb.scrollTop=sb.scrollHeight;
