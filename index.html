@@ -1910,20 +1910,30 @@ function rEmps(c){
   const e2opts = ESELON2.map(e=>'<option value="'+e.id+'">'+e.icon+' '+e.name+'</option>').join('');
   let h = '';
   h += '<div class="sectitle">Import & Export Data Pegawai</div>';
-  h += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
-  h += '<div class="addbox" style="flex:1;margin-bottom:0;">';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+  h += '<div class="addbox" style="margin-bottom:0;">';
   h += '<h4>📥 Import CSV</h4>';
-  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Upload daftar pegawai dari file CSV</p>';
-  h += '<button class="addbtn" onclick="openModal(&quot;mImportCSV&quot;)">📥 Import CSV</button>';
-  h += '</div>';
-  h += '<div class="addbox" style="flex:1;margin-bottom:0;background:rgba(67,97,238,.06);border-color:rgba(67,97,238,.2);">';
-  h += '<h4 style="color:#7b9fff;">📤 Export CSV</h4>';
-  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Download data pegawai sebagai file CSV</p>';
-  h += '<button class="addbtn" style="background:linear-gradient(135deg,rgba(67,97,238,.2),rgba(67,97,238,.1));border-color:rgba(67,97,238,.3);color:#7b9fff;" onclick="exportPegawaiCSV()">📤 Export CSV</button>';
-  h += '<button class="addbtn" style="background:linear-gradient(135deg,rgba(6,214,160,.2),rgba(6,214,160,.1));border-color:rgba(6,214,160,.3);color:#06d6a0;" onclick="triggerImportCSV()">📥 Import CSV</button>';
+  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Upload daftar pegawai dari file CSV. Unduh template dulu, isi data, lalu upload.</p>';
+  h += '<button class="addbtn" style="width:100%;background:linear-gradient(135deg,rgba(6,214,160,.2),rgba(6,214,160,.1));border-color:rgba(6,214,160,.3);color:#06d6a0;" onclick="triggerImportCSV()">📥 Import CSV</button>';
   h += '<input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importPegawaiCSV(this)">';
-  h += '<a href="data:text/csv;charset=utf-8-sig,No%2CNama%2CNIP%2CGolongan%2CJabatan%2CEselon%20II%2CBagian%2CSub%20Bagian%2FKasi%2CNo%20Telp%2CIkon%0A1%2C%22Nama%20Pegawai%22%2C123456789%2CPenata%20(III%2Fc)%2CStaf%2CSekretariat%20Ditjen%20Badilag%2CBagian%20Umum%2CKasubbag%20Perlengkapan%2C08123456789%2C%F0%9F%91%A4" download="Template_Import_Pegawai.csv" class="addbtn" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:#ffb703;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">⬇️ Download Template</a>';
-  h += '</div></div>';
+  h += '<a href="data:text/csv;charset=utf-8-sig,No%2CNama%2CNIP%2CGolongan%2CJabatan%2CEselon%20II%2CBagian%2CSub%20Bagian%2FKasi%2CNo%20Telp%2CIkon%0A1%2C%22Nama%20Pegawai%22%2C123456789%2CPenata%20(III%2Fc)%2CStaf%2CSekretariat%20Ditjen%20Badilag%2CBagian%20Umum%2CKasubbag%20Perlengkapan%2C08123456789%2C%F0%9F%91%A4" download="Template_Import_Pegawai.csv" class="addbtn" style="width:100%;margin-top:6px;background:rgba(255,183,3,.12);border-color:rgba(255,183,3,.3);color:#ffb703;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;">⬇️ Download Template</a>';
+  h += '</div>';
+  h += '<div class="addbox" style="margin-bottom:0;background:rgba(67,97,238,.06);border-color:rgba(67,97,238,.2);">';
+  h += '<h4 style="color:#7b9fff;">📤 Export CSV</h4>';
+  h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Download seluruh data pegawai yang ada di sistem sebagai file CSV.</p>';
+  h += '<button class="addbtn" style="width:100%;background:linear-gradient(135deg,rgba(67,97,238,.2),rgba(67,97,238,.1));border-color:rgba(67,97,238,.3);color:#7b9fff;" onclick="exportPegawaiCSV()">📤 Export CSV</button>';
+  h += '</div>';
+  h += '</div>';
+  h += '<div id="importProgress" style="display:none;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.2);border-radius:10px;padding:14px;margin-bottom:12px;">';
+  h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+  h += '<div id="importSpinner" style="width:18px;height:18px;border:2px solid rgba(0,245,212,.3);border-top-color:#00f5d4;border-radius:50%;animation:spin 0.8s linear infinite;"></div>';
+  h += '<span id="importStatus" style="font-size:13px;color:var(--cyan);font-weight:600;">Memproses...</span>';
+  h += '</div>';
+  h += '<div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden;">';
+  h += '<div id="importBar" style="height:100%;background:linear-gradient(90deg,#00f5d4,#00b4d8);border-radius:3px;width:0%;transition:width .3s ease;"></div>';
+  h += '</div>';
+  h += '<div id="importDetail" style="font-size:11px;color:var(--mu);margin-top:6px;"></div>';
+  h += '</div>';
   h += '<div class="sectitle">Tambah Pegawai Manual</div>';
   h += '<div class="addbox">';
   h += '<h4>+ Pegawai Baru</h4>';
@@ -3081,113 +3091,129 @@ async function importPegawaiCSV(input) {
   const file = input.files[0];
   if (!file) return;
 
+  const showProgress = (pct, status, detail='') => {
+    const prog = document.getElementById('importProgress');
+    const bar  = document.getElementById('importBar');
+    const stat = document.getElementById('importStatus');
+    const det  = document.getElementById('importDetail');
+    if(prog) prog.style.display = 'block';
+    if(bar)  bar.style.width = pct + '%';
+    if(stat) stat.textContent = status;
+    if(det)  det.textContent = detail;
+  };
+
+  const hideProgress = () => {
+    const prog = document.getElementById('importProgress');
+    if(prog) setTimeout(() => prog.style.display='none', 3000);
+  };
+
+  showProgress(5, '📂 Membaca file CSV...', file.name);
+
   const text = await file.text();
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-  // Parse header
   const header = lines[0].replace(/^\uFEFF/, '').split(',').map(h => h.trim().replace(/^"|"$/g,''));
-  console.log('Header CSV:', header);
-
-  // Mapping kolom
   const colMap = {
-    nama      : header.findIndex(h => /nama/i.test(h)),
-    nip       : header.findIndex(h => /nip/i.test(h)),
-    golongan  : header.findIndex(h => /golongan/i.test(h)),
-    jabatan   : header.findIndex(h => /jabatan/i.test(h)),
-    eselon2   : header.findIndex(h => /eselon.ii|eselon.2|unit.kerja/i.test(h)),
-    bagian    : header.findIndex(h => /^bagian$/i.test(h)),
-    subbag    : header.findIndex(h => /sub.bagian|kasi|subbag/i.test(h)),
-    telp      : header.findIndex(h => /telp|hp|wa|phone|whatsapp/i.test(h)),
-    ikon      : header.findIndex(h => /ikon|icon|avatar/i.test(h)),
+    nama    : header.findIndex(h => /nama/i.test(h)),
+    nip     : header.findIndex(h => /nip/i.test(h)),
+    golongan: header.findIndex(h => /golongan/i.test(h)),
+    jabatan : header.findIndex(h => /jabatan/i.test(h)),
+    eselon2 : header.findIndex(h => /eselon.ii|eselon.2|unit.kerja/i.test(h)),
+    bagian  : header.findIndex(h => /^bagian$/i.test(h)),
+    subbag  : header.findIndex(h => /sub.bagian|kasi|subbag/i.test(h)),
+    telp    : header.findIndex(h => /telp|hp|wa|phone|whatsapp|handphone/i.test(h)),
+    ikon    : header.findIndex(h => /ikon|icon|avatar/i.test(h)),
   };
 
-  // Preview sebelum import
-  const dataRows = lines.slice(1).filter(l => l && !l.startsWith(','));
+  const dataRows = lines.slice(1).filter(l => l && !l.startsWith(',,,'));
+  showProgress(15, '🔍 Menganalisis ' + dataRows.length + ' baris data...', 'Kolom HP: ' + (colMap.telp >= 0 ? header[colMap.telp] : '❌ Tidak ditemukan'));
+
   const preview = dataRows.slice(0, 3).map(line => {
     const cols = parseCSVLine(line);
-    return cols[colMap.nama] || '?';
+    return (cols[colMap.nama]||'?') + (cols[colMap.telp] ? ' (HP: '+cols[colMap.telp]+')' : '');
   });
 
   const konfirmasi = confirm(
-    `📥 Import ${dataRows.length} pegawai dari CSV?\n\n` +
-    `Contoh data:\n• ${preview.join('\n• ')}\n\n` +
-    `⚠️ Data yang sudah ada di sistem tidak akan ditimpa (berdasarkan NIP).\n` +
-    `Klik OK untuk melanjutkan.`
+    '📥 Import ' + dataRows.length + ' pegawai dari CSV?\n\n' +
+    'Contoh data:\n• ' + preview.join('\n• ') + '\n\n' +
+    '⚠️ NIP yang sudah ada di sistem akan dilewati.\n' +
+    'Klik OK untuk melanjutkan.'
   );
-  if (!konfirmasi) { input.value = ''; return; }
+  if (!konfirmasi) { input.value = ''; hideProgress(); showProgress(0,'',''); document.getElementById('importProgress').style.display='none'; return; }
 
-  // Proses import
-  let sukses = 0, skip = 0, error = 0;
+  showProgress(25, '⚙️ Memproses data pegawai...', '');
+
   const batch = [];
+  let skip = 0, errCount = 0;
 
   for (const line of dataRows) {
     try {
       const cols = parseCSVLine(line);
       const nip  = (cols[colMap.nip]||'').trim().replace(/[^0-9]/g,'');
       const nama = (cols[colMap.nama]||'').trim();
-      if (!nip || !nama) { skip++; continue; }
-
-      // Cek apakah NIP sudah ada
+      if (!nip || !nama || nip.length < 8) { skip++; continue; }
       const existing = S.emps.find(e => String(e.nip) === nip);
       if (existing) { skip++; continue; }
 
-      // Cari deptId berdasarkan Eselon IV / Bagian
       const subbagName = colMap.subbag >= 0 ? (cols[colMap.subbag]||'').trim() : '';
       const bagianName = colMap.bagian >= 0 ? (cols[colMap.bagian]||'').trim() : '';
       const e2Name     = colMap.eselon2 >= 0 ? (cols[colMap.eselon2]||'').trim() : '';
 
       let deptId = '';
       if (subbagName) {
-        const dept = S.depts.find(d => d.name.toLowerCase().includes(subbagName.toLowerCase().slice(0,15)));
-        if (dept) deptId = dept.id;
+        const d = S.depts.find(d => d.name.toLowerCase().includes(subbagName.toLowerCase().slice(0,12)));
+        if (d) deptId = d.id;
       }
       if (!deptId && bagianName) {
-        const dept = S.depts.find(d => d.name.toLowerCase().includes(bagianName.toLowerCase().slice(0,15)));
-        if (dept) deptId = dept.id;
+        const d = S.depts.find(d => d.name.toLowerCase().includes(bagianName.toLowerCase().slice(0,12)));
+        if (d) deptId = d.id;
       }
 
-      const pegawai = {
-        id      : 'emp_' + nip,
-        nip,
-        name    : nama,
+      let telp = colMap.telp >= 0 ? (cols[colMap.telp]||'').trim() : '';
+      telp = telp === '-' ? '' : telp.replace(/[^0-9+]/g,'');
+
+      batch.push({ id:'emp_'+nip, nip, name:nama,
         jabatan : colMap.jabatan >= 0 ? (cols[colMap.jabatan]||'').trim() : '',
         golongan: colMap.golongan >= 0 ? (cols[colMap.golongan]||'').trim() : '',
-        telepon : colMap.telp >= 0 ? (cols[colMap.telp]||'').trim().replace(/[^0-9+]/g,'') : '',
-        eselon2 : e2Name,
-        bagian  : bagianName,
-        subbag  : subbagName,
-        deptId,
-        icon    : colMap.ikon >= 0 ? (cols[colMap.ikon]||'👤').trim() : '👤',
-      };
-
-      batch.push(pegawai);
-      sukses++;
-    } catch(e) {
-      error++;
-      console.error('Error row:', line, e);
-    }
+        telepon : telp, eselon2:e2Name, bagian:bagianName, subbag:subbagName,
+        deptId, icon: colMap.ikon >= 0 ? (cols[colMap.ikon]||'👤').trim() : '👤',
+      });
+    } catch(e) { errCount++; }
   }
 
-  // Simpan ke Firestore
-  if (batch.length > 0) {
-    toast('⏳ Menyimpan ' + batch.length + ' pegawai ke Firestore...');
-    let saved = 0;
-    for (const emp of batch) {
-      try {
-        await db.collection('emps').doc(emp.id).set(emp);
-        S.emps.push(emp);
-        saved++;
-      } catch(e) {
-        error++;
-        console.error('Gagal simpan:', emp.name, e);
-      }
-    }
-    toast('✅ Import selesai! ' + saved + ' pegawai berhasil · ' + skip + ' dilewati · ' + error + ' error');
-    renderAdminTab();
-  } else {
-    toast('⚠️ Tidak ada data baru yang diimport (' + skip + ' sudah ada / kosong)');
+  if (batch.length === 0) {
+    showProgress(100, '⚠️ Tidak ada data baru', skip + ' baris dilewati (sudah ada/kosong)');
+    hideProgress(); input.value = ''; return;
   }
+
+  showProgress(40, '☁️ Menyimpan ke Firestore...', '0 / ' + batch.length + ' pegawai');
+
+  let saved = 0;
+  for (const emp of batch) {
+    try {
+      await db.collection('emps').doc(emp.id).set(emp);
+      S.emps.push(emp);
+      saved++;
+      const pct = 40 + Math.round((saved / batch.length) * 55);
+      showProgress(pct,
+        '☁️ Menyimpan... ' + saved + '/' + batch.length,
+        emp.name + (emp.telepon ? ' (' + emp.telepon + ')' : '')
+      );
+    } catch(e) { errCount++; }
+  }
+
+  // Selesai!
+  showProgress(100, '✅ Import selesai!',
+    saved + ' pegawai berhasil · ' + skip + ' dilewati · ' + (errCount>0?errCount+' error':''));
+
+  const prog = document.getElementById('importProgress');
+  if(prog) {
+    prog.style.background = 'rgba(6,214,160,.1)';
+    prog.style.borderColor = 'rgba(6,214,160,.4)';
+  }
+
   input.value = '';
+  setTimeout(() => { renderAdminTab(); toast('✅ ' + saved + ' pegawai berhasil diimport!'); }, 1500);
 }
 
 // Helper: parse satu baris CSV dengan benar (handle koma dalam tanda kutip)
