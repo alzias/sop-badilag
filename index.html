@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>SOP Digital v2.0 — Ditjen Badilag MA RI</title>
@@ -1517,12 +1518,6 @@ async function sendMsg(){
     emailConfirmInstr,
     emailDeclineInstr
   ].filter(Boolean).join('\n'); 
-  // Validasi sys sebelum kirim
-  if(!sys || typeof sys !== 'string') {
-    console.error('[DEBUG] sys tidak valid:', typeof sys, sys);
-    sys = 'Kamu adalah SOPI, asisten virtual Ditjen Badilag. Jawab dalam Bahasa Indonesia.';
-  }
-  console.log('[DEBUG] sys length:', sys.length, '| history:', recentHistory.length);
   try{
     const reply = await callGemini(sys, recentHistory);
     hideTyping();
@@ -1591,29 +1586,16 @@ async function sendMsg(){
 // API key aman di Cloudflare Worker - tidak ada key di sini
 const WORKER_URL = 'https://sop-ai-proxy.rio-prastia.workers.dev';
 async function callGemini(systemPrompt, messages) {
-  // Pastikan payload valid sebelum kirim
-  const payloadObj = { systemPrompt: String(systemPrompt||''), messages: Array.isArray(messages)?messages:[] };
-  const payload = JSON.stringify(payloadObj);
-  console.log('[DEBUG] Payload size:', payload.length, 'chars');
-  console.log('[DEBUG] Payload preview:', payload.slice(0,100));
   const res = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: payload
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ systemPrompt, messages })
   });
-  const raw = await res.text();
-  if (!res.ok) {
-    console.error('Worker error', res.status, raw);
-    throw new Error('Worker error: ' + res.status + ' — ' + raw.slice(0,100));
-  }
-  let data;
-  try { data = JSON.parse(raw); } catch(e) { throw new Error('Invalid JSON from Worker: ' + raw.slice(0,100)); }
-  if (data.error) throw new Error('AI Error: ' + (data.error.message || JSON.stringify(data.error)));
+  if (!res.ok) throw new Error('Worker error: ' + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error('AI Error: ' + (data.error.message || 'Unknown'));
   if (data.candidates?.[0]?.content) return data.candidates[0].content.parts[0].text;
-  throw new Error('Gemini tidak merespons: ' + raw.slice(0,200));
+  throw new Error('Gemini tidak merespons');
 }
 
 function sq(t){document.getElementById('msgInput').value=t;sendMsg();}
