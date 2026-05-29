@@ -1920,6 +1920,9 @@ function rEmps(c){
   h += '<h4 style="color:#7b9fff;">📤 Export CSV</h4>';
   h += '<p style="font-size:11px;color:var(--mu2);margin-bottom:12px;line-height:1.5;">Download data pegawai sebagai file CSV</p>';
   h += '<button class="addbtn" style="background:linear-gradient(135deg,rgba(67,97,238,.2),rgba(67,97,238,.1));border-color:rgba(67,97,238,.3);color:#7b9fff;" onclick="exportPegawaiCSV()">📤 Export CSV</button>';
+  h += '<button class="addbtn" style="background:linear-gradient(135deg,rgba(6,214,160,.2),rgba(6,214,160,.1));border-color:rgba(6,214,160,.3);color:#06d6a0;" onclick="triggerImportCSV()">📥 Import CSV</button>';
+  h += '<input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importPegawaiCSV(this)">';
+  h += '<a href="data:text/csv;charset=utf-8-sig,No%2CNama%2CNIP%2CGolongan%2CJabatan%2CEselon%20II%2CBagian%2CSub%20Bagian%2FKasi%2CNo%20Telp%2CIkon%0A1%2C%22Nama%20Pegawai%22%2C123456789%2CPenata%20(III%2Fc)%2CStaf%2CSekretariat%20Ditjen%20Badilag%2CBagian%20Umum%2CKasubbag%20Perlengkapan%2C08123456789%2C%F0%9F%91%A4" download="Template_Import_Pegawai.csv" class="addbtn" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:#ffb703;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">⬇️ Download Template</a>';
   h += '</div></div>';
   h += '<div class="sectitle">Tambah Pegawai Manual</div>';
   h += '<div class="addbox">';
@@ -3067,6 +3070,144 @@ function formatTanggal(dateStr) {
 function updateBagianOptions() {
   // Placeholder - Bagian ditampilkan semua, tidak perlu filter per eselon
   // Bisa dikembangkan nanti jika perlu filter
+}
+
+// ══ IMPORT PEGAWAI DARI CSV ══
+function triggerImportCSV() {
+  document.getElementById('csvImportInput').click();
+}
+
+async function importPegawaiCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const text = await file.text();
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+  // Parse header
+  const header = lines[0].replace(/^\uFEFF/, '').split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  console.log('Header CSV:', header);
+
+  // Mapping kolom
+  const colMap = {
+    nama      : header.findIndex(h => /nama/i.test(h)),
+    nip       : header.findIndex(h => /nip/i.test(h)),
+    golongan  : header.findIndex(h => /golongan/i.test(h)),
+    jabatan   : header.findIndex(h => /jabatan/i.test(h)),
+    eselon2   : header.findIndex(h => /eselon.ii|eselon.2|unit.kerja/i.test(h)),
+    bagian    : header.findIndex(h => /^bagian$/i.test(h)),
+    subbag    : header.findIndex(h => /sub.bagian|kasi|subbag/i.test(h)),
+    telp      : header.findIndex(h => /telp|hp|wa|phone|whatsapp/i.test(h)),
+    ikon      : header.findIndex(h => /ikon|icon|avatar/i.test(h)),
+  };
+
+  // Preview sebelum import
+  const dataRows = lines.slice(1).filter(l => l && !l.startsWith(','));
+  const preview = dataRows.slice(0, 3).map(line => {
+    const cols = parseCSVLine(line);
+    return cols[colMap.nama] || '?';
+  });
+
+  const konfirmasi = confirm(
+    `📥 Import ${dataRows.length} pegawai dari CSV?\n\n` +
+    `Contoh data:\n• ${preview.join('\n• ')}\n\n` +
+    `⚠️ Data yang sudah ada di sistem tidak akan ditimpa (berdasarkan NIP).\n` +
+    `Klik OK untuk melanjutkan.`
+  );
+  if (!konfirmasi) { input.value = ''; return; }
+
+  // Proses import
+  let sukses = 0, skip = 0, error = 0;
+  const batch = [];
+
+  for (const line of dataRows) {
+    try {
+      const cols = parseCSVLine(line);
+      const nip  = (cols[colMap.nip]||'').trim().replace(/[^0-9]/g,'');
+      const nama = (cols[colMap.nama]||'').trim();
+      if (!nip || !nama) { skip++; continue; }
+
+      // Cek apakah NIP sudah ada
+      const existing = S.emps.find(e => String(e.nip) === nip);
+      if (existing) { skip++; continue; }
+
+      // Cari deptId berdasarkan Eselon IV / Bagian
+      const subbagName = colMap.subbag >= 0 ? (cols[colMap.subbag]||'').trim() : '';
+      const bagianName = colMap.bagian >= 0 ? (cols[colMap.bagian]||'').trim() : '';
+      const e2Name     = colMap.eselon2 >= 0 ? (cols[colMap.eselon2]||'').trim() : '';
+
+      let deptId = '';
+      if (subbagName) {
+        const dept = S.depts.find(d => d.name.toLowerCase().includes(subbagName.toLowerCase().slice(0,15)));
+        if (dept) deptId = dept.id;
+      }
+      if (!deptId && bagianName) {
+        const dept = S.depts.find(d => d.name.toLowerCase().includes(bagianName.toLowerCase().slice(0,15)));
+        if (dept) deptId = dept.id;
+      }
+
+      const pegawai = {
+        id      : 'emp_' + nip,
+        nip,
+        name    : nama,
+        jabatan : colMap.jabatan >= 0 ? (cols[colMap.jabatan]||'').trim() : '',
+        golongan: colMap.golongan >= 0 ? (cols[colMap.golongan]||'').trim() : '',
+        telepon : colMap.telp >= 0 ? (cols[colMap.telp]||'').trim().replace(/[^0-9+]/g,'') : '',
+        eselon2 : e2Name,
+        bagian  : bagianName,
+        subbag  : subbagName,
+        deptId,
+        icon    : colMap.ikon >= 0 ? (cols[colMap.ikon]||'👤').trim() : '👤',
+      };
+
+      batch.push(pegawai);
+      sukses++;
+    } catch(e) {
+      error++;
+      console.error('Error row:', line, e);
+    }
+  }
+
+  // Simpan ke Firestore
+  if (batch.length > 0) {
+    toast('⏳ Menyimpan ' + batch.length + ' pegawai ke Firestore...');
+    let saved = 0;
+    for (const emp of batch) {
+      try {
+        await db.collection('emps').doc(emp.id).set(emp);
+        S.emps.push(emp);
+        saved++;
+      } catch(e) {
+        error++;
+        console.error('Gagal simpan:', emp.name, e);
+      }
+    }
+    toast('✅ Import selesai! ' + saved + ' pegawai berhasil · ' + skip + ' dilewati · ' + error + ' error');
+    renderAdminTab();
+  } else {
+    toast('⚠️ Tidak ada data baru yang diimport (' + skip + ' sudah ada / kosong)');
+  }
+  input.value = '';
+}
+
+// Helper: parse satu baris CSV dengan benar (handle koma dalam tanda kutip)
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
 }
 
 function exportPegawaiCSV() {
