@@ -1517,6 +1517,12 @@ async function sendMsg(){
     emailConfirmInstr,
     emailDeclineInstr
   ].filter(Boolean).join('\n'); 
+  // Validasi sys sebelum kirim
+  if(!sys || typeof sys !== 'string') {
+    console.error('[DEBUG] sys tidak valid:', typeof sys, sys);
+    sys = 'Kamu adalah SOPI, asisten virtual Ditjen Badilag. Jawab dalam Bahasa Indonesia.';
+  }
+  console.log('[DEBUG] sys length:', sys.length, '| history:', recentHistory.length);
   try{
     const reply = await callGemini(sys, recentHistory);
     hideTyping();
@@ -1585,10 +1591,17 @@ async function sendMsg(){
 // API key aman di Cloudflare Worker - tidak ada key di sini
 const WORKER_URL = 'https://sop-ai-proxy.rio-prastia.workers.dev';
 async function callGemini(systemPrompt, messages) {
-  const payload = JSON.stringify({ systemPrompt, messages });
+  // Pastikan payload valid sebelum kirim
+  const payloadObj = { systemPrompt: String(systemPrompt||''), messages: Array.isArray(messages)?messages:[] };
+  const payload = JSON.stringify(payloadObj);
+  console.log('[DEBUG] Payload size:', payload.length, 'chars');
+  console.log('[DEBUG] Payload preview:', payload.slice(0,100));
   const res = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
     body: payload
   });
   const raw = await res.text();
