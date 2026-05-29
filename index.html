@@ -938,6 +938,36 @@ function doLogin() {
   S.user.subbag  = found.subbag  || '';
   showChat();
 }
+// ══ TRIGGER GEMINI CLOSING — pantun + logout ══
+async function triggerGeminiClosing() {
+  const namaUser = S.mode==='guest' ? (S.guestName||'Bapak/Ibu') : (S.user?S.user.name:'Bapak/Ibu');
+  const pantunList = [
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Malam hari keliling Semarang,***\n***Singgah sebentar membeli lumpia.***\n***Jika di sistem masih ada yang kurang,***\n***Jangan sungkan kembali menyapa saya!\"***',
+    '***\"Pagi-pagi minum kopi hangat,***\n***Ditemani pisang goreng yang renyah.***\n***Semoga hari Bapak/Ibu penuh semangat,***\n***SOPI selalu siap saat kembali bertugas!\"***',
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+  ];
+  const pantun = pantunList[Math.floor(Math.random() * pantunList.length)];
+  const pesan = 'Untuk konsultasi SOP berikutnya, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag.\n\n' + pantun + '\n\nSesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏';
+  addMsg(pesan, false);
+  // Auto logout 15 detik
+  let sec = 15;
+  const countEl = document.createElement('div');
+  countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;';
+  countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
+  document.getElementById('chatArea').appendChild(countEl);
+  document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+  const timer = setInterval(() => {
+    sec--;
+    countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
+    if(sec <= 0) {
+      clearInterval(timer);
+      doLogout();
+    }
+  }, 1000);
+}
+
 // ══ KIRIM REKAP EMAIL VIA WORKER ══
 async function sendRekapEmail(toEmail) {
   const user = S.user;
@@ -1085,9 +1115,21 @@ function addMsg(text,isOut,card=null) {
   if(card){
     const own=canUserAccessDrive(card);
     const dn=getDN(card.deptId);
-    w.innerHTML=own
-      ?`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" href="${card.link}" target="_blank">↗ Buka di Drive</a></div></div><div class="bmeta">${now()}</div>`
-      :`<div class="dcard"><div class="dcard-hd locked">🔒 ${card.title}<span class="dpill">${dn}</span></div><div class="lockmsg">🚫 Akses ditolak — hanya ${dn} yang dapat mengakses.</div></div><div class="bmeta">${now()}</div>`;
+    const hasPdf = card.linkFinal && card.linkFinal.trim() !== '';
+    // 3 tier render: unit sendiri | unit lain (ada PDF) | unit lain (tanpa PDF → skip)
+    if(own) {
+      // Unit sendiri: tombol Drive + PDF jika ada
+      let btns = `<a class="dlink" href="${card.link}" target="_blank">📂 Buka Drive</a>`;
+      if(hasPdf) btns += ` <a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📄 PDF Final</a>`;
+      w.innerHTML=`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''} ${btns}</div></div><div class="bmeta">${now()}</div>`;
+    } else if(hasPdf) {
+      // Unit lain tapi ada PDF Final: hanya tombol PDF
+      w.innerHTML=`<div class="dcard"><div class="dcard-hd" style="background:rgba(255,183,3,.08);border-left:3px solid var(--amber);">📄 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📄 Buka PDF Final</a></div></div><div class="bmeta">${now()}</div>`;
+    } else {
+      // Unit lain tanpa PDF: tidak tampilkan card sama sekali
+      w.style.display='none';
+      return;
+    }
   } else {
     const fmt=formatMessage(text);
     w.innerHTML=`<div class="bubble">${fmt}</div><div class="bmeta">${now()}${isOut?' <span class="ck">✓✓</span>':''}</div>`;
@@ -1168,6 +1210,54 @@ async function sendMsg(){
   document.getElementById('qarea').style.display='none'; // hide quick replies after first message
   addMsg(txt,true);
   S.history.push({role:'user',content:txt});
+
+  // ══ INTERCEPT LOKAL — state machine tanpa Gemini ══
+  // Ini mencegat input SEBELUM dikirim ke AI saat dalam state penutup
+
+  // State: awaitEmail — menunggu jawaban Ya/Tidak rekap email
+  if(S.sessionState === 'awaitEmail') {
+    const isYes = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju|boleh)$/i.test(txt.trim());
+    const isNo  = /(^tidak$|^ga$|^gak$|^nggak$|^no$|^enggak$|tidak perlu|gak perlu|gausah)/i.test(txt.trim());
+    if(isYes) {
+      S.sessionState = 'awaitAddress';
+      addMsg('Baik! Silakan ketikkan alamat email Bapak/Ibu, rekap percakapan akan segera kami kirimkan. ✉️', false);
+      return;
+    } else if(isNo) {
+      S.sessionState = 'closing';
+      // Minta Gemini berikan pantun penutup
+      await triggerGeminiClosing();
+      return;
+    }
+    // Jika bukan Ya/Tidak — ingatkan user
+    addMsg('Mohon jawab dengan **Ya** atau **Tidak** — apakah Bapak/Ibu ingin menerima rekap percakapan via email?', false);
+    return;
+  }
+
+  // State: awaitAddress — menunggu alamat email
+  if(S.sessionState === 'awaitAddress') {
+    const emailPat = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+    const emailMatch = txt.match(emailPat);
+    if(emailMatch) {
+      const email = emailMatch[0];
+      S.sessionState = 'closing';
+      addMsg('Terima kasih! Email **' + email + '** sudah kami catat. Rekap percakapan sedang dikirimkan... ✉️', false);
+      // Kirim email
+      sendRekapEmail(email).then(r => {
+        if(r.success) console.log('✅ Email terkirim ke', email);
+        else console.warn('❌ Gagal kirim email:', r.error);
+      });
+      // Minta Gemini berikan pantun penutup
+      await triggerGeminiClosing();
+      return;
+    }
+    addMsg('Format email kurang tepat. Silakan ketik ulang alamat email yang valid. (contoh: nama@gmail.com)', false);
+    return;
+  }
+
+  // Reset sessionState jika history hanya 1 pesan (pesan pertama sesi)
+  if(S.history.filter(h=>h.role==='user').length === 1) {
+    S.sessionState = 'chat';
+  }
   // Simpan nama tamu jika disebutkan
   if(S.mode==='guest' && !S.guestName) {
     const nameMatch = txt.match(/(?:nama saya|saya|panggil saya|ini|perkenalkan)[,\s]+([A-Za-z]+)/i) ||
@@ -1211,7 +1301,8 @@ async function sendMsg(){
       // Semua pegawai login NIP bisa baca konten & link PDF semua SOP
       // Drive utama (folder) tetap dibatasi per unit di tombol 📂
       driveAccessLevel = isEselon2 ? 'eselon2' : isEselon3 ? 'eselon3' : 'eselon4';
-      myDr = S.drives.filter(d => d.status !== 'Tidak Aktif');
+      // Tombol 📂 via SOPI: hanya SOP yang bisa diakses user (tidak ada card "akses ditolak")
+      myDr = S.drives.filter(d => canUserAccessDrive(d));
     }
   }
   showTyping();
@@ -1362,10 +1453,12 @@ async function sendMsg(){
 
   const endingInstr = ((isEnding || userAskEmail) && S.sessionState === 'awaitEmail') ? [
     '',
-    'PENUTUP SESI: Pengguna ingin mengakhiri percakapan.',
-    'Sampaikan dengan hangat dan natural — terima kasih, doa/harapan, lalu tanyakan:',
-    '"Sebelum menutup sesi, apakah ' + namaUser + ' bersedia menerima rekap percakapan via email? (Ya / Tidak)"',
-    'Tunggu jawaban. Jangan lanjutkan topik lain.',
+    '⚠️ INSTRUKSI PENUTUP SESI — WAJIB DIIKUTI:',
+    'Pengguna ingin mengakhiri percakapan. Lakukan HANYA 3 langkah ini:',
+    'LANGKAH 1: Ucapkan terima kasih hangat.',
+    'LANGKAH 2: Sampaikan doa/harapan singkat.',
+    'LANGKAH 3: Tanyakan PERSIS: "Sebelum menutup sesi, apakah ' + namaUser + ' bersedia menerima rekap percakapan ini via email? (Ya / Tidak)"',
+    'HENTIKAN di sini. JANGAN tulis pantun atau kalimat penutup. TUNGGU jawaban Ya atau Tidak.',
   ].join('\n') : '';
 
   // emailWaitInstr — aktif hanya saat state = awaitAddress
