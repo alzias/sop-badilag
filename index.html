@@ -1585,16 +1585,22 @@ async function sendMsg(){
 // API key aman di Cloudflare Worker - tidak ada key di sini
 const WORKER_URL = 'https://sop-ai-proxy.rio-prastia.workers.dev';
 async function callGemini(systemPrompt, messages) {
+  const payload = JSON.stringify({ systemPrompt, messages });
   const res = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ systemPrompt, messages })
+    body: payload
   });
-  if (!res.ok) throw new Error('Worker error: ' + res.status);
-  const data = await res.json();
-  if (data.error) throw new Error('AI Error: ' + (data.error.message || 'Unknown'));
+  const raw = await res.text();
+  if (!res.ok) {
+    console.error('Worker error', res.status, raw);
+    throw new Error('Worker error: ' + res.status + ' — ' + raw.slice(0,100));
+  }
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { throw new Error('Invalid JSON from Worker: ' + raw.slice(0,100)); }
+  if (data.error) throw new Error('AI Error: ' + (data.error.message || JSON.stringify(data.error)));
   if (data.candidates?.[0]?.content) return data.candidates[0].content.parts[0].text;
-  throw new Error('Gemini tidak merespons');
+  throw new Error('Gemini tidak merespons: ' + raw.slice(0,200));
 }
 
 function sq(t){document.getElementById('msgInput').value=t;sendMsg();}
