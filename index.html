@@ -484,7 +484,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
     <div class="sbdept" id="sbDept">—</div>
   </div>
   <div class="sbmenu">
-    <div class="sbitem" onclick="openSOPBuilder()"><span class="sbico">📝</span><div><div class="sblabel">Buat SOP Baru</div><div class="sbsub">Form builder SOP digital</div></div></div>
+    <div class="sbitem" id="sbItemBuat" onclick="openSOPBuilder()"><span class="sbico">📝</span><div><div class="sblabel">Buat SOP Baru</div><div class="sbsub">Form builder SOP digital</div></div></div>
     <div class="sbitem" id="sbItemInbox" onclick="openSOPInbox()" style="display:none;"><span class="sbico">📥</span><div><div class="sblabel">Kotak Masuk SOP <span id="sbInboxBadge" style="background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;"></span></div><div class="sbsub">SOP menunggu review</div></div></div>
     <div class="sbitem" onclick="showMyDrive()"><span class="sbico">📂</span><div><div class="sblabel">Data Drive Saya</div><div class="sbsub">Akses folder departemenmu</div></div></div>
     <div class="sbitem" onclick="newChat()"><span class="sbico">✦</span><div><div class="sblabel">Chat Baru</div><div class="sbsub">Mulai percakapan baru</div></div></div>
@@ -522,8 +522,9 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
     </div>
     <div class="qarea" id="qarea">
       <button class="qchip" onclick="sq('Halo!')">👋 Halo</button>
-      <button class="qchip" onclick="sq('Tampilkan data Drive saya')">📂 Drive Saya</button>
-      <button class="qchip" onclick="openSOPBuilder()">📝 Buat SOP</button>
+      <button class="qchip" id="qchipDrive" onclick="sq('Tampilkan data Drive saya')">📂 Drive Saya</button>
+      <button class="qchip" id="qchipBuat" onclick="openSOPBuilder()">📝 Buat SOP</button>
+      <button class="qchip" id="qchipInbox" onclick="openSOPInbox()" style="display:none;">📥 Inbox SOP</button>
       <button class="qchip" onclick="sq('Apa yang bisa kamu lakukan?')">✦ Kemampuan</button>
       <button class="qchip" onclick="sq('Siapa saya di sistem ini?')">👤 Profil</button>
     </div>
@@ -1133,18 +1134,28 @@ function showChat() {
   setEl('sbNIP','textContent','NIP: '+S.user.nip);
   setEl('sbDept','textContent',S.user.dept.icon+' '+S.user.dept.name);
   resetChat(true);
-  setTimeout(()=>{
+  setTimeout(function(){
     if(S.mode === 'guest') {
       addMsg(getTimeGreeting() + ', dan selamat datang! 🌟\n\nAssalamualaikum Wr. Wb. / Salam Sejahtera.\n\nPerkenalkan, saya **SOPI** — Asisten Virtual resmi **Layanan Digital SOP** Ditjen Badan Peradilan Agama, Mahkamah Agung RI.\n\nSaya siap membantu Bapak/Ibu menemukan dan memahami informasi SOP di lingkungan Ditjen Badilag. 😊\n\nBoleh saya tahu, dengan **Bapak/Ibu siapa** saya berbicara hari ini?', false);
     } else {
-      const jabatan = S.user.jabatan || 'Pegawai';
-      const unit = S.user.dept.name;
-      const icon = S.user.dept.icon;
-      const e2info = S.user.eselon2 ? '\n'+S.user.eselon2 : '';
-      const subbagInfo = S.user.subbag ? ' · '+S.user.subbag : '';
-      addMsg(getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + subbagInfo + e2info + '\n\nSaya SOPI, siap membantu Anda mengakses informasi SOP yang dibutuhkan hari ini. 😊', false);
+      var jabatan   = S.user.jabatan || 'Pegawai';
+      var unit      = S.user.dept.name;
+      var icon      = S.user.dept.icon;
+      var e2info    = S.user.eselon2  ? '\n' + S.user.eselon2 : '';
+      var subbag    = S.user.subbag   ? ' · ' + S.user.subbag  : '';
+      var userEmp   = S.emps.find(function(e){ return e.nip === S.user.nip; }) || {};
+      var myRole    = userEmp.role || 'maker';
+
+      var roleMsg = {
+        maker       : '\n\n📝 Anda dapat membuat SOP baru melalui tombol **Buat SOP** atau quick chip di bawah.',
+        reviewer_e3 : '\n\n🔍 **Anda bertugas mereview SOP** dari unit-unit di bawah Anda. Tap **📥 Inbox SOP** untuk melihat SOP yang menunggu review.',
+        admin_sop   : '\n\n⚙️ **Anda adalah Admin SOP Instansi**. Semua SOP yang lolos review Eselon III akan masuk ke inbox Anda. Tap **📥 Inbox SOP**.',
+        approver_e2 : '\n\n✍️ **Anda adalah Pengesah SOP** (Eselon II). SOP yang sudah disetujui Ketatalaksanaan menunggu TTD digital Anda. Tap **📥 Inbox SOP**.',
+      };
+
+      addMsg(getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + subbag + e2info + (roleMsg[myRole] || ''), false);
     }
-  },500);
+  }, 500);
 }
 function formatMessage(text) {
   let t = text;
@@ -1676,11 +1687,4 @@ async function sendMsg(){
     sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT KERJA ' + unitKerja + ':\n' + sopUnitInfo : '',
-    !isGuest ? '\nAKSES SOP & DRIVE (ATURAN KETAT):\n- PDF Final semua SOP: BOLEH diakses semua pegawai login (lintas unit)\n- Link FOLDER UTAMA: HANYA boleh diberikan jika SOP berasal dari unit kerja pegawai itu sendiri\n- DILARANG memberikan link folder utama unit lain meskipun diminta — cukup berikan link PDF Final-nya\n- "Tampilkan drive saya": berikan link FOLDER UTAMA unit sendiri\n- SOP unit lain: berikan LINK PDF FINAL saja, jelaskan folder utamanya tidak dapat diakses\n- Tampilan per Eselon III/II: kelompokkan per unit, hanya PDF Final' : '',
-    'SOP SISTEM (semua unit):\n' + sopInfo,
-    hierarchyInfo ? '\nDATAR SOP BERDASARKAN UNIT YANG DIMINTA:\n' + hierarchyInfo : '',
-    relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
-    '',
-    // Instruksi kontekstual jika user tanya detail isi SOP
-    txt.toLowerCase().match(/(dasar hukum|kualifikasi|peralatan|langkah|tahapan|prosedur|persyaratan|peringatan|pencatatan|isi sop|detail sop|jelaskan sop|konten sop)/) ?
-    '⚠️ PERINTAH KHUSUS: User bertanya tentang DETAIL ISI SOP.
+    !isGuest ? '\nAKSES SOP & DRIVE (ATURAN KETAT):\n- PDF Final semua SOP: BOLEH diakses semua pegawai login (lintas unit)\n- Link FOLDER UTAMA: HANYA boleh diberikan jika SOP berasal dari unit kerja 
