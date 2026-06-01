@@ -2118,6 +2118,27 @@ async function saveEmp(id){
 function delEmpConfirm(id){const e=S.emps.find(x=>x.id===id);showConfirm('Hapus Pegawai?','"'+e.name+'" akan dihapus permanen.',()=>delEmp(id));}
 async function delEmp(id){S.emps=S.emps.filter(e=>e.id!==id);await fbDeleteEmp(id);renderAdmin();toast('🗑 Pegawai dihapus');}
 
+// ── FILTER PENCARIAN PEGAWAI ──
+function filterPegawai(q) {
+  const cards = document.querySelectorAll('.emp-card');
+  const countEl = document.getElementById('empCount');
+  const clrBtn = document.getElementById('btnClearSearch');
+  const term = (q||'').trim().toLowerCase();
+  let visible = 0;
+  cards.forEach(function(card) {
+    const data = (card.getAttribute('data-search') || '').toLowerCase();
+    const show = !term || data.includes(term);
+    card.style.display = show ? 'flex' : 'none';
+    if (show) visible++;
+  });
+  if (countEl) {
+    countEl.textContent = term
+      ? 'Menampilkan ' + visible + ' dari ' + cards.length + ' pegawai'
+      : '';
+  }
+  if (clrBtn) clrBtn.style.display = term ? 'block' : 'none';
+}
+
 // ── DRIVE ──
 function rDrives(c){
   let h = '<div class="sectitle">Tambah Dokumen SOP</div>';
