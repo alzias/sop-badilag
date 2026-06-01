@@ -288,7 +288,7 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 <div class="tabs">
   <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
   <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
-  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">⚙️ Admin Review</button>
+  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">📋 SOP Saya</button>
 </div>
 
 <!-- MAIN -->
@@ -905,35 +905,148 @@ function secTable(title, items) {
 // ══ TAB 2: ADMIN REVIEW ══
 function renderAdminView() {
   const list = state.draftList;
-  const counts = {pending:0,approved:0,rejected:0};
-  list.forEach(d => { counts[d.status]=(counts[d.status]||0)+1; });
 
-  let h = `<div class="stat-grid">
-    ${statCard('⏳','Menunggu',counts.pending||0,'var(--amber)')}
-    ${statCard('✅','Disetujui',counts.approved||0,'var(--green)')}
-    ${statCard('❌','Ditolak',counts.rejected||0,'var(--red)')}
-    ${statCard('📋','Total',list.length,'var(--cyan)')}
+  // Hitung per status baru (Worker v5)
+  const cnt = { pending_e3:0, pending_admin:0, pending_e2:0, signed:0, rejected_e3:0, rejected_admin:0, draft:0 };
+  list.forEach(d => {
+    const s = d.status || 'draft';
+    if (cnt[s] !== undefined) cnt[s]++;
+    else cnt.draft++;
+  });
+  const total   = list.length;
+  const proses  = cnt.pending_e3 + cnt.pending_admin + cnt.pending_e2;
+  const ditolak = cnt.rejected_e3 + cnt.rejected_admin;
+
+  let h = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+    ${statCard('📝','Draft', cnt.draft,'var(--mu2)')}
+    ${statCard('⏳','Diproses', proses,'var(--amber)')}
+    ${statCard('↩️','Dikembalikan', ditolak,'var(--red)')}
+    ${statCard('🏛️','Disahkan', cnt.signed,'var(--green)')}
+    ${statCard('📋','Total', total,'var(--cyan)')}
   </div>`;
 
   h += `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div class="card-title purple" style="margin-bottom:0;">📋 DRAFT SOP MASUK</div>
+      <div class="card-title purple" style="margin-bottom:0;">📋 DAFTAR SOP SAYA</div>
       <button class="btn btn-secondary" onclick="loadDrafts()" style="padding:5px 12px;font-size:12px;">🔄 Refresh</button>
     </div>`;
+
+  // Info penting untuk Eselon IV
+  h += `<div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;
+    padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--mu2);line-height:1.6;">
+    💡 SOP yang Anda buat akan diproses secara berjenjang:<br>
+    <strong style="color:var(--cyan);">Anda (Es.IV)</strong> → 
+    <strong style="color:var(--amber);">Kabag/Kasubdit (Es.III)</strong> → 
+    <strong style="color:#a855f7;">Ketatalaksanaan</strong> → 
+    <strong style="color:#818cf8;">Eselon II</strong> → 
+    <strong style="color:var(--green);">Resmi Disahkan 🏛️</strong>
+  </div>`;
 
   if (state.draftLoading) {
     h += '<div style="text-align:center;padding:32px;color:var(--mu2);">⏳ Memuat...</div>';
   } else if (!list.length) {
     h += `<div style="text-align:center;padding:32px;color:var(--mu2);">
-      <div style="font-size:32px;margin-bottom:8px;">📭</div>
-      <div>Belum ada draft SOP masuk</div>
-      <div style="font-size:11px;margin-top:4px;color:var(--mu);">Buat SOP di tab 📝 → klik Kirim untuk Review</div>
+      <div style="font-size:32px;margin-bottom:8px;">📝</div>
+      <div style="font-weight:600;margin-bottom:6px;">Belum ada SOP yang dibuat</div>
+      <div style="font-size:11px;color:var(--mu);">Buat SOP pertama Anda di tab 📝 Buat SOP</div>
     </div>`;
   } else {
-    list.forEach(d => { h += renderDraftCard(d); });
+    list.forEach(d => { h += renderMakerCard(d); });
   }
   h += '</div>';
   return h;
+}
+
+// Card khusus Eselon IV — tracking + aksi edit/kirim ulang saja
+function renderMakerCard(d) {
+  const STATUS_MAP = {
+    draft:'draft', pending_e3:'pending_e3', rejected_e3:'rejected',
+    pending_admin:'pending_admin', rejected_admin:'rejected',
+    pending_e2:'pending_e2', signed:'signed',
+    // fallback status lama
+    pending:'pending_e3', approved:'signed', rejected:'rejected'
+  };
+  const LABEL_MAP = {
+    draft:'📝 Draft',
+    pending_e3:'🔍 Review Es.III', rejected_e3:'↩️ Dikembalikan Es.III',
+    pending_admin:'⚙️ Review Ketatal.', rejected_admin:'↩️ Dikembalikan Ketatal.',
+    pending_e2:'✍️ Tunggu Es.II', signed:'🏛️ Resmi Disahkan',
+    // fallback
+    pending:'🔍 Sedang Diproses', approved:'✅ Disetujui', rejected:'↩️ Dikembalikan'
+  };
+  const stCls = STATUS_MAP[d.status] || 'draft';
+  const stLbl = LABEL_MAP[d.status]  || d.status;
+
+  const canEdit   = ['draft','rejected_e3','rejected_admin','rejected'].includes(d.status);
+  const catatanInfo = d.catatanE3 || d.catatanAdmin || d.catatanReview || '';
+
+  return `<div class="draft-card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;color:var(--tx);margin-bottom:3px;">📄 ${d.namaSOP||'—'}</div>
+        <div style="font-size:12px;color:var(--mu2);">${d.eselon4||d.eselon3||'—'}</div>
+        <div style="font-size:11px;color:var(--mu);margin-top:2px;">📅 ${d.tglKirim?new Date(d.tglKirim).toLocaleDateString('id-ID'):'—'}</div>
+      </div>
+      <span class="stag ${stCls}">${stLbl}</span>
+    </div>
+    ${catatanInfo && canEdit ? `
+    <div style="background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:8px;
+      padding:8px 12px;margin-top:8px;font-size:12px;color:var(--red);">
+      📝 Catatan: ${catatanInfo}
+    </div>` : ''}
+    ${d.status==='signed' && d.urlPDFSigned ? `
+    <div style="margin-top:8px;">
+      <a href="${d.urlPDFSigned}" target="_blank" class="btn btn-secondary" 
+        style="padding:6px 12px;font-size:12px;display:inline-flex;gap:4px;text-decoration:none;">
+        📄 Lihat PDF Final ↗
+      </a>
+    </div>` : ''}
+    ${canEdit ? `
+    <div style="display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(0,245,212,.1);
+        border:1px solid rgba(0,245,212,.2);color:var(--cyan);"
+        onclick="editDraftFromList('${d.draftId||d.id}')">✏️ Edit & Revisi</button>
+      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(255,183,3,.1);
+        border:1px solid rgba(255,183,3,.2);color:var(--amber);"
+        onclick="resubmitDraft('${d.draftId||d.id}')">📤 Kirim Ulang</button>
+    </div>` : ''}
+  </div>`;
+}
+
+function editDraftFromList(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) return;
+  // Load data SOP ke form
+  try {
+    const sopData = d.sopData ? JSON.parse(d.sopData) : d;
+    state.form = Object.assign({}, sopData, {
+      nomorSOP   : d.nomorSOP    || sopData.nomorSOP    || '',
+      namaSOP    : d.namaSOP     || sopData.namaSOP     || '',
+      eselon3    : d.eselon3     || sopData.eselon3     || '',
+      eselon4    : d.eselon4     || sopData.eselon4     || '',
+    });
+    state._editingDraftId = draftId;
+  } catch(e) { state.form = Object.assign({}, state.form); }
+  setTab(0);
+  toast('✏️ Data SOP dimuat ke form untuk diedit');
+}
+
+async function resubmitDraft(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('SOP tidak ditemukan', 'err'); return; }
+  // Buka modal kirim dengan data yang sudah ada
+  const info = document.getElementById('mKirimInfo');
+  if (info) info.innerHTML = `
+    <div style="color:var(--tx);font-weight:700;margin-bottom:4px;">${d.namaSOP}</div>
+    <div>Unit: ${d.eselon4||d.eselon3||'—'}</div>
+    <div style="color:var(--amber);font-size:11px;margin-top:4px;">📤 Kirim ulang setelah revisi</div>`;
+  // Pre-fill dari context
+  const nipEl  = document.getElementById('mNIP');
+  const namaEl = document.getElementById('mNama');
+  if (nipEl && state.ctx)  nipEl.value  = state.ctx.nip;
+  if (namaEl && state.ctx) namaEl.value = decodeURIComponent(state.ctx.nama||'');
+  state._resubmitDraftId = draftId;
+  openModal('mKirim');
 }
 
 function statCard(icon, label, num, color) {
@@ -973,16 +1086,6 @@ function renderDraftCard(d) {
   </div>`;
 }
 
-function renderReviewPanel(d) {
-  return `<div class="draft-acts" onclick="event.stopPropagation()">
-    <textarea id="catatan_${d.draftId}" rows="2" placeholder="Catatan revisi (wajib diisi jika menolak)..."
-      style="width:100%;padding:8px 11px;background:rgba(255,255,255,.04);border:1px solid var(--b1);
-      border-radius:8px;color:var(--tx);font-size:12px;resize:none;outline:none;font-family:inherit;
-      box-sizing:border-box;margin-bottom:0;"></textarea>
-    <button class="btn btn-success" onclick="doApprove('${d.draftId}')">✅ Setujui & Aktifkan</button>
-    <button class="btn btn-danger"  onclick="doReject('${d.draftId}')">❌ Tolak & Revisi</button>
-  </div>`;
-}
 
 // ══ BIND EVENTS ══
 function bindEvents() {
@@ -1220,63 +1323,8 @@ function toggleDraftSel(id) {
   render();
 }
 
-async function doApprove(draftId) {
-  const btn = event.target;
-  btn.textContent = '⏳ Memproses...';
-  btn.disabled = true;
-
-  // Update Firestore
-  if (db) {
-    try { await db.collection('sops').doc(draftId).update({status:'approved', approvedAt:new Date().toISOString()}); } catch(e){}
-  }
-
-  // Worker
-  try {
-    await fetch(WORKER_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'approveDraft', draftId, adminNip:'admin', adminNama:'Admin SOPI' })
-    });
-  } catch(e) {}
-
-  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'approved'}) : d);
-  state.selDraft = null;
-
-  // Notify SOPI
-  if (window.opener) {
-    try { window.opener.postMessage({type:'SOP_APPROVED',draftId},'*'); } catch(e){}
-  }
-  toast('✅ SOP berhasil disetujui!');
-  render();
-}
-
-async function doReject(draftId) {
-  const catatan = (document.getElementById('catatan_'+draftId)||{value:''}).value.trim();
-  if (!catatan) { toast('⚠ Isi catatan revisi terlebih dahulu','err'); return; }
-
-  const btn = event.target;
-  btn.textContent = '⏳ Memproses...';
-  btn.disabled = true;
-
-  if (db) {
-    try { await db.collection('sops').doc(draftId).update({status:'rejected_admin', catatanAdmin:catatan, rejectedAt:new Date().toISOString()}); } catch(e){}
-  }
-
-  try {
-    await fetch(WORKER_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'rejectDraft', draftId, adminNip:'admin', adminNama:'Admin SOPI', catatan })
-    });
-  } catch(e) {}
-
-  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'rejected_admin',catatanAdmin:catatan}) : d);
-  state.selDraft = null;
-
-  if (window.opener) {
-    try { window.opener.postMessage({type:'SOP_REJECTED',draftId,catatan},'*'); } catch(e){}
-  }
-  toast('↩️ SOP dikembalikan ke pembuat');
-  render();
-}
+// doApprove & doReject dihapus — approval dilakukan di SOPI oleh reviewer/admin/eselon2
+// Builder hanya untuk Eselon IV (Maker): buat, edit, submit, tracking status
 
 // ══ SOPI INTEGRATION — buka Builder dari SOPI ══
 // Fungsi ini dipanggil dari SOPI: openSOPBuilder(user)
