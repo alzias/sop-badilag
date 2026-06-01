@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SOP Builder — Ditjen Badilag MA RI</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#08111f;--card:#0f1c2e;--card2:#131f30;
+  --b1:rgba(0,245,212,.10);--b2:rgba(0,245,212,.18);
+  --cyan:#00f5d4;--cyan2:#00c4aa;
+  --amber:#ffb703;--red:#ff4d6d;--green:#06d6a0;--purple:#a855f7;
+  --mu:#5a7a8a;--mu2:#8fa8b8;--tx:#deeaf2;
+  --r:12px;--r2:16px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 60% at 15% 10%,rgba(0,245,212,.05) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 50% at 85% 90%,rgba(67,97,238,.07) 0%,transparent 60%);
+  z-index:0;}
+
+/* TOAST */
+#toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-70px);
+  background:rgba(0,245,212,.12);backdrop-filter:blur(16px);border:1px solid rgba(0,245,212,.3);
+  color:var(--cyan);padding:10px 22px;border-radius:40px;font-size:13px;font-weight:600;
+  z-index:9999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.err{background:rgba(255,77,109,.12);border-color:rgba(255,77,109,.3);color:var(--red);}
+
+/* HEADER */
+.hd{position:sticky;top:0;z-index:100;background:rgba(8,17,31,.95);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--b1);padding:0 20px;display:flex;align-items:center;gap:12px;height:56px;}
+.hd-logo{width:32px;height:32px;object-fit:contain;border-radius:6px;}
+.hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.3px;}
+.hd-sub{font-size:11px;color:var(--mu2);margin-top:1px;}
+.hd-badges{margin-left:auto;display:flex;gap:6px;}
+.badge{background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);
+  border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:.5px;}
+.badge.green{background:rgba(6,214,160,.1);border-color:rgba(6,214,160,.2);color:var(--green);}
+.badge.amber{background:rgba(255,183,3,.1);border-color:rgba(255,183,3,.2);color:var(--amber);}
+.badge.purple{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.2);color:var(--purple);}
+
+/* CONTEXT BAR — info pegawai dari URL params */
+#ctxBar{display:none;background:rgba(0,245,212,.05);border-bottom:1px solid var(--b1);
+  padding:8px 20px;font-size:12px;color:var(--mu2);display:flex;align-items:center;gap:12px;}
+.ctx-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),#4361ee);
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+#ctxBar .ctx-close{margin-left:auto;background:none;border:none;color:var(--mu);cursor:pointer;font-size:14px;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;padding:10px 16px;background:rgba(15,28,46,.8);
+  border-bottom:1px solid var(--b1);position:sticky;top:56px;z-index:90;backdrop-filter:blur(10px);}
+.tab-btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:all .2s;
+  background:rgba(255,255,255,.05);color:var(--mu2);}
+.tab-btn:hover{background:rgba(255,255,255,.08);color:var(--tx);}
+.tab-btn.on{background:var(--cyan);color:#000;}
+.tab-btn.on.amber{background:var(--amber);}
+.tab-btn.on.purple{background:var(--purple);}
+
+/* MAIN CONTENT */
+.main{padding:18px 16px 48px;max-width:720px;margin:0 auto;position:relative;z-index:1;}
+
+/* CARD */
+.card{background:var(--card2);border:1px solid var(--b1);border-radius:var(--r2);
+  padding:16px;margin-bottom:12px;}
+.card-title{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  margin-bottom:14px;}
+.card-title.cyan{color:var(--cyan);}
+.card-title.amber{color:var(--amber);}
+.card-title.green{color:var(--green);}
+
+/* INPUTS */
+.flabel{display:block;font-size:10px;font-weight:700;color:var(--cyan);
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+.flabel.amber{color:var(--amber);}
+.finput,.fselect{width:100%;padding:10px 13px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--r);color:var(--tx);font-family:'DM Sans',sans-serif;
+  font-size:13px;outline:none;transition:border .2s,box-shadow .2s;
+  margin-bottom:12px;box-sizing:border-box;}
+.finput:focus,.fselect:focus{border-color:rgba(0,245,212,.5);box-shadow:0 0 0 3px rgba(0,245,212,.07);}
+.finput::placeholder{color:var(--mu);}
+.fselect option{background:#0f1c2e;}
+textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* MULTIFIELD */
+.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;}
+.mf-num{color:var(--mu);font-size:12px;min-width:18px;flex-shrink:0;}
+.mf-input{flex:1;padding:8px 11px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);border-radius:9px;color:var(--tx);
+  font-size:13px;outline:none;font-family:inherit;transition:border .2s;}
+.mf-input:focus{border-color:rgba(0,245,212,.4);}
+.mf-del{background:rgba(255,77,109,.12);border:1px solid rgba(255,77,109,.25);
+  color:var(--red);border-radius:8px;padding:0 10px;height:34px;cursor:pointer;flex-shrink:0;
+  font-size:14px;transition:all .15s;}
+.mf-del:hover{background:rgba(255,77,109,.2);}
+.mf-add{background:rgba(0,245,212,.07);border:1px solid var(--b1);color:var(--cyan);
+  border-radius:9px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700;
+  margin-top:3px;transition:all .15s;font-family:inherit;}
+.mf-add:hover{background:rgba(0,245,212,.13);}
+
+/* LANGKAH */
+.step-wrap{background:rgba(255,255,255,.03);border:1px solid var(--b1);
+  border-radius:12px;padding:12px;margin-bottom:9px;transition:border .2s;}
+.step-wrap:hover{border-color:var(--b2);}
+.step-num{background:var(--cyan);color:#000;border-radius:50%;
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;flex-shrink:0;margin-top:3px;}
+.step-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;
+  padding-left:30px;margin-top:8px;}
+.step-sublabel{font-size:10px;font-weight:600;margin-bottom:3px;}
+.step-sublabel.amber{color:var(--amber);}
+.step-sublabel.mu{color:var(--mu2);}
+.step-input{width:100%;padding:6px 9px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);border-radius:8px;color:var(--tx);
+  font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;transition:border .2s;}
+.step-input:focus{border-color:rgba(0,245,212,.4);}
+.step-select{width:100%;padding:6px 9px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);border-radius:8px;color:var(--tx);
+  font-size:12px;outline:none;}
+.step-select option{background:#0f1c2e;}
+
+/* DRAG ZONE */
+.drop-zone{border:2px dashed rgba(0,245,212,.3);border-radius:var(--r2);
+  padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:16px;
+  transition:all .2s;background:rgba(0,245,212,.03);}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--cyan);
+  background:rgba(0,245,212,.07);}
+.drop-zone input{display:none;}
+
+/* FILE STATUS BARS */
+.status-bar{border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  display:flex;align-items:center;gap:12px;}
+.status-bar.ok{background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.25);}
+.status-bar.err{background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.25);}
+.status-bar.loading{background:rgba(0,245,212,.06);border:1px solid var(--b1);}
+.progress-bar{height:4px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:10px;}
+.progress-fill{height:100%;background:var(--cyan);border-radius:3px;
+  width:0;transition:width .8s ease;}
+
+/* BUTTONS */
+.btn{border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;
+  border-radius:var(--r);transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#000;
+  padding:13px 20px;font-size:14px;width:100%;justify-content:center;font-size:15px;}
+.btn-primary:hover{box-shadow:0 6px 24px rgba(0,245,212,.3);transform:translateY(-1px);}
+.btn-secondary{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  color:var(--mu2);padding:10px 16px;font-size:13px;}
+.btn-secondary:hover{background:rgba(255,255,255,.1);color:var(--tx);}
+.btn-danger{background:rgba(255,77,109,.12);border:1px solid rgba(255,77,109,.25);
+  color:var(--red);padding:8px 14px;font-size:13px;}
+.btn-success{background:rgba(6,214,160,.12);border:1px solid rgba(6,214,160,.25);
+  color:var(--green);padding:9px 16px;font-size:13px;}
+.btn-warning{background:rgba(255,183,3,.12);border:1px solid rgba(255,183,3,.25);
+  color:var(--amber);padding:9px 16px;font-size:13px;}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;
+  align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.modal.on{display:flex;}
+.mbox{background:rgba(10,18,32,.98);border:1px solid var(--b2);border-radius:20px;
+  width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.7);
+  animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.mhd{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--b1);background:linear-gradient(135deg,rgba(0,245,212,.08),rgba(67,97,238,.08));}
+.mhd-t{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--cyan);}
+.mclose{background:none;border:none;color:var(--mu2);font-size:20px;cursor:pointer;}
+.mbody{padding:20px;}
+
+/* STATUS TAG */
+.stag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+  border-radius:20px;font-size:11px;font-weight:700;}
+.stag.draft{background:rgba(107,114,128,.15);border:1px solid rgba(107,114,128,.3);color:var(--mu2);}
+.stag.pending{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
+.stag.review_e3{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
+.stag.review_admin{background:rgba(168,85,247,.13);border:1px solid rgba(168,85,247,.3);color:var(--purple);}
+.stag.approved{background:rgba(6,214,160,.13);border:1px solid rgba(6,214,160,.3);color:var(--green);}
+.stag.rejected{background:rgba(255,77,109,.13);border:1px solid rgba(255,77,109,.3);color:var(--red);}
+
+/* DRAFT CARD */
+.draft-card{background:rgba(255,255,255,.03);border:1px solid var(--b1);border-radius:12px;
+  padding:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
+.draft-card:hover{border-color:var(--b2);background:rgba(255,255,255,.05);}
+.draft-card.sel{border-color:rgba(0,245,212,.4);background:rgba(0,245,212,.05);}
+.draft-acts{display:flex;gap:8px;margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--b1);flex-wrap:wrap;}
+
+/* WORKFLOW TIMELINE */
+.tl{padding-left:20px;position:relative;}
+.tl::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;
+  width:2px;background:var(--b1);}
+.tl-item{position:relative;margin-bottom:12px;}
+.tl-dot{position:absolute;left:-17px;top:5px;width:10px;height:10px;
+  border-radius:50%;background:var(--bg);border:2px solid var(--b1);}
+.tl-dot.done{background:var(--cyan);border-color:var(--cyan);}
+.tl-dot.active{background:var(--amber);border-color:var(--amber);
+  box-shadow:0 0 8px rgba(255,183,3,.5);}
+.tl-dot.rejected{background:var(--red);border-color:var(--red);}
+.tl-label{font-size:12px;font-weight:600;margin-bottom:2px;}
+.tl-meta{font-size:11px;color:var(--mu2);line-height:1.5;}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.stat-card{background:var(--card2);border:1px solid var(--b1);border-radius:12px;
+  padding:12px;text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin:4px 0 2px;}
+.stat-lbl{font-size:10px;color:var(--mu2);}
+
+/* FLOWCHART */
+#flowWrap{overflow-x:auto;background:#fff;border-radius:10px;padding:12px;}
+
+/* PREVIEW DOC */
+#previewDoc{background:#fff;border-radius:12px;padding:20px;color:#000;
+  font-family:Arial,sans-serif;font-size:11px;line-height:1.6;}
+
+/* SCROLL */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:rgba(0,245,212,.2);border-radius:2px;}
+
+@media(max-width:600px){
+  .grid2{grid-template-columns:1fr;}
+  .step-grid{grid-template-columns:1fr 1fr;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- MODAL KONFIRMASI KIRIM -->
+<div class="modal" id="mKirim">
+  <div class="mbox">
+    <div class="mhd">
+      <div class="mhd-t">📤 Konfirmasi Kirim ke Admin</div>
+      <button class="mclose" onclick="closeModal('mKirim')">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="mKirimInfo" style="background:rgba(0,245,212,.06);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--mu2);line-height:1.7;"></div>
+      <div id="mKirimNIPRow">
+        <label class="flabel">NIP Anda</label>
+        <input class="finput" id="mNIP" placeholder="NIP tanpa spasi..." inputmode="numeric">
+        <label class="flabel">Nama Lengkap</label>
+        <input class="finput" id="mNama" placeholder="Nama lengkap...">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary" onclick="closeModal('mKirim')" style="flex:1;">Batal</button>
+        <button class="btn btn-primary" id="btnDoKirim" style="flex:2;" onclick="doKirim()">📤 Kirim Sekarang</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hd">
+  <img class="hd-logo" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>" alt="MA">
+  <div>
+    <div class="hd-title">SOP Builder</div>
+    <div class="hd-sub">Ditjen Badilag MA RI · v3.0</div>
+  </div>
+  <div class="hd-badges">
+    <span class="badge" id="badgeVer">Builder v3</span>
+    <span class="badge green" id="badgeConn">● Firebase</span>
+    <span class="badge amber" id="badgeUser" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- CONTEXT BAR (muncul jika dibuka dari SOPI) -->
+<div id="ctxBar" style="display:none;">
+  <div class="ctx-avatar">👤</div>
+  <div>
+    <span id="ctxName" style="font-weight:600;color:var(--tx);"></span>
+    <span id="ctxUnit" style="color:var(--mu2);margin-left:8px;"></span>
+  </div>
+  <button class="ctx-close" title="Sembunyikan">✕</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
+  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
+  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">⚙️ Admin Review</button>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mainContent"></div>
+
+<!-- Firebase SDK -->
+<script>
+try {
+  firebase.initializeApp({
+    apiKey:"AIzaSyBsM32VhPFmSN4cQJs6ks8w0NuzCJxBdQk",
+    authDomain:"sop-badilag.firebaseapp.com",
+    projectId:"sop-badilag",
+    storageBucket:"sop-badilag.firebasestorage.app",
+    messagingSenderId:"743445576077",
+    appId:"1:743445576077:web:6901a496f3352e343565c4"
+  });
+} catch(e) {}
+</script>
+
+<script>
+'use strict';
+
+// ══ CONSTANTS ══
+const WORKER_URL = 'https://sop-ai-proxy.rio-prastia.workers.dev';
+const LOGO_SRC = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAyADIDASIAAhEBAxEB/8QAGwABAAIDAQEAAAAAAAAAAAAAAAUGAgQHAQP/xAAuEAABBAIBAwIFBAMAAAAAAAABAAIDBAURBiExUWEHEkFxEyIkUoGRobH/xAAWAQEBAQAAAAAAAAAAAAAAAAABAgD/xAAZEQEBAQEBAQAAAAAAAAAAAAAAARECITH/2gAMAwEAAhEDEQA/AO5IiICIiAiIgIiICIiAiIgIiICIiAiLX3lwh2T09+XUZQHU4r05oS7oJCB4j+TkjH3WNt0N1fSqb9VjFr0WuqzxyN4b1MOB/Yn2WNrrqqT/ADKXOeXFlZzCM8gOJB/EfgfcLBqCG3Vcx0l2ztXkjH3a9r2OI8i0kYI9lI/WqFhzXS5laVzMNEjQ/H7OGV/ddrBfDnI1mtxFrYlbgSRtDQ4eyyCVaIiICIiAiIgIiINaX6W3Jl8bSOIijdI7HcNaXEfwvNlGmXUbEb8h7oXtOepIKvfWvJfqtTa7n+njbFJGPDfxhzc/mQWn3XktoSHqLo3rI4Ak9+GN/b9hPwlYi3TbXVpPX7KrNGBwUE20qxnfJJZ5bx/UY0DPsQVc1tjYfq+xLbbzP2vMDh3NaWAD7lFj6J0JL36WLT8eDEA3H5c/8rUXWrRqaWfJWwxn7bqzOBHX7uH4Xu+yqVSBjQIoImgAAAAADAwtxERAREQEREBERARfKqftmqfFdB9K0VFuqfFdB9K0VFuiIiAiIg//Z";
+
+const C = {
+  bg:"#08111f",card:"#0f1c2e",card2:"#131f30",
+  border:"rgba(0,245,212,0.10)",cyan:"#00f5d4",
+  amber:"#ffb703",red:"#ff4d6d",green:"#06d6a0",purple:"#a855f7",
+  mu:"#5a7a8a",mu2:"#8fa8b8",tx:"#deeaf2"
+};
+
+const EMPTY_FORM = {
+  nomorSOP:"",namaSOP:"",eselon3:"",eselon4:"",
+  instansi:"Direktorat Jenderal Badan Peradilan Agama Mahkamah Agung RI",
+  alamat:"Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat",
+  tglPembuatan:"",tglRevisi:"",tglEfektif:"",
+  disahkanOleh:"Dirjen Badan Peradilan Agama",
+  dasarHukum:[""],kualifikasiPelaksana:[""],keterkaitan:[""],
+  peralatan:[""],peringatan:[""],pencatatan:[""],
+  deskripsi:"",pelaksana:[""],
+  langkah:[{aktivitas:"",pelaksana:0,persyaratan:"",waktu:"",output:""}]
+};
+
+// ══ APP STATE ══
+var db, state = {
+  tab: 0,
+  form: JSON.parse(JSON.stringify(EMPTY_FORM)),
+  draftList: [],
+  draftLoading: false,
+  fileState: 'idle',
+  fileName: '',
+  parseInfo: '',
+  ctx: null   // context dari URL params (NIP, nama, unit, eselon4)
+};
+
+// ══ FIREBASE ══
+try {
+  db = firebase.firestore();
+} catch(e) { console.warn('Firestore init error:', e); }
+
+async function fbSaveSOP(sop) {
+  if (!db) return false;
+  try {
+    const {id, ...data} = sop;
+    data.updatedAt = new Date().toISOString();
+    await db.collection('sops').doc(id).set(data);
+    return true;
+  } catch(e) {
+    console.error('Firebase save error:', e);
+    return false;
+  }
+}
+
+async function fbLoadSOPs() {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('sops').orderBy('updatedAt','desc').limit(100).get();
+    return snap.docs.map(d => ({id: d.id, ...d.data()}));
+  } catch(e) {
+    console.error('Firebase load error:', e);
+    return [];
+  }
+}
+
+async function fbDeleteSOP(id) {
+  if (!db) return;
+  try { await db.collection('sops').doc(id).delete(); } catch(e) { console.error(e); }
+}
+
+// ══ URL PARAMS — baca context dari SOPI ══
+function readURLContext() {
+  const p = new URLSearchParams(window.location.search);
+  const nip    = p.get('nip')    || p.get('NIP')    || '';
+  const nama   = p.get('nama')   || p.get('NAMA')   || '';
+  const unit   = p.get('unit')   || p.get('UNIT')   || '';
+  const e3     = p.get('eselon3')|| p.get('e3')     || '';
+  const e4     = p.get('eselon4')|| p.get('e4')     || '';
+  const deptId = p.get('deptId') || '';
+
+  if (nip || nama) {
+    state.ctx = { nip, nama, unit, e3, e4, deptId };
+
+    // Auto-inject ke form
+    if (e3)   state.form.eselon3 = decodeURIComponent(e3);
+    if (e4)   state.form.eselon4 = decodeURIComponent(e4);
+
+    // Tampilkan context bar
+    const bar = document.getElementById('ctxBar');
+    if (bar) {
+      bar.style.display = 'flex';
+      document.getElementById('ctxName').textContent = decodeURIComponent(nama);
+      document.getElementById('ctxUnit').textContent = decodeURIComponent(e4 || e3 || unit);
+      document.getElementById('badgeUser').textContent = decodeURIComponent(nama);
+      document.getElementById('badgeUser').style.display = '';
+    }
+
+    // Pre-fill modal NIP & nama
+    setTimeout(function() {
+      var el = document.getElementById('mNIP');
+      var el2 = document.getElementById('mNama');
+      if (el) el.value = nip;
+      if (el2) el2.value = decodeURIComponent(nama);
+    }, 100);
+  }
+}
+
+// ══ PARSER .DOCX ══
+function parseSOPFromText(raw) {
+  const toISO = s => {
+    if (!s) return '';
+    s = s.trim();
+    const bln = {januari:'01',februari:'02',maret:'03',april:'04',mei:'05',juni:'06',
+                 juli:'07',agustus:'08',september:'09',oktober:'10',november:'11',desember:'12'};
+    const m1 = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m1) return m1[3]+'-'+m1[2].padStart(2,'0')+'-'+m1[1].padStart(2,'0');
+    const m2 = s.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+    if (m2) return m2[3]+'-'+(bln[m2[2].toLowerCase()]||'01')+'-'+m2[1].padStart(2,'0');
+    return '';
+  };
+  var lines = raw.split('\n').map(l => l.trimEnd());
+  const HEADERS = ['DASAR HUKUM','KUALIFIKASI PELAKSANA','KETERKAITAN','PERALATAN','PERINGATAN','PENCATATAN','NOMOR SOP','NAMA SOP','TANGGAL','DISAHKAN','INSTANSI','ALAMAT','UNIT','ESELON','PELAKSANA','LANGKAH','PROSEDUR','MUTU BAKU'];
+  const isSH = line => line.length < 60 && HEADERS.some(h => { const u=line.toUpperCase().trim(); return u===h||u.indexOf(h)===0; });
+  const getInline = (...labels) => {
+    for (const lb of labels)
+      for (const line of lines) {
+        const m = line.match(new RegExp('^'+lb+'\\s*[:\\t]+\\s*(.+)$','i'));
+        if (m && m[1].trim()) return m[1].trim();
+      }
+    return '';
+  };
+  const getNextLine = (...labels) => {
+    for (const lb of labels)
+      for (let i=0;i<lines.length-1;i++) {
+        if (new RegExp('^'+lb+'\\s*[:\\t]*\\s*$','i').test(lines[i].trim()))
+          for (let j=i+1;j<Math.min(i+4,lines.length);j++) {
+            const v=lines[j].trim();
+            if (v && v.length>1 && !isSH(v)) return v;
+          }
+      }
+    return '';
+  };
+  const SEC_RE = /^(DASAR HUKUM|KUALIFIKASI PELAKSANA|KETERKAITAN|PERALATAN\s*\/?\s*PERLENGKAPAN|PERALATAN|PERINGATAN|PENCATATAN DAN PENDATAAN|PENCATATAN|PELAKSANA)\s*[:\t]*\s*$/i;
+  const sections = {};
+  let cur = null;
+  for (const line of lines) {
+    const m = line.trim().match(SEC_RE);
+    if (m) { cur = m[1].toUpperCase().trim().replace(/\s+/g,' '); sections[cur]=[]; }
+    else if (cur && line.trim()) sections[cur].push(line.trim());
+  }
+  const NOISE = /^(kualifikasi pelaksana|keterkaitan|peralatan|peringatan|pencatatan|pelaksana|uraian kegiatan|langkah|prosedur|dasar hukum|mutu baku|persyaratan|waktu|output|ket\.?)\s*[:\t]*$/i;
+  const getSection = (...keys) => {
+    for (const k of keys) {
+      const found = Object.keys(sections).find(s => s.includes(k.toUpperCase()));
+      if (found && sections[found].length)
+        return sections[found].map(l=>l.replace(/^\d+[\.\)]\s*/,'').replace(/^[•\-]\s*/,'').trim()).filter(l=>l.length>2&&!NOISE.test(l)).slice(0,15);
+    }
+    return [''];
+  };
+  const jabRe = /^(Direktur|Sekretaris|Kepala|Kasubdit|Kabag|Kasubbag|Kasi|Pelaksana|Staf|Hakim|Panitera|Jurusita|Pegawai|Admin)/i;
+  const extractPelaksana = () => {
+    const found = []; let inP = false;
+    for (const line of lines) {
+      const t = line.trim();
+      if (/^PELAKSANA\s*$/i.test(t)) { inP=true; continue; }
+      if (inP) {
+        if (isSH(t) && !jabRe.test(t)) break;
+        if (jabRe.test(t) && t.length<60 && !found.includes(t)) found.push(t);
+        if (found.length>=8) break;
+      }
+    }
+    if (!found.length) for (const line of lines) {
+      const t=line.trim();
+      if (jabRe.test(t)&&t.length>3&&t.length<55&&!found.includes(t)) { found.push(t); if(found.length>=8) break; }
+    }
+    return found.length ? found : ['Pelaksana'];
+  };
+  const skipRe = /^(PP |UU |Peraturan|Keputusan|Undang|Perka|Surat Edaran|KMA |MA\s+No)/i;
+  const extractLangkah = () => {
+    const hasil=[]; let inP=false;
+    for (const line of lines) {
+      const t=line.trim();
+      if (/^(LANGKAH|URAIAN KEGIATAN|PROSEDUR|AKTIVITAS|NO\s*\.\s*URAIAN)/i.test(t)) { inP=true; continue; }
+      if (inP) {
+        const m=t.match(/^(\d{1,2})[.\)]\s+(.{10,})/);
+        if (m&&!skipRe.test(m[2])) hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+        if (hasil.length>=30) break;
+      }
+    }
+    if (!hasil.length) for (const line of lines) {
+      const m=line.trim().match(/^(\d{1,2})[.\)]\s+(.{10,})/);
+      if (m&&!skipRe.test(m[2])&&m[2].length>15&&!/^\d{4}$/.test(m[2])&&!/^(SOP|Nomor|Nama|Tanggal|Unit|Instansi)/i.test(m[2])) {
+        hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+        if (hasil.length>=30) break;
+      }
+    }
+    return hasil.length ? hasil : [{aktivitas:'',pelaksana:0,persyaratan:'',waktu:'',output:''}];
+  };
+  const perRe = /^(PP |UU |Undang|Peraturan|Keputusan|Instruksi|Perka|KMA |Surat Edaran|MA |PERMEN|PERPRES|INPRES)/i;
+  const dhRaw = getSection('DASAR HUKUM');
+  const dh = dhRaw.filter(l=>perRe.test(l)||l.length>20).slice(0,15);
+  const kualRaw = getSection('KUALIFIKASI PELAKSANA');
+  const kual = kualRaw.filter(l=>l.length<100&&!perRe.test(l)).slice(0,8);
+  let e3='', e4='';
+  for (let i=0;i<lines.length-1;i++) {
+    const t=lines[i].trim().toUpperCase();
+    if (['UNIT','UNIT KERJA','BAGIAN','ESELON III'].includes(t)) {
+      const v1=lines[i+1]&&lines[i+1].trim();
+      if (v1&&v1.length>2&&v1.length<80&&!isSH(v1)) {
+        e3=v1;
+        const v2=lines[i+2]&&lines[i+2].trim();
+        if (v2&&v2.length>2&&v2.length<80&&!isSH(v2)&&v2!==v1) e4=v2;
+      }
+      break;
+    }
+  }
+  if (!e3) e3=getInline('UNIT','BAGIAN','ESELON III','UNIT KERJA');
+  if (!e4) e4=getInline('SUB BAGIAN','SUBBAG','ESELON IV','KASUBBAG','KASI');
+  let instansi=getInline('INSTANSI')||getNextLine('INSTANSI');
+  if (!instansi) for (const line of lines) { if (/direktorat jenderal/i.test(line)&&line.length<100){instansi=line.trim();break;} }
+  return {
+    nomorSOP: getInline('NOMOR SOP','NO\\.? SOP','NOMOR')||getNextLine('NOMOR SOP','NO SOP'),
+    namaSOP:  getInline('NAMA SOP','JUDUL SOP')||getNextLine('NAMA SOP','JUDUL SOP'),
+    eselon3: e3, eselon4: e4,
+    instansi: instansi||'Direktorat Jenderal Badan Peradilan Agama Mahkamah Agung RI',
+    alamat: getInline('ALAMAT')||getNextLine('ALAMAT')||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat',
+    tglPembuatan: toISO(getInline('TANGGAL PEMBUATAN','TGL PEMBUATAN')||getNextLine('TANGGAL PEMBUATAN')),
+    tglRevisi:    toISO(getInline('TANGGAL REVISI','TGL REVISI')||getNextLine('TANGGAL REVISI')),
+    tglEfektif:   toISO(getInline('TANGGAL EFEKTIF','TGL EFEKTIF')||getNextLine('TANGGAL EFEKTIF')),
+    disahkanOleh: getInline('DISAHKAN OLEH','DITETAPKAN OLEH')||getNextLine('DISAHKAN OLEH')||'Dirjen Badan Peradilan Agama',
+    dasarHukum: dh.length?dh:[''], kualifikasiPelaksana: kual.length?kual:[''],
+    keterkaitan: getSection('KETERKAITAN').filter(l=>/SOP/i.test(l)||l.length>5).concat(['']).slice(0,10),
+    peralatan:   getSection('PERALATAN').filter(l=>!perRe.test(l)&&l.length<80).concat(['']).slice(0,10),
+    peringatan:  getSection('PERINGATAN').filter(l=>l.length>5).concat(['']).slice(0,5),
+    pencatatan:  getSection('PENCATATAN').filter(l=>l.length>2).concat(['']).slice(0,5),
+    deskripsi:'', pelaksana: extractPelaksana(), langkah: extractLangkah()
+  };
+}
+
+// ══ TOAST ══
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type === 'err' ? ' err' : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3000);
+}
+
+// ══ MODAL ══
+function openModal(id) { document.getElementById(id).classList.add('on'); }
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+
+// ══ TAB ══
+function setTab(i) {
+  state.tab = i;
+  [0,1,2].forEach(j => {
+    const b = document.getElementById('tab'+j);
+    const classes = ['on','on amber','on purple'];
+    if (j===i) b.className = 'tab-btn '+classes[j];
+    else b.className = 'tab-btn ' + (['','amber','purple'][j]);
+  });
+  render();
+  if (i===2) loadDrafts();
+}
+
+// ══ FORM HELPERS ══
+function getFormVal(id) { const el=document.getElementById(id); return el?el.value:''; }
+function setFormVal(id, v) { const el=document.getElementById(id); if(el) el.value=v; }
+
+function syncFormFromDOM() {
+  // Sync identitas
+  const fields = ['nomorSOP','namaSOP','eselon3','eselon4','instansi','alamat',
+                  'tglPembuatan','tglRevisi','tglEfektif','disahkanOleh','deskripsi'];
+  fields.forEach(k => { const v=getFormVal('f_'+k); if(v!==undefined) state.form[k]=v; });
+  // Sync multifields
+  const mfKeys = ['dasarHukum','kualifikasiPelaksana','keterkaitan','peralatan','peringatan','pencatatan','pelaksana'];
+  mfKeys.forEach(k => {
+    const items=[];
+    document.querySelectorAll('.mf-item-'+k).forEach(el=>items.push(el.value));
+    if (items.length) state.form[k]=items;
+  });
+  // Sync langkah
+  const langkah=[];
+  document.querySelectorAll('.step-block').forEach((blk,i)=>{
+    langkah.push({
+      aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
+      pelaksana: +(blk.querySelector('.step-pelaksana')||{value:0}).value,
+      persyaratan: (blk.querySelector('.step-persyaratan')||{value:''}).value,
+      waktu: (blk.querySelector('.step-waktu')||{value:''}).value,
+      output: (blk.querySelector('.step-output')||{value:''}).value
+    });
+  });
+  if (langkah.length) state.form.langkah=langkah;
+}
+
+// ══ RENDER ══
+function render() {
+  const cont = document.getElementById('mainContent');
+  if (state.tab===0) cont.innerHTML = renderFormView();
+  else if (state.tab===1) cont.innerHTML = renderPreviewView();
+  else cont.innerHTML = renderAdminView();
+  bindEvents();
+}
+
+// ══ TAB 0: FORM VIEW ══
+function renderFormView() {
+  const f = state.form;
+  let h = '';
+
+  // DROP ZONE / FILE STATUS
+  if (state.fileState === 'idle') {
+    h += `<div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".docx,.doc">
+      <div style="font-size:36px;margin-bottom:8px;">📂</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">Klik atau Drag &amp; Drop File SOP (.docx)</div>
+      <div style="font-size:12px;color:var(--mu2);margin-bottom:12px;">Data otomatis masuk ke form</div>
+      <div style="display:flex;gap:6px;justify-content:center;">
+        <span class="badge">.docx</span>
+        <span class="badge" style="color:var(--mu2);border-color:rgba(255,255,255,.1);">.doc</span>
+        <span class="badge" style="color:var(--mu);border-color:rgba(255,255,255,.08);">Format SOP Ditjen Badilag</span>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--mu);">— atau isi form manual di bawah —</div>
+    </div>`;
+  } else if (state.fileState === 'parsing') {
+    h += `<div class="status-bar loading">
+      <span style="font-size:20px;">⚙️</span>
+      <div style="flex:1;">
+        <div style="font-weight:700;color:var(--cyan);margin-bottom:4px;">Membaca file Word...</div>
+        <div style="font-size:11px;color:var(--mu2);">${state.fileName}</div>
+        <div class="progress-bar"><div class="progress-fill" id="pBar"></div></div>
+      </div>
+    </div>`;
+    setTimeout(()=>{ const pb=document.getElementById('pBar'); if(pb) pb.style.width='80%'; }, 100);
+  } else if (state.fileState === 'done') {
+    h += `<div class="status-bar ok">
+      <span style="font-size:20px;">✅</span>
+      <div>
+        <div style="font-weight:700;color:var(--green);font-size:13px;">File berhasil dibaca!</div>
+        <div style="font-size:11px;color:var(--mu2);">${state.fileName} · ${state.parseInfo}</div>
+      </div>
+      <button class="btn btn-secondary" onclick="resetFile()" style="margin-left:auto;padding:6px 12px;font-size:12px;">🔄 Ganti File</button>
+    </div>`;
+  } else if (state.fileState === 'error') {
+    h += `<div class="status-bar err">
+      <span style="font-size:20px;">❌</span>
+      <div>
+        <div style="font-weight:700;color:var(--red);font-size:13px;">Gagal membaca file</div>
+        <div style="font-size:11px;color:var(--mu2);">${state.parseInfo}</div>
+      </div>
+      <button class="btn btn-secondary" onclick="resetFile()" style="margin-left:auto;padding:6px 12px;font-size:12px;">🔄 Coba Lagi</button>
+    </div>`;
+  }
+
+  // IDENTITAS SOP
+  h += `<div class="card">
+    <div class="card-title cyan">🏛️ Identitas SOP</div>
+    <div class="grid2">
+      ${inp('Nomor SOP','nomorSOP',f.nomorSOP,'4359/DjA/OT.01.3/...')}
+      ${inp('Nama SOP','namaSOP',f.namaSOP,'Nama prosedur...')}
+      ${inp('Unit Eselon III','eselon3',f.eselon3,'Bagian/Subdit...')}
+      ${inp('Unit Eselon IV','eselon4',f.eselon4,'Kasubbag/Kasi...')}
+      ${inp('Tanggal Pembuatan','tglPembuatan',f.tglPembuatan,'','date')}
+      ${inp('Tanggal Revisi','tglRevisi',f.tglRevisi,'','date')}
+      ${inp('Tanggal Efektif','tglEfektif',f.tglEfektif,'','date')}
+      ${inp('Disahkan Oleh','disahkanOleh',f.disahkanOleh,'Jabatan pengesah...')}
+    </div>
+    ${inp('Instansi','instansi',f.instansi,'')}
+    ${inp('Alamat','alamat',f.alamat,'')}
+  </div>`;
+
+  // MULTIFIELDS
+  const sections = [
+    {key:'dasarHukum',       label:'📜 Dasar Hukum',              ph:'Nama peraturan...'},
+    {key:'kualifikasiPelaksana',label:'👥 Kualifikasi Pelaksana',  ph:'Kompetensi...'},
+    {key:'keterkaitan',      label:'🔗 Keterkaitan',               ph:'SOP terkait...'},
+    {key:'peralatan',        label:'🛠️ Peralatan / Perlengkapan', ph:'Nama alat...'},
+    {key:'peringatan',       label:'⚠️ Peringatan',               ph:'Hal penting...'},
+    {key:'pencatatan',       label:'📋 Pencatatan dan Pendataan',  ph:'Dokumen output...'}
+  ];
+  sections.forEach(s => {
+    h += `<div class="card">${renderMultiField(s.key, s.label, f[s.key]||[''], s.ph)}</div>`;
+  });
+
+  // PELAKSANA
+  h += `<div class="card">
+    ${renderMultiField('pelaksana','👤 Pelaksana yang Terlibat',f.pelaksana||[''],'Jabatan pelaksana...')}
+    <div style="font-size:11px;color:var(--amber);margin-top:6px;">💡 Urutan ini menentukan kolom di flowchart</div>
+  </div>`;
+
+  // LANGKAH
+  h += `<div class="card">
+    <div class="card-title green">🔢 Langkah-Langkah Prosedur</div>`;
+  f.langkah.forEach((l, i) => {
+    const pelOpts = (f.pelaksana||['']).map((p,j)=>`<option value="${j}"${l.pelaksana===j?' selected':''}>${p||'Pelaksana '+(j+1)}</option>`).join('');
+    h += `<div class="step-wrap step-block" data-idx="${i}">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <div class="step-num">${i+1}</div>
+        <textarea class="finput step-aktivitas" rows="2" placeholder="Deskripsi aktivitas..."
+          style="margin-bottom:0;flex:1;">${esc(l.aktivitas)}</textarea>
+        ${f.langkah.length>1?`<button onclick="delLangkah(${i})" style="background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:var(--red);border-radius:8px;padding:0 9px;height:36px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>`:''}
+      </div>
+      <div class="step-grid">
+        <div>
+          <div class="step-sublabel amber">Persyaratan</div>
+          <input class="step-input step-persyaratan" value="${esc(l.persyaratan)}" placeholder="Dokumen/syarat...">
+        </div>
+        <div>
+          <div class="step-sublabel mu">Pelaksana</div>
+          <select class="step-select step-pelaksana">${pelOpts}</select>
+        </div>
+        <div>
+          <div class="step-sublabel mu">Waktu</div>
+          <input class="step-input step-waktu" value="${esc(l.waktu)}" placeholder="1 hari">
+        </div>
+        <div>
+          <div class="step-sublabel mu">Output</div>
+          <input class="step-input step-output" value="${esc(l.output)}" placeholder="Hasil...">
+        </div>
+      </div>
+    </div>`;
+  });
+  h += `<button class="btn" onclick="addLangkah()"
+    style="background:rgba(6,214,160,.07);border:1px solid rgba(6,214,160,.18);color:var(--green);
+    padding:9px;width:100%;justify-content:center;font-size:13px;margin-top:4px;">
+    + Tambah Langkah
+  </button></div>`;
+
+  // SUBMIT BUTTON
+  h += `<button class="btn btn-primary" onclick="handleKirim()">📤 Kirim untuk Review Admin</button>`;
+
+  return h;
+}
+
+function inp(label, key, val, ph, type) {
+  return `<div>
+    <label class="flabel">${label}</label>
+    <input class="finput f-field" id="f_${key}" type="${type||'text'}" value="${esc(val||'')}" placeholder="${ph||''}" style="margin-bottom:0;">
+  </div>`;
+}
+
+function renderMultiField(key, label, items, ph) {
+  let h = `<label class="flabel amber">${label}</label>`;
+  items.forEach((item, i) => {
+    h += `<div class="mf-row">
+      <span class="mf-num">${i+1}.</span>
+      <input class="mf-input mf-item-${key}" value="${esc(item)}" placeholder="${ph}">
+      ${items.length>1?`<button class="mf-del" onclick="delMF('${key}',${i})">✕</button>`:''}
+    </div>`;
+  });
+  h += `<button class="mf-add" onclick="addMF('${key}')">+ Tambah</button>`;
+  return h;
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══ TAB 1: PREVIEW + FLOWCHART ══
+function renderPreviewView() {
+  const f = state.form;
+  return `<div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn" id="btnDoc" onclick="switchPreview('doc')"
+        style="flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);">📄 Preview Dokumen</button>
+      <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
+        style="flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;">🔀 Flowchart</button>
+    </div>
+    <div id="previewPanel">${renderFlowchart(f)}</div>
+  </div>`;
+}
+
+function switchPreview(mode) {
+  syncFormFromDOM();
+  const f = state.form;
+  document.getElementById('btnDoc').style.cssText = mode==='doc'
+    ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
+    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
+  document.getElementById('btnFlow').style.cssText = mode==='flow'
+    ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
+    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
+  document.getElementById('previewPanel').innerHTML = mode==='flow'
+    ? renderFlowchart(f) : renderDocPreview(f);
+}
+
+function renderFlowchart(f) {
+  const langkah = f.langkah||[];
+  const pelaksana = f.pelaksana||[];
+  if (!langkah.length || !pelaksana.length)
+    return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
+
+  const COL_W=110, ROW_H=90, BOX_W=90, BOX_H=50, PAD_X=20, PAD_Y=40;
+  const totalW = PAD_X*2 + pelaksana.length*COL_W;
+  const totalH = PAD_Y+40+(langkah.length+1)*ROW_H+60;
+  const colX = pi => PAD_X+pi*COL_W+(COL_W-BOX_W)/2;
+  const rowY = i => PAD_Y+40+i*ROW_H;
+
+  let svg = `<div id="flowWrap">
+  <svg width="${totalW}" height="${totalH}" style="display:block;min-width:${totalW}px;">
+    <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#555"/>
+    </marker></defs>`;
+
+  // Header kolom
+  pelaksana.forEach((p, pi) => {
+    svg += `<rect x="${PAD_X+pi*COL_W}" y="${PAD_Y}" width="${COL_W}" height="36" fill="#f0f4f8" stroke="#bbb" stroke-width="0.5"/>
+    <text x="${PAD_X+pi*COL_W+COL_W/2}" y="${PAD_Y+14}" text-anchor="middle" font-size="8" font-weight="700" fill="#333">${p.split(' ').slice(0,3).join(' ')}</text>
+    <line x1="${PAD_X+pi*COL_W}" y1="${PAD_Y+36}" x2="${PAD_X+pi*COL_W}" y2="${totalH-20}" stroke="#e0e0e0" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  });
+
+  // MULAI
+  const startX = colX((langkah[0]&&langkah[0].pelaksana)||0)+BOX_W/2;
+  svg += `<ellipse cx="${startX}" cy="${PAD_Y+56}" rx="30" ry="14" fill="#333"/>
+  <text x="${startX}" y="${PAD_Y+61}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">MULAI</text>
+  <line x1="${startX}" y1="${PAD_Y+70}" x2="${startX}" y2="${rowY(0)-2}" stroke="#555" stroke-width="1.2" marker-end="url(#arr)"/>`;
+
+  // Steps
+  langkah.forEach((l, i) => {
+    const cx=colX(l.pelaksana), cy=rowY(i), bx=cx+BOX_W/2;
+    const words=l.aktivitas.split(' ');
+    const mid=Math.ceil(words.length/2);
+    const l1=words.slice(0,mid).join(' ').slice(0,22);
+    const l2=words.slice(mid).join(' ').slice(0,22);
+    let arrow='';
+    if (i < langkah.length-1) {
+      const nextCx=colX(langkah[i+1].pelaksana)+BOX_W/2, ey=rowY(i+1);
+      const sx=bx, sy=cy+BOX_H;
+      if (Math.abs(sx-nextCx)<5) {
+        arrow=`<line x1="${sx}" y1="${sy}" x2="${nextCx}" y2="${ey-2}" stroke="#555" stroke-width="1.2" marker-end="url(#arr)"/>`;
+      } else {
+        const midY=sy+(ey-sy)/2;
+        arrow=`<path d="M ${sx} ${sy} L ${sx} ${midY} L ${nextCx} ${midY} L ${nextCx} ${ey-2}" fill="none" stroke="#555" stroke-width="1.2" marker-end="url(#arr)"/>`;
+      }
+    }
+    svg += `<rect x="${cx}" y="${cy}" width="${BOX_W}" height="${BOX_H}" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+    <circle cx="${cx+10}" cy="${cy+10}" r="8" fill="#3b82f6"/>
+    <text x="${cx+10}" y="${cy+14}" text-anchor="middle" font-size="8" fill="#fff" font-weight="800">${i+1}</text>
+    <text x="${bx}" y="${cy+25}" text-anchor="middle" font-size="7" fill="#1e3a8a">${l1}</text>
+    <text x="${bx}" y="${cy+35}" text-anchor="middle" font-size="7" fill="#1e3a8a">${l2}</text>
+    <text x="${bx}" y="${cy+46}" text-anchor="middle" font-size="6" fill="#6b7280">⏱ ${l.waktu||'—'}</text>
+    ${arrow}`;
+  });
+
+  // SELESAI
+  const lastL=langkah[langkah.length-1];
+  const ex=colX(lastL.pelaksana)+BOX_W/2, ey=rowY(langkah.length)+14;
+  svg += `<polygon points="${ex-30},${ey-14} ${ex+30},${ey-14} ${ex+30},${ey+4} ${ex},${ey+18} ${ex-30},${ey+4}" fill="#333"/>
+  <text x="${ex}" y="${ey+3}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">SELESAI</text>`;
+
+  svg += '</svg></div>';
+  return `<div class="card"><div class="card-title amber">🔀 FLOWCHART — ${f.namaSOP||'SOP'}</div>${svg}</div>`;
+}
+
+function renderDocPreview(f) {
+  const fmt = d => { if(!d) return '-'; const dt=new Date(d); return isNaN(dt)?d:dt.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); };
+  return `<div id="previewDoc">
+    <div style="text-align:center;border:2px solid #000;padding:12px;margin-bottom:8px;">
+      <img src="${LOGO_SRC}" style="height:40px;margin-bottom:6px;"><br>
+      <strong style="font-size:12px;">${f.instansi}</strong><br>
+      <span style="font-size:10px;">${f.alamat}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
+      <tr>
+        <td style="border:1px solid #000;padding:6px;width:50%;">
+          <strong>Nomor SOP:</strong> ${f.nomorSOP||'—'}<br>
+          <strong>Nama SOP:</strong> ${f.namaSOP||'—'}<br>
+          <strong>Unit E-III:</strong> ${f.eselon3||'—'}<br>
+          <strong>Unit E-IV:</strong> ${f.eselon4||'—'}
+        </td>
+        <td style="border:1px solid #000;padding:6px;">
+          <strong>Tgl Pembuatan:</strong> ${fmt(f.tglPembuatan)}<br>
+          <strong>Tgl Revisi:</strong> ${fmt(f.tglRevisi)}<br>
+          <strong>Tgl Efektif:</strong> ${fmt(f.tglEfektif)}<br>
+          <strong>Disahkan:</strong> ${f.disahkanOleh||'—'}
+        </td>
+      </tr>
+    </table>
+    ${secTable('Dasar Hukum', f.dasarHukum)}
+    ${secTable('Kualifikasi Pelaksana', f.kualifikasiPelaksana)}
+    ${secTable('Keterkaitan', f.keterkaitan)}
+    ${secTable('Peralatan', f.peralatan)}
+    ${secTable('Peringatan', f.peringatan)}
+    ${secTable('Pencatatan', f.pencatatan)}
+    <p style="font-size:10px;margin-top:8px;">${f.deskripsi||''}</p>
+  </div>`;
+}
+function secTable(title, items) {
+  const clean = (items||[]).filter(x=>x);
+  if (!clean.length) return '';
+  return `<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:4px;">
+    <tr><th style="border:1px solid #000;background:#f0f0f0;padding:4px 6px;text-align:left;" colspan="2">${title}</th></tr>
+    ${clean.map((it,i)=>`<tr><td style="border:1px solid #000;padding:3px 6px;width:20px;">${i+1}.</td><td style="border:1px solid #000;padding:3px 6px;">${it}</td></tr>`).join('')}
+  </table>`;
+}
+
+// ══ TAB 2: ADMIN REVIEW ══
+function renderAdminView() {
+  const list = state.draftList;
+  const counts = {pending:0,approved:0,rejected:0};
+  list.forEach(d => { counts[d.status]=(counts[d.status]||0)+1; });
+
+  let h = `<div class="stat-grid">
+    ${statCard('⏳','Menunggu',counts.pending||0,'var(--amber)')}
+    ${statCard('✅','Disetujui',counts.approved||0,'var(--green)')}
+    ${statCard('❌','Ditolak',counts.rejected||0,'var(--red)')}
+    ${statCard('📋','Total',list.length,'var(--cyan)')}
+  </div>`;
+
+  h += `<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="card-title purple" style="margin-bottom:0;">📋 DRAFT SOP MASUK</div>
+      <button class="btn btn-secondary" onclick="loadDrafts()" style="padding:5px 12px;font-size:12px;">🔄 Refresh</button>
+    </div>`;
+
+  if (state.draftLoading) {
+    h += '<div style="text-align:center;padding:32px;color:var(--mu2);">⏳ Memuat...</div>';
+  } else if (!list.length) {
+    h += `<div style="text-align:center;padding:32px;color:var(--mu2);">
+      <div style="font-size:32px;margin-bottom:8px;">📭</div>
+      <div>Belum ada draft SOP masuk</div>
+      <div style="font-size:11px;margin-top:4px;color:var(--mu);">Buat SOP di tab 📝 → klik Kirim untuk Review</div>
+    </div>`;
+  } else {
+    list.forEach(d => { h += renderDraftCard(d); });
+  }
+  h += '</div>';
+  return h;
+}
+
+function statCard(icon, label, num, color) {
+  return `<div class="stat-card">
+    <div style="font-size:20px;">${icon}</div>
+    <div class="stat-num" style="color:${color};">${num}</div>
+    <div class="stat-lbl">${label}</div>
+  </div>`;
+}
+
+function renderDraftCard(d) {
+  const stCls = d.status==='pending'?'pending':d.status==='approved'?'approved':'rejected';
+  const stLbl = d.status==='pending'?'⏳ Menunggu':d.status==='approved'?'✅ Disetujui':'❌ Ditolak';
+  const sel = state.selDraft === d.draftId;
+  return `<div class="draft-card${sel?' sel':''}" onclick="toggleDraftSel('${d.draftId}')">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;color:var(--tx);margin-bottom:3px;">📄 ${d.namaSOP||'—'}</div>
+        <div style="font-size:12px;color:var(--mu2);">👤 ${d.namaPembuat||'—'} · ${d.eselon4||d.eselon3||'—'}</div>
+        <div style="font-size:11px;color:var(--mu);margin-top:2px;">📅 ${d.tglKirim?new Date(d.tglKirim).toLocaleDateString('id-ID'):'—'}</div>
+      </div>
+      <span class="stag ${stCls}">${stLbl}</span>
+    </div>
+    ${sel && d.status==='pending' ? renderReviewPanel(d) : ''}
+    ${sel && d.status==='approved' ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);font-size:12px;color:var(--green);">✅ SOP sudah aktif di SOP Digital SOPI.</div>' : ''}
+    ${sel && d.status==='rejected' ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);font-size:12px;color:var(--red);">↩️ Ditolak. ${d.catatanAdmin?'Catatan: '+d.catatanAdmin:''}</div>` : ''}
+  </div>`;
+}
+
+function renderReviewPanel(d) {
+  return `<div class="draft-acts" onclick="event.stopPropagation()">
+    <textarea id="catatan_${d.draftId}" rows="2" placeholder="Catatan revisi (wajib diisi jika menolak)..."
+      style="width:100%;padding:8px 11px;background:rgba(255,255,255,.04);border:1px solid var(--b1);
+      border-radius:8px;color:var(--tx);font-size:12px;resize:none;outline:none;font-family:inherit;
+      box-sizing:border-box;margin-bottom:0;"></textarea>
+    <button class="btn btn-success" onclick="doApprove('${d.draftId}')">✅ Setujui & Aktifkan</button>
+    <button class="btn btn-danger"  onclick="doReject('${d.draftId}')">❌ Tolak & Revisi</button>
+  </div>`;
+}
+
+// ══ BIND EVENTS ══
+function bindEvents() {
+  // File input
+  const fi = document.getElementById('fileInput');
+  if (fi) fi.addEventListener('change', function(e) {
+    const file = e.target.files && e.target.files[0];
+    if (file) processFile(file);
+    e.target.value = '';
+  });
+
+  // Drop zone
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('drag-over');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) processFile(file);
+    });
+  }
+
+  // Auto-save on field change
+  document.querySelectorAll('.f-field').forEach(el => {
+    el.addEventListener('change', () => syncFormFromDOM());
+  });
+}
+
+// ══ FILE PROCESSING ══
+function processFile(file) {
+  if (!file.name.match(/\.(docx|doc)$/i)) {
+    state.fileState='error'; state.parseInfo='Format tidak didukung. Gunakan file .docx atau .doc';
+    render(); return;
+  }
+  state.fileName = file.name;
+  state.fileState = 'parsing';
+  render();
+  file.arrayBuffer().then(ab => {
+    if (!window.mammoth) throw new Error('Library mammoth belum dimuat, coba lagi');
+    return window.mammoth.extractRawText({ arrayBuffer: ab });
+  }).then(result => {
+    const raw = result.value||'';
+    if (raw.length < 50) throw new Error('File kosong atau tidak bisa dibaca');
+    const parsed = parseSOPFromText(raw);
+    state.form = parsed;
+    const lc = parsed.langkah.filter(l=>l.aktivitas).length;
+    const pc = parsed.pelaksana.filter(p=>p).length;
+    state.parseInfo = lc+' langkah, '+pc+' pelaksana terdeteksi';
+    state.fileState = 'done';
+    render();
+  }).catch(e => {
+    state.fileState='error'; state.parseInfo='Gagal: '+e.message;
+    render();
+  });
+}
+
+function resetFile() {
+  state.fileState='idle'; state.fileName=''; state.parseInfo='';
+  state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
+  if (state.ctx) {
+    if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
+    if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
+  }
+  render();
+}
+
+// ══ MULTIFIELD MUTATIONS ══
+function addMF(key) {
+  syncFormFromDOM();
+  state.form[key].push('');
+  render();
+}
+function delMF(key, idx) {
+  syncFormFromDOM();
+  state.form[key].splice(idx, 1);
+  render();
+}
+function addLangkah() {
+  syncFormFromDOM();
+  state.form.langkah.push({aktivitas:'',pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+  render();
+}
+function delLangkah(idx) {
+  syncFormFromDOM();
+  state.form.langkah.splice(idx, 1);
+  render();
+}
+
+// ══ SUBMIT FLOW ══
+function handleKirim() {
+  syncFormFromDOM();
+  const f = state.form;
+  if (!f.namaSOP.trim()) { toast('⚠ Nama SOP wajib diisi','err'); return; }
+  if (!f.langkah.filter(l=>l.aktivitas.trim()).length) { toast('⚠ Minimal 1 langkah prosedur','err'); return; }
+
+  // Pre-fill modal dari context
+  const nip  = state.ctx ? state.ctx.nip  : '';
+  const nama = state.ctx ? decodeURIComponent(state.ctx.nama||'') : '';
+  const mNIP  = document.getElementById('mNIP');
+  const mNama = document.getElementById('mNama');
+  if (mNIP  && !mNIP.value  && nip)  mNIP.value  = nip;
+  if (mNama && !mNama.value && nama) mNama.value = nama;
+
+  // Isi info summary di modal
+  const info = document.getElementById('mKirimInfo');
+  if (info) info.innerHTML = `
+    <div style="color:var(--tx);font-weight:700;margin-bottom:4px;">${f.namaSOP}</div>
+    <div>Nomor: ${f.nomorSOP||'—'}</div>
+    <div>Unit: ${f.eselon4||f.eselon3||'—'}</div>
+    <div>Langkah: ${f.langkah.length} prosedur</div>`;
+
+  // Jika sudah ada NIP & nama dari context, sembunyikan row input
+  const nipRow = document.getElementById('mKirimNIPRow');
+  if (nipRow && nip && nama) nipRow.style.display = 'none';
+
+  openModal('mKirim');
+}
+
+async function doKirim() {
+  const nip  = document.getElementById('mNIP').value.trim();
+  const nama = document.getElementById('mNama').value.trim();
+  if (!nip)  { toast('⚠ NIP wajib diisi','err'); return; }
+  if (!nama) { toast('⚠ Nama wajib diisi','err'); return; }
+
+  const btn = document.getElementById('btnDoKirim');
+  btn.textContent = '⏳ Mengirim...';
+  btn.disabled = true;
+
+  const f = state.form;
+  const draftId = 'sop_'+Date.now();
+  const draftData = {
+    draftId, namaSOP:f.namaSOP, nomorSOP:f.nomorSOP,
+    eselon3:f.eselon3, eselon4:f.eselon4,
+    instansi:f.instansi, alamat:f.alamat,
+    tglPembuatan:f.tglPembuatan, tglRevisi:f.tglRevisi, tglEfektif:f.tglEfektif,
+    disahkanOleh:f.disahkanOleh, deskripsi:f.deskripsi||'',
+    dasarHukum:f.dasarHukum, kualifikasiPelaksana:f.kualifikasiPelaksana,
+    keterkaitan:f.keterkaitan, peralatan:f.peralatan,
+    peringatan:f.peringatan, pencatatan:f.pencatatan,
+    pelaksana:f.pelaksana, langkah:f.langkah,
+    dibuatOleh:nip, namaPembuat:nama,
+    deptId: state.ctx ? state.ctx.deptId : '',
+    status:'pending', catatanAdmin:'',
+    tglKirim:new Date().toISOString(),
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+
+  // Simpan ke Firebase Firestore
+  const savedFB = await fbSaveSOP(Object.assign({id:draftId}, draftData));
+
+  // Kirim ke Worker juga (untuk email notifikasi)
+  let workerOk = false;
+  try {
+    const res = await fetch(WORKER_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'submitDraft', sopData:f, dibuatOleh:nip, namaPembuat:nama, deptId:draftData.deptId, eselon4:f.eselon4 })
+    });
+    const data = await res.json();
+    workerOk = data.success;
+  } catch(e) { console.warn('Worker submit error:', e); }
+
+  btn.textContent = '📤 Kirim Sekarang';
+  btn.disabled = false;
+
+  if (savedFB || workerOk) {
+    closeModal('mKirim');
+    toast('✅ Draft berhasil dikirim! Admin akan mereview segera.');
+
+    // Notify SOPI via postMessage (jika dibuka dari SOPI)
+    if (window.opener) {
+      try {
+        window.opener.postMessage({
+          type:'SOP_SUBMITTED',
+          draftId, namaSOP:f.namaSOP, status:'pending',
+          namaPembuat:nama, nip
+        }, '*');
+      } catch(e) {}
+    }
+
+    // Tambah ke list lokal
+    state.draftList.unshift(Object.assign({}, draftData));
+
+    // Reset form
+    state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
+    if (state.ctx) {
+      if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
+      if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
+    }
+    state.fileState = 'idle';
+
+    setTimeout(() => setTab(2), 800);
+  } else {
+    toast('❌ Gagal menyimpan. Cek koneksi.','err');
+  }
+}
+
+// ══ ADMIN ACTIONS ══
+async function loadDrafts() {
+  state.draftLoading = true;
+  render();
+  const list = await fbLoadSOPs();
+  if (list.length) {
+    state.draftList = list;
+  } else {
+    // Fallback ke Worker
+    try {
+      const res = await fetch(WORKER_URL, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'listDrafts' })
+      });
+      const data = await res.json();
+      if (data.success && data.drafts) state.draftList = data.drafts;
+    } catch(e) {}
+  }
+  state.draftLoading = false;
+  render();
+}
+
+function toggleDraftSel(id) {
+  state.selDraft = state.selDraft===id ? null : id;
+  render();
+}
+
+async function doApprove(draftId) {
+  const btn = event.target;
+  btn.textContent = '⏳ Memproses...';
+  btn.disabled = true;
+
+  // Update Firestore
+  if (db) {
+    try { await db.collection('sops').doc(draftId).update({status:'approved', approvedAt:new Date().toISOString()}); } catch(e){}
+  }
+
+  // Worker
+  try {
+    await fetch(WORKER_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'approveDraft', draftId, adminNip:'admin', adminNama:'Admin SOPI' })
+    });
+  } catch(e) {}
+
+  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'approved'}) : d);
+  state.selDraft = null;
+
+  // Notify SOPI
+  if (window.opener) {
+    try { window.opener.postMessage({type:'SOP_APPROVED',draftId},'*'); } catch(e){}
+  }
+  toast('✅ SOP berhasil disetujui!');
+  render();
+}
+
+async function doReject(draftId) {
+  const catatan = (document.getElementById('catatan_'+draftId)||{value:''}).value.trim();
+  if (!catatan) { toast('⚠ Isi catatan revisi terlebih dahulu','err'); return; }
+
+  const btn = event.target;
+  btn.textContent = '⏳ Memproses...';
+  btn.disabled = true;
+
+  if (db) {
+    try { await db.collection('sops').doc(draftId).update({status:'rejected', catatanAdmin:catatan, rejectedAt:new Date().toISOString()}); } catch(e){}
+  }
+
+  try {
+    await fetch(WORKER_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'rejectDraft', draftId, adminNip:'admin', adminNama:'Admin SOPI', catatan })
+    });
+  } catch(e) {}
+
+  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'rejected',catatanAdmin:catatan}) : d);
+  state.selDraft = null;
+
+  if (window.opener) {
+    try { window.opener.postMessage({type:'SOP_REJECTED',draftId,catatan},'*'); } catch(e){}
+  }
+  toast('↩️ SOP dikembalikan ke pembuat');
+  render();
+}
+
+// ══ SOPI INTEGRATION — buka Builder dari SOPI ══
+// Fungsi ini dipanggil dari SOPI: openSOPBuilder(user)
+// Atau via URL: ?nip=xxx&nama=xxx&e3=xxx&e4=xxx
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'SOPI_CONTEXT') return;
+  const d = e.data;
+  state.ctx = { nip:d.nip||'', nama:d.nama||'', unit:d.unit||'', e3:d.e3||'', e4:d.e4||'', deptId:d.deptId||'' };
+  if (state.ctx.e3) state.form.eselon3 = state.ctx.e3;
+  if (state.ctx.e4) state.form.eselon4 = state.ctx.e4;
+  document.getElementById('ctxName').textContent = d.nama||'';
+  document.getElementById('ctxUnit').textContent  = d.e4||d.e3||d.unit||'';
+  document.getElementById('ctxBar').style.display = 'flex';
+  render();
+});
+
+// ══ INIT ══
+window.addEventListener('load', function() {
+  readURLContext();
+  render();
+
+  // Context bar close
+  const ctxClose = document.querySelector('#ctxBar .ctx-close');
+  if (ctxClose) ctxClose.addEventListener('click', () => {
+    document.getElementById('ctxBar').style.display='none';
+  });
+
+  // Firebase badge
+  if (db) {
+    document.getElementById('badgeConn').textContent = '● Firebase';
+    document.getElementById('badgeConn').style.color = 'var(--green)';
+  }
+});
+</script>
+</body>
+</html>
