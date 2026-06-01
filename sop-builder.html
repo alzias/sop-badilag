@@ -180,11 +180,11 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .stag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
   border-radius:20px;font-size:11px;font-weight:700;}
 .stag.draft{background:rgba(107,114,128,.15);border:1px solid rgba(107,114,128,.3);color:var(--mu2);}
-.stag.pending{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
-.stag.review_e3{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
-.stag.review_admin{background:rgba(168,85,247,.13);border:1px solid rgba(168,85,247,.3);color:var(--purple);}
-.stag.approved{background:rgba(6,214,160,.13);border:1px solid rgba(6,214,160,.3);color:var(--green);}
-.stag.rejected{background:rgba(255,77,109,.13);border:1px solid rgba(255,77,109,.3);color:var(--red);}
+.stag.pending_e3,.stag.pending{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
+.stag.pending_admin{background:rgba(168,85,247,.13);border:1px solid rgba(168,85,247,.3);color:var(--purple);}
+.stag.pending_e2{background:rgba(99,102,241,.13);border:1px solid rgba(99,102,241,.3);color:#818cf8;}
+.stag.signed{background:rgba(6,214,160,.13);border:1px solid rgba(6,214,160,.3);color:var(--green);}
+.stag.rejected,.stag.rejected_e3,.stag.rejected_admin{background:rgba(255,77,109,.13);border:1px solid rgba(255,77,109,.3);color:var(--red);}
 
 /* DRAFT CARD */
 .draft-card{background:rgba(255,255,255,.03);border:1px solid var(--b1);border-radius:12px;
@@ -945,8 +945,18 @@ function statCard(icon, label, num, color) {
 }
 
 function renderDraftCard(d) {
-  const stCls = d.status==='pending'?'pending':d.status==='approved'?'approved':'rejected';
-  const stLbl = d.status==='pending'?'⏳ Menunggu':d.status==='approved'?'✅ Disetujui':'❌ Ditolak';
+  const STATUS_MAP = {
+    draft:'draft', pending_e3:'pending_e3', rejected_e3:'rejected',
+    pending_admin:'pending_admin', rejected_admin:'rejected',
+    pending_e2:'pending_e2', signed:'signed'
+  };
+  const LABEL_MAP = {
+    draft:'📝 Draft', pending_e3:'🔍 Review Es.III', rejected_e3:'↩️ Dikembalikan Es.III',
+    pending_admin:'⚙️ Review Ketatal.', rejected_admin:'↩️ Dikembalikan Ketatal.',
+    pending_e2:'✍️ Tunggu Es.II', signed:'🏛️ Resmi Disahkan'
+  };
+  const stCls = STATUS_MAP[d.status] || 'draft';
+  const stLbl = LABEL_MAP[d.status]  || d.status;
   const sel = state.selDraft === d.draftId;
   return `<div class="draft-card${sel?' sel':''}" onclick="toggleDraftSel('${d.draftId}')">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -959,7 +969,7 @@ function renderDraftCard(d) {
     </div>
     ${sel && d.status==='pending' ? renderReviewPanel(d) : ''}
     ${sel && d.status==='approved' ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);font-size:12px;color:var(--green);">✅ SOP sudah aktif di SOP Digital SOPI.</div>' : ''}
-    ${sel && d.status==='rejected' ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);font-size:12px;color:var(--red);">↩️ Ditolak. ${d.catatanAdmin?'Catatan: '+d.catatanAdmin:''}</div>` : ''}
+    ${sel && (d.status==='rejected_e3'||d.status==='rejected_admin') ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);font-size:12px;color:var(--red);">↩️ Ditolak. ${d.catatanAdmin?'Catatan: '+d.catatanAdmin:''}</div>` : ''}
   </div>`;
 }
 
@@ -1116,7 +1126,10 @@ async function doKirim() {
     pelaksana:f.pelaksana, langkah:f.langkah,
     dibuatOleh:nip, namaPembuat:nama,
     deptId: state.ctx ? state.ctx.deptId : '',
-    status:'pending', catatanAdmin:'',
+    status:'pending_e3', catatanE3:'', catatanAdmin:'',
+    reviewerE3Nip:'', reviewerE3Nama:'', tglReviewE3:'',
+    adminNip:'', adminNama:'', tglReviewAdmin:'',
+    approverE2Nip:'', approverE2Nama:'', tglSigned:'', urlPDFSigned:'',
     tglKirim:new Date().toISOString(),
     createdAt:new Date().toISOString(),
     updatedAt:new Date().toISOString()
@@ -1130,7 +1143,16 @@ async function doKirim() {
   try {
     const res = await fetch(WORKER_URL, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'submitDraft', sopData:f, dibuatOleh:nip, namaPembuat:nama, deptId:draftData.deptId, eselon4:f.eselon4 })
+      body: JSON.stringify({
+          action          : 'submitDraft',
+          sopData         : f,
+          dibuatOleh      : nip,
+          namaPembuat     : nama,
+          deptId          : draftData.deptId,
+          eselon4         : f.eselon4,
+          reviewerE3Email : '',
+          reviewerE3Nama  : ''
+        })
     });
     const data = await res.json();
     workerOk = data.success;
@@ -1148,7 +1170,7 @@ async function doKirim() {
       try {
         window.opener.postMessage({
           type:'SOP_SUBMITTED',
-          draftId, namaSOP:f.namaSOP, status:'pending',
+          draftId, namaSOP:f.namaSOP, status:'pending_e3',
           namaPembuat:nama, nip
         }, '*');
       } catch(e) {}
@@ -1236,7 +1258,7 @@ async function doReject(draftId) {
   btn.disabled = true;
 
   if (db) {
-    try { await db.collection('sops').doc(draftId).update({status:'rejected', catatanAdmin:catatan, rejectedAt:new Date().toISOString()}); } catch(e){}
+    try { await db.collection('sops').doc(draftId).update({status:'rejected_admin', catatanAdmin:catatan, rejectedAt:new Date().toISOString()}); } catch(e){}
   }
 
   try {
@@ -1246,7 +1268,7 @@ async function doReject(draftId) {
     });
   } catch(e) {}
 
-  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'rejected',catatanAdmin:catatan}) : d);
+  state.draftList = state.draftList.map(d => d.draftId===draftId ? Object.assign({},d,{status:'rejected_admin',catatanAdmin:catatan}) : d);
   state.selDraft = null;
 
   if (window.opener) {
