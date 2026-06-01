@@ -201,17 +201,39 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .sblabel{font-size:14px;font-weight:600;color:var(--tx);}
 .sbsub{font-size:11px;color:var(--mu);margin-top:1px;}
 
-/* ══ MOBILE FIX ══ */
-@media (max-width: 600px) {
-  .app { max-width: 100vw; }
-  .inputarea { padding: 8px 10px max(16px,env(safe-area-inset-bottom)); }
-  #msgInput { font-size: 16px !important; min-height: 24px; }
-  .inputwrap { border-radius: 16px; }
-  .chatarea { padding-bottom: 8px; }
-}
-@media (min-width: 601px) {
-  .app { max-width: 500px; border-left: 1px solid var(--b1); border-right: 1px solid var(--b1); }
-}
+/* ══ SOP BUILDER STYLES ══ */
+.sop-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;}
+.sop-status.draft{background:rgba(107,114,128,.15);border:1px solid rgba(107,114,128,.3);color:var(--mu2);}
+.sop-status.review_e3{background:rgba(255,183,3,.15);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
+.sop-status.review_admin{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a855f7;}
+.sop-status.approved{background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);}
+.sop-status.rejected{background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:var(--red);}
+.sop-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;margin-bottom:8px;transition:all .2s;}
+.sop-card:hover{background:var(--s2);border-color:var(--b2);}
+.sop-card-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.sop-card-title{font-size:14px;font-weight:700;color:var(--tx);flex:1;}
+.sop-card-meta{font-size:11px;color:var(--mu);margin-top:3px;line-height:1.6;}
+.sop-card-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.sop-act-btn{padding:6px 12px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+.sop-act-btn.primary{background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(0,196,170,.15));border:1px solid rgba(0,245,212,.3);color:var(--cyan);}
+.sop-act-btn.primary:hover{background:linear-gradient(135deg,rgba(0,245,212,.3),rgba(0,196,170,.25));}
+.sop-act-btn.warning{background:rgba(255,183,3,.12);border:1px solid rgba(255,183,3,.25);color:var(--amber);}
+.sop-act-btn.danger{background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.2);color:var(--red);}
+.sop-act-btn.success{background:rgba(6,214,160,.12);border:1px solid rgba(6,214,160,.25);color:var(--green);}
+.sop-timeline{position:relative;padding-left:20px;}
+.sop-timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--b2);}
+.sop-tl-item{position:relative;margin-bottom:12px;}
+.sop-tl-dot{position:absolute;left:-17px;top:4px;width:10px;height:10px;border-radius:50%;border:2px solid var(--b2);background:var(--bg);}
+.sop-tl-dot.done{background:var(--cyan);border-color:var(--cyan);}
+.sop-tl-dot.active{background:var(--amber);border-color:var(--amber);box-shadow:0 0 8px rgba(255,183,3,.4);}
+.sop-tl-dot.rejected{background:var(--red);border-color:var(--red);}
+.sop-tl-text{font-size:12px;color:var(--mu2);line-height:1.5;}
+.sop-tl-label{font-size:11px;font-weight:700;color:var(--tx);margin-bottom:2px;}
+.finput-sm{width:100%;padding:9px 14px;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:10px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:10px;transition:border .2s;}
+.finput-sm:focus{border-color:rgba(0,245,212,.5);box-shadow:0 0 0 3px rgba(0,245,212,.06);}
+.finput-sm::placeholder{color:var(--mu);}
+textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
+/* ══ END SOP BUILDER STYLES ══ */
 </style>
 </head>
 <body>
@@ -278,6 +300,39 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   </div>
 </div>
 
+
+<!-- ══ SOP BUILDER MODAL ══ -->
+<div class="modal" id="mSOPBuilder">
+  <div class="mbox" style="max-width:420px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(0,245,212,.2);flex-shrink:0;">
+      <div class="mhd-t" id="sopBuilderTitle" style="color:var(--cyan);">📝 Buat SOP Baru</div>
+      <button class="mclose" onclick="closeModal('mSOPBuilder')">✕</button>
+    </div>
+    <div class="mbody" id="sopBuilderBody" style="flex:1;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- SOP Review Modal -->
+<div class="modal" id="mSOPReview">
+  <div class="mbox" style="max-width:420px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(255,183,3,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(255,183,3,.2);flex-shrink:0;">
+      <div class="mhd-t" id="sopReviewTitle" style="color:var(--amber);">🔍 Review SOP</div>
+      <button class="mclose" onclick="closeModal('mSOPReview')">✕</button>
+    </div>
+    <div class="mbody" id="sopReviewBody" style="flex:1;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- SOP Inbox Modal -->
+<div class="modal" id="mSOPInbox">
+  <div class="mbox" style="max-width:420px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(255,183,3,.12),rgba(255,77,109,.08));border-bottom:1px solid rgba(255,183,3,.2);flex-shrink:0;">
+      <div class="mhd-t" style="color:var(--amber);">📥 Kotak Masuk SOP</div>
+      <button class="mclose" onclick="closeModal('mSOPInbox')">✕</button>
+    </div>
+    <div class="mbody" id="sopInboxBody" style="flex:1;overflow-y:auto;padding:12px;"></div>
+  </div>
+</div>
 
 <!-- Analisis Dokumen Modal -->
 <div class="modal" id="mDoc">
@@ -428,6 +483,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="sbdept" id="sbDept">—</div>
   </div>
   <div class="sbmenu">
+    <div class="sbitem" onclick="openSOPBuilder()"><span class="sbico">📝</span><div><div class="sblabel">Buat SOP Baru</div><div class="sbsub">Form builder SOP digital</div></div></div>
+    <div class="sbitem" id="sbItemInbox" onclick="openSOPInbox()" style="display:none;"><span class="sbico">📥</span><div><div class="sblabel">Kotak Masuk SOP <span id="sbInboxBadge" style="background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;"></span></div><div class="sbsub">SOP menunggu review</div></div></div>
     <div class="sbitem" onclick="showMyDrive()"><span class="sbico">📂</span><div><div class="sblabel">Data Drive Saya</div><div class="sbsub">Akses folder departemenmu</div></div></div>
     <div class="sbitem" onclick="newChat()"><span class="sbico">✦</span><div><div class="sblabel">Chat Baru</div><div class="sbsub">Mulai percakapan baru</div></div></div>
     <div class="sbitem" onclick="doLogout()"><span class="sbico">→</span><div><div class="sblabel">Keluar</div><div class="sbsub">Logout dari sistem</div></div></div>
@@ -446,6 +503,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="avring"><div class="avin" id="hdrIco">🤖</div></div>
     <div style="flex:1"><div class="hname">SOP Digital</div><div class="hdept" id="hdrDept">—</div></div>
     <div class="hbtns">
+      <button class="hbtn" id="hdrBtnInbox" onclick="openSOPInbox()" style="display:none;" title="Kotak Masuk SOP">📥</button>
+      <button class="hbtn" onclick="openSOPBuilder()" title="Buat SOP Baru">📝</button>
       <button class="hbtn" onclick="showMyDrive()">📂</button>
       <button class="hbtn" onclick="newChat()">✦</button>
     </div>
@@ -463,6 +522,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="qarea" id="qarea">
       <button class="qchip" onclick="sq('Halo!')">👋 Halo</button>
       <button class="qchip" onclick="sq('Tampilkan data Drive saya')">📂 Drive Saya</button>
+      <button class="qchip" onclick="openSOPBuilder()">📝 Buat SOP</button>
       <button class="qchip" onclick="sq('Apa yang bisa kamu lakukan?')">✦ Kemampuan</button>
       <button class="qchip" onclick="sq('Siapa saya di sistem ini?')">👤 Profil</button>
     </div>
@@ -3922,6 +3982,830 @@ async function saveRole() {
   document.getElementById('roleSetPanel').style.display = 'none';
   renderAdmin();
 }
+
+// ══════════════════════════════════════════════════════════════
+// SOP BUILDER ENGINE v1.0 — Workflow lengkap
+// Maker → Reviewer E3 → Admin SOP → Pengesah E2
+// ══════════════════════════════════════════════════════════════
+
+// ── State SOP ──
+var _sopDrafts = []; // cache lokal dari Firestore collection 'sops'
+var _sopLoaded = false;
+var _editingSopId = null; // ID SOP yang sedang diedit
+
+// ── Status labels ──
+const SOP_STATUS = {
+  draft       : { label:'Draft',             icon:'📝', cls:'draft',        next:'review_e3'   },
+  review_e3   : { label:'Review Kabag/Kasubdit', icon:'🔍', cls:'review_e3', next:'review_admin' },
+  review_admin: { label:'Review Admin SOP',  icon:'⚙️', cls:'review_admin', next:'approved'    },
+  approved    : { label:'Disetujui',         icon:'✅', cls:'approved',      next:null           },
+  rejected    : { label:'Dikembalikan',      icon:'↩️', cls:'rejected',      next:'draft'        },
+};
+
+// ── Firebase SOP helpers ──
+async function fbLoadSOPs() {
+  if (!db) return;
+  try {
+    const snap = await db.collection('sops').orderBy('updatedAt','desc').get();
+    _sopDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _sopLoaded = true;
+  } catch(e) {
+    console.warn('SOP load error:', e);
+    _sopDrafts = JSON.parse(localStorage.getItem('sop_drafts') || '[]');
+    _sopLoaded = true;
+  }
+}
+
+async function fbSaveSOP(sop) {
+  const { id, ...data } = sop;
+  data.updatedAt = new Date().toISOString();
+  try {
+    await db.collection('sops').doc(id).set(data);
+  } catch(e) {
+    // Fallback localStorage
+    const idx = _sopDrafts.findIndex(s => s.id === id);
+    if (idx >= 0) _sopDrafts[idx] = { id, ...data };
+    else _sopDrafts.push({ id, ...data });
+    localStorage.setItem('sop_drafts', JSON.stringify(_sopDrafts));
+  }
+}
+
+async function fbDeleteSOP(id) {
+  try {
+    await db.collection('sops').doc(id).delete();
+  } catch(e) { console.error(e); }
+  _sopDrafts = _sopDrafts.filter(s => s.id !== id);
+  localStorage.setItem('sop_drafts', JSON.stringify(_sopDrafts));
+}
+
+// ── Buka SOP Builder ──
+function openSOPBuilder() {
+  closeSidebar();
+  if (!S.user || S.mode !== 'pegawai') {
+    toast('⚠ Login sebagai pegawai untuk membuat SOP');
+    return;
+  }
+  var u = S.user;
+  var emp = S.emps.find(function(e){ return e.nip === u.nip; }) || {};
+  var params = new URLSearchParams({
+    nip   : u.nip      || '',
+    nama  : u.name     || '',
+    unit  : (u.dept ? u.dept.name : '') || '',
+    e3    : emp.bagian || u.bagian || '',
+    e4    : emp.subbag || u.subbag || '',
+    deptId: (u.dept ? u.dept.id : '') || ''
+  });
+  var builderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
+  var win = window.open(builderURL, 'sop-builder', 'width=820,height=920,resizable=yes,scrollbars=yes');
+  if (win) {
+    var attempt = 0;
+    var tryPost = setInterval(function() {
+      attempt++;
+      try {
+        win.postMessage({ type:'SOPI_CONTEXT', nip:u.nip||'', nama:u.name||'',
+          unit: u.dept ? u.dept.name : '', e3: emp.bagian||u.bagian||'',
+          e4: emp.subbag||u.subbag||'', deptId: u.dept ? u.dept.id : '' }, '*');
+        clearInterval(tryPost);
+      } catch(e) { if (attempt > 10) clearInterval(tryPost); }
+    }, 500);
+    window.addEventListener('message', function(e) {
+      if (!e.data) return;
+      if (e.data.type === 'SOP_SUBMITTED') {
+        toast('📝 SOP "'+e.data.namaSOP+'" dikirim untuk review!');
+        fbLoadSOPs().then(updateInboxBadge);
+      } else if (e.data.type === 'SOP_APPROVED') {
+        toast('✅ SOP disetujui!'); fbLoadSOPs().then(updateInboxBadge);
+      } else if (e.data.type === 'SOP_REJECTED') {
+        toast('↩️ SOP dikembalikan.'); fbLoadSOPs().then(updateInboxBadge);
+      }
+    });
+  } else {
+    toast('⚠ Pop-up diblokir. Izinkan pop-up dari domain ini.');
+  }
+  addMsg('📝 **SOP Builder dibuka** di window baru.
+
+Silakan isi form SOP, upload file .docx untuk auto-parse, atau isi manual.
+
+Setelah submit, draft masuk ke **📥 Kotak Masuk** dan Admin SOP mendapat notifikasi.', false);
+}
+
+async function editSOP(sopId) {
+  if (!_sopLoaded) await fbLoadSOPs();
+  const sop = _sopDrafts.find(s => s.id === sopId);
+  if (!sop) { toast('SOP tidak ditemukan'); return; }
+  _editingSopId = sopId;
+  document.getElementById('sopBuilderTitle').textContent = '✏️ Edit SOP';
+  renderSOPBuilderForm(sop);
+  openModal('mSOPBuilder');
+}
+
+function renderSOPBuilderForm(sop) {
+  const userDept = S.user ? S.user.dept : null;
+  const userEselon4 = S.user ? (S.user.subbag || '') : '';
+  const userEselon3 = S.user ? (S.user.bagian || '') : '';
+  const userEselon2 = S.user ? (S.user.eselon2 || '') : '';
+
+  // Unit kerja options dari ESELON4 — filter by user dept
+  const e4Opts = ESELON4.map(e => 
+    '<option value="'+e.id+'"'+(sop && sop.unitEselon4Id===e.id?' selected':'')+((!sop && e.nama===userEselon4)?' selected':'')+'>'+e.nama+'</option>'
+  ).join('');
+
+  const statusSOP = sop ? sop.status : 'draft';
+  const isEditable = !sop || statusSOP === 'draft' || statusSOP === 'rejected';
+
+  var h = '';
+
+  // Info unit otomatis
+  h += '<div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:10px;padding:10px 14px;margin-bottom:14px;">';
+  h += '<div style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:.8px;margin-bottom:6px;">👤 PEMBUAT SOP</div>';
+  h += '<div style="font-size:13px;font-weight:600;color:var(--tx);">'+S.user.name+'</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);margin-top:2px;">'+(S.user.jabatan||'—')+' · NIP: '+S.user.nip+'</div>';
+  h += '<div style="font-size:11px;color:var(--cyan);margin-top:4px;">'+(userDept?userDept.icon+' '+userDept.name:'—')+'</div>';
+  h += '</div>';
+
+  if (sop) {
+    // Status + Timeline
+    h += '<div style="margin-bottom:14px;">';
+    h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:8px;">STATUS WORKFLOW</div>';
+    h += renderSOPTimeline(sop);
+    if (sop.catatanReview) {
+      h += '<div style="background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.2);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--red);">';
+      h += '↩️ <strong>Catatan Review:</strong> '+escapeHtml(sop.catatanReview);
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+
+  if (!isEditable) {
+    // Read-only view
+    h += '<div style="background:rgba(255,183,3,.06);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);">⏳ SOP sedang dalam proses review. Edit tidak tersedia.</div>';
+    h += '<div class="flabel">Judul SOP</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.judul||'—')+'</div>';
+    h += '<div class="flabel">Nomor Dokumen</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.nomorDokumen||'—')+'</div>';
+    h += '<div class="flabel">Deskripsi</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);white-space:pre-wrap;">'+(sop.deskripsi||'—')+'</div>';
+    if (sop.linkDraft) h += '<a href="'+sop.linkDraft+'" target="_blank" class="sop-act-btn primary" style="display:inline-block;text-decoration:none;margin-bottom:12px;">📄 Buka File SOP Draft ↗</a>';
+    h += '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(\'mSOPBuilder\')">Tutup</button></div>';
+    document.getElementById('sopBuilderBody').innerHTML = h;
+    return;
+  }
+
+  // Form edit/create
+  h += '<label class="flabel">Judul SOP <span style="color:var(--red);">*</span></label>';
+  h += '<input class="finput-sm" id="sb_judul" placeholder="Contoh: SOP Layanan Administrasi Kepegawaian..." value="'+escapeAttr(sop?sop.judul:'')+'"/>';
+
+  h += '<label class="flabel">Nomor Dokumen</label>';
+  h += '<input class="finput-sm" id="sb_nomor" placeholder="Contoh: SOP/BADILAG/S09/001/2026..." value="'+escapeAttr(sop?sop.nomorDokumen:'')+'"/>';
+
+  h += '<label class="flabel">Unit Eselon IV (Pemilik SOP) <span style="color:var(--red);">*</span></label>';
+  h += '<select class="finput-sm" id="sb_unitE4"><option value="">— Pilih unit —</option>'+e4Opts+'</select>';
+
+  h += '<label class="flabel">Dasar Hukum</label>';
+  h += '<textarea class="finput-sm" id="sb_dasarHukum" placeholder="Contoh: UU No. 5 Tahun 2014 tentang ASN, Peraturan MA No...">'+escapeHtml(sop?sop.dasarHukum:'')+'</textarea>';
+
+  h += '<label class="flabel">Keterkaitan</label>';
+  h += '<input class="finput-sm" id="sb_keterkaitan" placeholder="SOP lain yang berkaitan..." value="'+escapeAttr(sop?sop.keterkaitan:'')+'"/>';
+
+  h += '<label class="flabel">Peringatan</label>';
+  h += '<textarea class="finput-sm" id="sb_peringatan" style="min-height:55px;" placeholder="Hal-hal yang perlu diperhatikan...">'+escapeHtml(sop?sop.peringatan:'')+'</textarea>';
+
+  h += '<label class="flabel">Kualifikasi Pelaksana</label>';
+  h += '<textarea class="finput-sm" id="sb_kualifikasi" style="min-height:55px;" placeholder="Contoh: Staf dengan pemahaman administrasi kepegawaian...">'+escapeHtml(sop?sop.kualifikasi:'')+'</textarea>';
+
+  h += '<label class="flabel">Peralatan/Perlengkapan</label>';
+  h += '<input class="finput-sm" id="sb_peralatan" placeholder="Komputer, printer, aplikasi SIMPEG, dll..." value="'+escapeAttr(sop?sop.peralatan:'')+'"/>';
+
+  h += '<label class="flabel">Langkah-Langkah Prosedur <span style="color:var(--red);">*</span></label>';
+  h += '<textarea class="finput-sm" id="sb_langkah" style="min-height:100px;" placeholder="1. Pelaksana menerima berkas...\n2. Verifikasi kelengkapan dokumen...\n3. ...">'+escapeHtml(sop?sop.langkah:'')+'</textarea>';
+
+  h += '<label class="flabel">Pencatatan & Pendataan</label>';
+  h += '<input class="finput-sm" id="sb_pencatatan" placeholder="Log aktivitas, buku agenda, sistem informasi..." value="'+escapeAttr(sop?sop.pencatatan:'')+'"/>';
+
+  h += '<label class="flabel">Link File SOP (Google Drive) <span style="font-size:10px;color:var(--mu);">opsional</span></label>';
+  h += '<input class="finput-sm" id="sb_linkDraft" placeholder="https://drive.google.com/..." value="'+escapeAttr(sop?sop.linkDraft:'')+'"/>';
+
+  h += '<label class="flabel">Deskripsi Singkat</label>';
+  h += '<textarea class="finput-sm" id="sb_deskripsi" style="min-height:55px;" placeholder="Ringkasan tujuan dan ruang lingkup SOP...">'+escapeHtml(sop?sop.deskripsi:'')+'</textarea>';
+
+  h += '<div style="display:flex;gap:8px;margin-top:4px;">';
+  h += '<button class="mbtn cancel" onclick="closeModal(\'mSOPBuilder\')" style="flex:.8;">Batal</button>';
+  h += '<button class="mbtn ok" onclick="saveSOPDraft()" style="flex:1;">💾 Simpan Draft</button>';
+  if (!sop || statusSOP === 'draft' || statusSOP === 'rejected') {
+    h += '<button class="mbtn ok" onclick="submitSOPForReview()" style="flex:1.2;background:linear-gradient(135deg,var(--amber),#d4920a);color:#1a0f00;">📤 Kirim Review</button>';
+  }
+  h += '</div>';
+
+  document.getElementById('sopBuilderBody').innerHTML = h;
+}
+
+function renderSOPTimeline(sop) {
+  var steps = [
+    { key:'draft',        label:'Draft dibuat',           by: sop.createdBy,    at: sop.createdAt   },
+    { key:'review_e3',    label:'Review Kabag/Kasubdit',  by: sop.reviewerE3,   at: sop.sentToE3At  },
+    { key:'review_admin', label:'Review Admin SOP',       by: sop.reviewerAdmin,at: sop.sentToAdminAt },
+    { key:'approved',     label:'Disetujui Pengesah',     by: sop.approvedBy,   at: sop.approvedAt  },
+  ];
+  var statusOrder = ['draft','review_e3','review_admin','approved'];
+  var curIdx = statusOrder.indexOf(sop.status);
+  if (sop.status === 'rejected') curIdx = statusOrder.indexOf(sop.rejectedAt ? 'review_e3' : 'draft');
+
+  var h = '<div class="sop-timeline">';
+  steps.forEach(function(step, i) {
+    var isDone   = i < curIdx;
+    var isActive = i === curIdx || (sop.status === 'rejected' && i === curIdx);
+    var isReject = sop.status === 'rejected' && i === curIdx;
+    h += '<div class="sop-tl-item">';
+    h += '<div class="sop-tl-dot'+(isDone?' done':isReject?' rejected':isActive?' active':'')+'"></div>';
+    h += '<div class="sop-tl-label" style="color:'+(isDone?'var(--green)':isReject?'var(--red)':isActive?'var(--amber)':'var(--mu)')+';">';
+    h += step.label;
+    if (isReject) h += ' — <span style="color:var(--red);">Dikembalikan</span>';
+    h += '</div>';
+    if (step.by) h += '<div class="sop-tl-text">'+escapeHtml(step.by)+(step.at?' · '+formatTglShort(step.at):'')+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Badge status
+  var st = SOP_STATUS[sop.status] || SOP_STATUS.draft;
+  h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span class="sop-status '+st.cls+'">'+st.icon+' '+st.label+'</span></div>' + h;
+  return h;
+}
+
+async function saveSOPDraft(submitAfter) {
+  var judul = (document.getElementById('sb_judul')||{value:''}).value.trim();
+  var unitE4Id = (document.getElementById('sb_unitE4')||{value:''}).value;
+  var langkah  = (document.getElementById('sb_langkah')||{value:''}).value.trim();
+
+  if (!judul) { toast('⚠ Judul SOP wajib diisi'); return null; }
+  if (!unitE4Id) { toast('⚠ Pilih unit Eselon IV pemilik SOP'); return null; }
+  if (!langkah && submitAfter) { toast('⚠ Langkah-langkah prosedur wajib diisi sebelum kirim review'); return null; }
+
+  var unitE4 = ESELON4.find(function(e){ return e.id === unitE4Id; });
+  var unitE3 = unitE4 ? ESELON3.find(function(e){ return e.id === unitE4.eselon3; }) : null;
+  var unitE2 = unitE3 ? ESELON2.find(function(e){ return e.id === unitE3.eselon2; }) : null;
+
+  // Cari deptId dari nama unit E4
+  var deptMatch = unitE4 ? S.depts.find(function(d){ return d.name.toLowerCase() === unitE4.nama.toLowerCase(); }) : null;
+
+  var sopId = _editingSopId || ('sop_'+Date.now());
+  var existing = _sopDrafts.find(function(s){ return s.id === sopId; });
+
+  var sop = Object.assign({}, existing || {}, {
+    id           : sopId,
+    judul        : judul,
+    nomorDokumen : (document.getElementById('sb_nomor')||{value:''}).value.trim(),
+    unitEselon4Id: unitE4Id,
+    unitEselon4  : unitE4 ? unitE4.nama : '',
+    unitEselon3Id: unitE3 ? unitE3.id : '',
+    unitEselon3  : unitE3 ? unitE3.nama : '',
+    unitEselon2Id: unitE2 ? unitE2.id : '',
+    unitEselon2  : unitE2 ? unitE2.name : '',
+    deptId       : deptMatch ? deptMatch.id : (S.user.dept ? S.user.dept.id : ''),
+    dasarHukum   : (document.getElementById('sb_dasarHukum')||{value:''}).value.trim(),
+    keterkaitan  : (document.getElementById('sb_keterkaitan')||{value:''}).value.trim(),
+    peringatan   : (document.getElementById('sb_peringatan')||{value:''}).value.trim(),
+    kualifikasi  : (document.getElementById('sb_kualifikasi')||{value:''}).value.trim(),
+    peralatan    : (document.getElementById('sb_peralatan')||{value:''}).value.trim(),
+    langkah      : langkah,
+    pencatatan   : (document.getElementById('sb_pencatatan')||{value:''}).value.trim(),
+    linkDraft    : (document.getElementById('sb_linkDraft')||{value:''}).value.trim(),
+    deskripsi    : (document.getElementById('sb_deskripsi')||{value:''}).value.trim(),
+    createdBy    : existing ? (existing.createdBy || S.user.name) : S.user.name,
+    createdByNIP : existing ? (existing.createdByNIP || S.user.nip) : S.user.nip,
+    createdByJab : existing ? (existing.createdByJab || S.user.jabatan) : S.user.jabatan,
+    createdAt    : existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    status       : existing ? (existing.status || 'draft') : 'draft',
+    updatedAt    : new Date().toISOString(),
+  });
+
+  // Update lokal
+  var idx = _sopDrafts.findIndex(function(s){ return s.id === sopId; });
+  if (idx >= 0) _sopDrafts[idx] = sop;
+  else _sopDrafts.push(sop);
+
+  await fbSaveSOP(sop);
+  _editingSopId = sopId;
+  if (!submitAfter) {
+    toast('✅ Draft SOP disimpan!');
+    closeModal('mSOPBuilder');
+    addMsg('📝 Draft SOP **"'+judul+'"** berhasil disimpan.\n\nStatus: Draft — belum dikirim untuk review.\nGunakan tombol **📤 Kirim Review** untuk memulai proses persetujuan.', false);
+  }
+  return sop;
+}
+
+async function submitSOPForReview() {
+  var sop = await saveSOPDraft(true);
+  if (!sop) return;
+
+  // Cari Reviewer E3 yang bertanggung jawab atas unit ini
+  var reviewer = getReviewerE3ForDraft(sop.deptId) || getReviewerE3ForDraft(sop.unitEselon3Id);
+  if (!reviewer) {
+    // Coba cari reviewer via unitEselon4Id → deptId
+    var e4obj = ESELON4.find(function(e){ return e.id === sop.unitEselon4Id; });
+    if (e4obj) {
+      // Cari unit E4 di S.depts lalu cari reviewer yang reviewScope mencakup
+      S.emps.some(function(emp) {
+        if (emp.role === 'reviewer_e3' && Array.isArray(emp.reviewScope)) {
+          if (emp.reviewScope.includes(sop.unitEselon4Id) || 
+              emp.reviewScope.some(function(scopeId){ return scopeId === sop.deptId; })) {
+            reviewer = emp;
+            return true;
+          }
+        }
+        return false;
+      });
+    }
+  }
+
+  if (!reviewer) {
+    toast('⚠ Reviewer belum diset untuk unit ini. Hubungi Admin SOP.');
+    addMsg('⚠️ **Reviewer Belum Dikonfigurasi**\n\nBelum ada Reviewer E3 (Kabag/Kasubdit) yang diset untuk unit **'+sop.unitEselon4+'**.\n\nHubungi Admin SOP Instansi untuk mengkonfigurasi role reviewer melalui Panel Admin → Tab Role SOP.', false);
+    return;
+  }
+
+  // Update status SOP
+  sop.status      = 'review_e3';
+  sop.reviewerE3  = reviewer.name;
+  sop.reviewerE3Id= reviewer.id;
+  sop.reviewerE3Email = reviewer.email || '';
+  sop.sentToE3At  = new Date().toISOString();
+  sop.catatanReview = '';
+
+  var idx = _sopDrafts.findIndex(function(s){ return s.id === sop.id; });
+  if (idx >= 0) _sopDrafts[idx] = sop;
+
+  await fbSaveSOP(sop);
+
+  // Kirim notifikasi email ke reviewer
+  if (reviewer.email) {
+    sendSOPNotifEmail({
+      to      : reviewer.email,
+      toName  : reviewer.name,
+      subject : '📋 SOP Baru Masuk untuk Review — '+sop.judul,
+      type    : 'review_request',
+      sop, from: S.user
+    });
+  }
+
+  closeModal('mSOPBuilder');
+  toast('📤 SOP berhasil dikirim ke '+reviewer.name+' untuk review!');
+  addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **'+sop.judul+'**\n\n✅ SOP telah dikirimkan ke:\n**'+reviewer.name+'** ('+reviewer.jabatan+') untuk ditinjau.\n\n'+(reviewer.email?'📧 Notifikasi email telah dikirim ke **'+reviewer.email+'**.':'')+'\n\nAnda akan mendapat notifikasi setelah proses review selesai.', false);
+}
+
+// ── Kotak Masuk SOP (untuk Reviewer & Admin) ──
+async function openSOPInbox() {
+  closeSidebar();
+  if (!_sopLoaded) await fbLoadSOPs();
+  renderSOPInbox();
+  openModal('mSOPInbox');
+}
+
+function renderSOPInbox() {
+  var userEmp = S.user ? S.emps_cache_me() : null;
+  var body = document.getElementById('sopInboxBody');
+  if (!body) return;
+
+  var myRole = userEmp ? (userEmp.role || 'maker') : 'maker';
+  var inbox = [];
+
+  if (myRole === 'reviewer_e3') {
+    var scope = userEmp.reviewScope || [];
+    inbox = _sopDrafts.filter(function(s){
+      return s.status === 'review_e3' && (s.reviewerE3Id === userEmp.id || scope.includes(s.unitEselon4Id) || scope.includes(s.deptId));
+    });
+  } else if (myRole === 'admin_sop') {
+    inbox = _sopDrafts.filter(function(s){ return s.status === 'review_admin'; });
+  } else if (myRole === 'approver_e2') {
+    inbox = _sopDrafts.filter(function(s){ return s.status === 'approved'; });
+  } else {
+    // Maker: tampilkan SOP miliknya
+    inbox = _sopDrafts.filter(function(s){ return s.createdByNIP === (S.user?S.user.nip:''); });
+  }
+
+  var h = '';
+
+  if (myRole !== 'maker') {
+    h += '<div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--amber);">';
+    h += '🔍 <strong>'+ROLE_LABELS[myRole].label+'</strong> — '+inbox.length+' SOP menunggu review Anda';
+    h += '</div>';
+  } else {
+    h += '<div style="margin-bottom:8px;font-size:12px;color:var(--mu);">📋 '+inbox.length+' SOP dari Anda</div>';
+  }
+
+  if (!inbox.length) {
+    h += '<div style="text-align:center;padding:32px 16px;">';
+    h += '<div style="font-size:36px;margin-bottom:10px;">'+(myRole==='maker'?'📝':'✅')+'</div>';
+    h += '<div style="font-size:13px;color:var(--mu);">'+(myRole==='maker'?'Belum ada SOP yang dibuat.\nTap 📝 untuk membuat SOP pertama Anda.':'Tidak ada SOP yang perlu diproses.')+'</div>';
+    h += '</div>';
+  } else {
+    inbox.forEach(function(sop) {
+      var st = SOP_STATUS[sop.status] || SOP_STATUS.draft;
+      h += '<div class="sop-card">';
+      h += '<div class="sop-card-hd">';
+      h += '<div style="flex:1;">';
+      h += '<div class="sop-card-title">'+escapeHtml(sop.judul)+'</div>';
+      h += '<div style="margin-top:4px;"><span class="sop-status '+st.cls+'">'+st.icon+' '+st.label+'</span></div>';
+      h += '</div>';
+      h += '</div>';
+      h += '<div class="sop-card-meta">';
+      h += '📐 '+escapeHtml(sop.unitEselon4||'—')+'<br>';
+      h += '👤 Dibuat: '+escapeHtml(sop.createdBy||'—')+(sop.updatedAt?' · '+formatTglShort(sop.updatedAt):'');
+      if (sop.reviewerE3) h += '<br>🔍 Reviewer: '+escapeHtml(sop.reviewerE3);
+      h += '</div>';
+      h += '<div class="sop-card-acts">';
+
+      if (myRole === 'maker') {
+        if (sop.status === 'draft' || sop.status === 'rejected') {
+          h += '<button class="sop-act-btn primary" onclick="editSOP(\''+sop.id+'\');closeModal(\'mSOPInbox\')">✏️ Edit</button>';
+          h += '<button class="sop-act-btn warning" onclick="submitFromInbox(\''+sop.id+'\')">📤 Kirim Review</button>';
+        }
+        h += '<button class="sop-act-btn danger" onclick="deleteSOP(\''+sop.id+'\')">🗑 Hapus</button>';
+      }
+      if (myRole === 'reviewer_e3' && sop.status === 'review_e3') {
+        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+sop.id+'\')">🔍 Review</button>';
+      }
+      if (myRole === 'admin_sop' && sop.status === 'review_admin') {
+        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+sop.id+'\')">⚙️ Review Final</button>';
+      }
+      h += '<button class="sop-act-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu2);" onclick="viewSOPDetail(\''+sop.id+'\')">👁 Detail</button>';
+      h += '</div>';
+      h += '</div>';
+    });
+  }
+
+  body.innerHTML = h;
+}
+
+// ── Cache: cari data emp dari user login ──
+S.emps_cache_me = function() {
+  if (!S.user) return null;
+  return S.emps.find(function(e){ return e.nip === S.user.nip; }) || null;
+};
+
+// ── Review Panel ──
+async function openReviewPanel(sopId) {
+  if (!_sopLoaded) await fbLoadSOPs();
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
+  if (!sop) { toast('SOP tidak ditemukan'); return; }
+
+  var userEmp = S.emps_cache_me();
+  var myRole  = userEmp ? (userEmp.role || 'maker') : 'maker';
+  var isAdmin = myRole === 'admin_sop';
+
+  document.getElementById('sopReviewTitle').textContent = isAdmin ? '⚙️ Review Final SOP' : '🔍 Review SOP';
+  var body = document.getElementById('sopReviewBody');
+
+  var h = '';
+  h += '<div style="background:rgba(255,255,255,.04);border:1px solid var(--b1);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;">'+escapeHtml(sop.judul)+'</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sop.unitEselon4||'—')+'<br>👤 '+escapeHtml(sop.createdBy||'—')+' (NIP: '+escapeHtml(sop.createdByNIP||'—')+')</div>';
+  h += '</div>';
+
+  // Konten SOP
+  function secRow(label, val) {
+    if (!val) return '';
+    return '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:.8px;margin-bottom:4px;">'+label+'</div><div style="font-size:13px;color:var(--tx);white-space:pre-wrap;line-height:1.6;background:rgba(255,255,255,.03);border-radius:8px;padding:8px 12px;">'+escapeHtml(val)+'</div></div>';
+  }
+
+  h += secRow('DASAR HUKUM', sop.dasarHukum);
+  h += secRow('KETERKAITAN', sop.keterkaitan);
+  h += secRow('PERINGATAN', sop.peringatan);
+  h += secRow('KUALIFIKASI PELAKSANA', sop.kualifikasi);
+  h += secRow('PERALATAN', sop.peralatan);
+  h += secRow('LANGKAH-LANGKAH PROSEDUR', sop.langkah);
+  h += secRow('PENCATATAN', sop.pencatatan);
+  h += secRow('DESKRIPSI', sop.deskripsi);
+  if (sop.linkDraft) h += '<a href="'+sop.linkDraft+'" target="_blank" class="sop-act-btn primary" style="display:inline-flex;text-decoration:none;margin-bottom:12px;gap:6px;">📄 Buka File Draft ↗</a><br>';
+
+  // Form review
+  h += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px;">';
+  h += '<label class="flabel">Catatan Review <span style="color:var(--mu);font-size:10px;">(opsional)</span></label>';
+  h += '<textarea class="finput-sm" id="rv_catatan" style="min-height:70px;" placeholder="Tulis catatan, saran perbaikan, atau alasan pengembalian..."></textarea>';
+  h += '</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">';
+  h += '<button class="sop-act-btn danger" onclick="reviewSOP(\''+sopId+'\',\'rejected\')">↩️ Kembalikan</button>';
+
+  if (isAdmin) {
+    h += '<button class="sop-act-btn success" onclick="reviewSOP(\''+sopId+'\',\'approved\')">✅ Setujui & Sahkan</button>';
+  } else {
+    h += '<button class="sop-act-btn success" onclick="reviewSOP(\''+sopId+'\',\'approved_e3\')">✅ Teruskan ke Admin SOP</button>';
+  }
+  h += '</div>';
+
+  body.innerHTML = h;
+  openModal('mSOPReview');
+}
+
+async function reviewSOP(sopId, action) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  var catatan = (document.getElementById('rv_catatan')||{value:''}).value.trim();
+
+  var userEmp = S.emps_cache_me();
+
+  if (action === 'rejected') {
+    sop.status         = 'rejected';
+    sop.catatanReview  = catatan;
+    sop.rejectedBy     = S.user.name;
+    sop.rejectedAt     = new Date().toISOString();
+    await fbSaveSOP(sop);
+    // Notif ke maker
+    var makerEmp = S.emps.find(function(e){ return e.nip === sop.createdByNIP; });
+    if (makerEmp && makerEmp.email) {
+      sendSOPNotifEmail({ to: makerEmp.email, toName: makerEmp.name, type:'rejected', sop, catatan, from: S.user });
+    }
+    closeModal('mSOPReview');
+    closeModal('mSOPInbox');
+    toast('↩️ SOP dikembalikan ke pembuat');
+    addMsg('↩️ **SOP Dikembalikan**\n\n📋 **'+sop.judul+'**\nDikembalikan ke **'+sop.createdBy+'** untuk diperbaiki.'+(catatan?'\n\n📝 Catatan: '+catatan:''), false);
+
+  } else if (action === 'approved_e3') {
+    // Reviewer E3 → Admin SOP
+    var adminSOP = getAdminSOP();
+    sop.status         = 'review_admin';
+    sop.approvedByE3   = S.user.name;
+    sop.sentToAdminAt  = new Date().toISOString();
+    sop.catatanReview  = '';
+    await fbSaveSOP(sop);
+    if (adminSOP && adminSOP.email) {
+      sendSOPNotifEmail({ to: adminSOP.email, toName: adminSOP.name, type:'review_admin', sop, from: S.user });
+    }
+    closeModal('mSOPReview');
+    closeModal('mSOPInbox');
+    toast('✅ SOP diteruskan ke Admin SOP Instansi');
+    addMsg('✅ **SOP Diteruskan ke Admin SOP**\n\n📋 **'+sop.judul+'**\nSudah disetujui oleh Reviewer E3 dan diteruskan ke '+(adminSOP?'**'+adminSOP.name+'**':'Admin SOP Instansi')+'.', false);
+
+  } else if (action === 'approved') {
+    // Admin SOP → Final Approved
+    sop.status     = 'approved';
+    sop.approvedBy = S.user.name;
+    sop.approvedAt = new Date().toISOString();
+    sop.catatanReview = '';
+    await fbSaveSOP(sop);
+    // Notif ke maker
+    var makerEmp2 = S.emps.find(function(e){ return e.nip === sop.createdByNIP; });
+    if (makerEmp2 && makerEmp2.email) {
+      sendSOPNotifEmail({ to: makerEmp2.email, toName: makerEmp2.name, type:'approved', sop, from: S.user });
+    }
+    closeModal('mSOPReview');
+    closeModal('mSOPInbox');
+    toast('🎉 SOP berhasil disahkan!');
+    addMsg('🎉 **SOP Berhasil Disahkan!**\n\n📋 **'+sop.judul+'**\nStatus: ✅ **Disetujui**\n\nSOP ini sekarang resmi dan dapat dipublikasikan.', false);
+  }
+
+  updateInboxBadge();
+}
+
+async function deleteSOP(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  if (!confirm('Hapus SOP "'+sop.judul+'"? Tindakan ini tidak dapat dibatalkan.')) return;
+  await fbDeleteSOP(sopId);
+  toast('🗑 SOP dihapus');
+  renderSOPInbox();
+}
+
+async function submitFromInbox(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  _editingSopId = sopId;
+  // Re-render form lalu auto-submit
+  closeModal('mSOPInbox');
+  document.getElementById('sopBuilderTitle').textContent = '📤 Kirim SOP ke Review';
+  renderSOPBuilderForm(sop);
+  openModal('mSOPBuilder');
+}
+
+function viewSOPDetail(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
+  if (!sop) return;
+  _editingSopId = sopId;
+  document.getElementById('sopBuilderTitle').textContent = '📋 Detail SOP';
+  renderSOPBuilderForm(sop);
+  openModal('mSOPBuilder');
+}
+
+// ── Badge inbox ──
+function updateInboxBadge() {
+  var userEmp = S.emps_cache_me();
+  if (!userEmp || !_sopLoaded) return;
+  var myRole = userEmp.role || 'maker';
+  var count = 0;
+
+  if (myRole === 'reviewer_e3') {
+    var scope = userEmp.reviewScope || [];
+    count = _sopDrafts.filter(function(s){
+      return s.status === 'review_e3' && (s.reviewerE3Id === userEmp.id || scope.some(function(id){ return id === s.unitEselon4Id || id === s.deptId; }));
+    }).length;
+  } else if (myRole === 'admin_sop') {
+    count = _sopDrafts.filter(function(s){ return s.status === 'review_admin'; }).length;
+  }
+
+  var badge = document.getElementById('sbInboxBadge');
+  var hdrBtn = document.getElementById('hdrBtnInbox');
+  var sbItem = document.getElementById('sbItemInbox');
+
+  if (badge) badge.textContent = count > 0 ? count : '';
+  if (hdrBtn) hdrBtn.style.display = (myRole !== 'maker') ? '' : 'none';
+  if (sbItem) sbItem.style.display = (myRole !== 'maker') ? '' : 'none';
+}
+
+// ── Notifikasi Email SOP via Cloudflare Worker ──
+async function sendSOPNotifEmail(opts) {
+  var templates = {
+    review_request: function() {
+      return {
+        subject: '📋 [SOP Masuk] '+opts.sop.judul,
+        body: 'Yth. '+opts.toName+',\n\nAnda menerima SOP baru untuk ditinjau:\n\n📋 Judul: '+opts.sop.judul+'\n📐 Unit: '+opts.sop.unitEselon4+'\n👤 Pembuat: '+opts.sop.createdBy+' ('+opts.sop.createdByJab+')\n\nSilakan login ke Sistem SOP Digital Ditjen Badilag untuk memproses SOP ini.\n\n---\nPesan ini dikirim otomatis oleh Sistem SOP Digital\nDitjen Badan Peradilan Agama MA RI'
+      };
+    },
+    review_admin: function() {
+      return {
+        subject: '⚙️ [Review Final] SOP Masuk — '+opts.sop.judul,
+        body: 'Yth. '+opts.toName+',\n\nSOP berikut telah disetujui Reviewer E3 dan membutuhkan review final Admin SOP:\n\n📋 Judul: '+opts.sop.judul+'\n📐 Unit: '+opts.sop.unitEselon4+'\n✅ Disetujui E3 oleh: '+(opts.from?opts.from.name:'—')+'\n\nSilakan login untuk memproses.'
+      };
+    },
+    approved: function() {
+      return {
+        subject: '🎉 [SOP Disetujui] '+opts.sop.judul,
+        body: 'Yth. '+opts.toName+',\n\nSOP Anda telah resmi disetujui:\n\n📋 Judul: '+opts.sop.judul+'\n📐 Unit: '+opts.sop.unitEselon4+'\n✅ Disetujui oleh: '+(opts.from?opts.from.name:'Admin SOP')+'\n\nSOP ini sekarang resmi dan dapat dipublikasikan.'
+      };
+    },
+    rejected: function() {
+      return {
+        subject: '↩️ [SOP Dikembalikan] '+opts.sop.judul,
+        body: 'Yth. '+opts.toName+',\n\nSOP Anda dikembalikan untuk perbaikan:\n\n📋 Judul: '+opts.sop.judul+'\n📐 Unit: '+opts.sop.unitEselon4+'\n↩️ Dikembalikan oleh: '+(opts.from?opts.from.name:'Reviewer')+(opts.catatan?'\n\n📝 Catatan:\n'+opts.catatan:'')+'\n\nSilakan login untuk memperbaiki dan mengirim ulang.'
+      };
+    },
+  };
+
+  var tpl = templates[opts.type] ? templates[opts.type]() : { subject: opts.subject || 'Notifikasi SOP', body: '' };
+
+  try {
+    await fetch(WORKER_URL + '/send-email', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ to: opts.to, subject: tpl.subject, body: tpl.body })
+    });
+  } catch(e) {
+    console.warn('Email notif SOP gagal:', e);
+  }
+}
+
+// ── Render tab SOP di Admin Panel ──
+function renderAdminTab() {
+  renderAdmin();
+}
+
+// ── Tambahkan tab SOP di Admin Panel switcher ──
+// Override switchTab agar support tab 'sop'
+var _origSwitchTab = switchTab;
+switchTab = function(tab) {
+  S.tab = tab;
+  ['dept','emp','drive','qr','backup','role','sop'].forEach(function(t) {
+    var id = 'tab'+t.charAt(0).toUpperCase()+t.slice(1);
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('on', t === tab);
+  });
+  renderAdmin();
+};
+
+var _origRenderAdmin = renderAdmin;
+renderAdmin = function() {
+  var b = document.getElementById('adminBody');
+  if (!b) return;
+  if      (S.tab === 'dept')   rDepts(b);
+  else if (S.tab === 'emp')    rEmps(b);
+  else if (S.tab === 'drive')  rDrives(b);
+  else if (S.tab === 'backup') rBackup(b);
+  else if (S.tab === 'role')   rRoleSOP(b);
+  else if (S.tab === 'sop')    rSOPAdmin(b);
+  else rQR(b);
+};
+
+// ── SOP Admin Tab: kelola semua SOP ──
+function rSOPAdmin(c) {
+  if (!_sopLoaded) {
+    c.innerHTML = '<div style="text-align:center;padding:24px;color:var(--mu);">⏳ Memuat data SOP...</div>';
+    fbLoadSOPs().then(function() { rSOPAdmin(c); });
+    return;
+  }
+
+  var grouped = {};
+  Object.keys(SOP_STATUS).forEach(function(k) { grouped[k] = []; });
+  _sopDrafts.forEach(function(s) { if (grouped[s.status]) grouped[s.status].push(s); else grouped['draft'].push(s); });
+
+  var total = _sopDrafts.length;
+  var approved = grouped['approved'].length;
+
+  var h = '';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">';
+  [['draft','📝',grouped.draft.length],['review_e3','🔍',grouped.review_e3.length],['review_admin','⚙️',grouped.review_admin.length],['approved','✅',approved]].forEach(function(item) {
+    var st = SOP_STATUS[item[0]];
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;text-align:center;">';
+    h += '<div style="font-size:20px;margin-bottom:4px;">'+item[1]+'</div>';
+    h += '<div style="font-size:18px;font-weight:800;color:var(--tx);">'+item[2]+'</div>';
+    h += '<div style="font-size:10px;color:var(--mu);margin-top:2px;">'+st.label+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div style="font-size:11px;color:var(--mu);margin-bottom:12px;">Total: <strong style="color:var(--tx);">'+total+' SOP</strong> · Approved: <strong style="color:var(--green);">'+approved+'</strong></div>';
+
+  _sopDrafts.forEach(function(sop) {
+    var st = SOP_STATUS[sop.status] || SOP_STATUS.draft;
+    h += '<div class="sop-card">';
+    h += '<div class="sop-card-hd">';
+    h += '<div style="flex:1;">';
+    h += '<div class="sop-card-title">'+escapeHtml(sop.judul)+'</div>';
+    h += '<div style="margin-top:4px;"><span class="sop-status '+st.cls+'">'+st.icon+' '+st.label+'</span></div>';
+    h += '</div>';
+    h += '</div>';
+    h += '<div class="sop-card-meta">📐 '+escapeHtml(sop.unitEselon4||'—')+' · 👤 '+escapeHtml(sop.createdBy||'—')+(sop.updatedAt?' · '+formatTglShort(sop.updatedAt):'')+'</div>';
+    h += '<div class="sop-card-acts">';
+    h += '<button class="sop-act-btn danger" onclick="adminDeleteSOP(\''+sop.id+'\')">🗑</button>';
+    if (sop.status === 'approved') {
+      h += '<button class="sop-act-btn primary" onclick="adminPublishSOP(\''+sop.id+'\')">📢 Publikasi ke Drive</button>';
+    }
+    h += '</div>';
+    h += '</div>';
+  });
+
+  if (!total) h += '<div style="text-align:center;padding:32px;color:var(--mu);">Belum ada SOP yang dibuat.</div>';
+
+  c.innerHTML = h;
+}
+
+async function adminDeleteSOP(id) {
+  var sop = _sopDrafts.find(function(s){ return s.id === id; });
+  if (!sop) return;
+  if (!confirm('Admin: Hapus SOP "'+sop.judul+'"?')) return;
+  await fbDeleteSOP(id);
+  renderAdmin();
+  toast('🗑 SOP dihapus oleh admin');
+}
+
+function adminPublishSOP(id) {
+  var sop = _sopDrafts.find(function(s){ return s.id === id; });
+  if (!sop) { toast('SOP tidak ditemukan'); return; }
+  // Cari Drive yang cocok dengan unit SOP ini
+  var targetDrive = S.drives.find(function(d){ return d.deptId === sop.deptId || d.eselon4Id === sop.unitEselon4Id; });
+  var info = sop.linkDraft ? '\n\nLink draft: '+sop.linkDraft : '';
+  toast('✅ SOP siap publikasi! Tambahkan link PDF Final ke tab SOP.');
+  addMsg('📢 **Publikasi SOP: '+sop.judul+'**\n\nSOP ini telah disetujui dan siap dipublikasikan.\n'+(targetDrive?'📂 Folder Drive unit sudah ada. Tambahkan PDF Final di Panel Admin → Tab SOP.':'📂 Belum ada Drive yang cocok untuk unit ini. Tambahkan terlebih dahulu di Tab SOP.')+info, false);
+}
+
+// ── Helper utilities ──
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function formatTglShort(isoStr) {
+  if (!isoStr) return '';
+  var d = new Date(isoStr);
+  var bln = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  return d.getDate()+' '+bln[d.getMonth()]+' '+d.getFullYear();
+}
+
+// ── Inject tab SOP ke admin panel HTML after DOM ready ──
+function injectSOPAdminTab() {
+  var tabsEl = document.querySelector('.atabs');
+  if (tabsEl && !document.getElementById('tabSop')) {
+    var t = document.createElement('div');
+    t.className = 'atab';
+    t.id = 'tabSop';
+    t.textContent = '📋 SOP';
+    t.onclick = function(){ switchTab('sop'); };
+    tabsEl.appendChild(t);
+  }
+}
+
+// ── Init SOP Builder saat chat dibuka ──
+var _origShowChat = showChat;
+showChat = function() {
+  _origShowChat();
+  // Load SOPs background
+  if (!_sopLoaded) {
+    fbLoadSOPs().then(function() {
+      updateInboxBadge();
+    });
+  } else {
+    updateInboxBadge();
+  }
+  injectSOPAdminTab();
+};
+
+// ── Intercept openAdmin agar inject tab SOP ──
+var _origOpenAdmin = openAdmin;
+openAdmin = function() {
+  _origOpenAdmin();
+  injectSOPAdminTab();
+  if (!_sopLoaded) fbLoadSOPs().then(function(){ if(S.tab==='sop') renderAdmin(); });
+};
+
 
 async function resetRole(id) {
   var emp = S.emps.find(function(e){ return e.id===id; });
