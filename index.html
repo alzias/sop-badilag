@@ -413,7 +413,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="atab" id="tabDrive" onclick="switchTab('drive')">📋 SOP</div>
     <div class="atab" id="tabQR" onclick="switchTab('qr')">🔲 QR Code</div>
     <div class="atab" id="tabBackup" onclick="switchTab('backup')">💾 Backup</div>
-    <div class="atab" id="tabRole" onclick="switchTab('role')">🔐 Role SOP</div>
+  <div class="atab" id="tabRole" onclick="switchTab('role')">🔐 Role SOP</div>
   </div>
   <div class="abody" id="adminBody"></div>
 </div>
@@ -1774,7 +1774,7 @@ function openAdmin(){document.getElementById('adminPanel').style.display='flex';
 function closeAdmin(){document.getElementById('adminPanel').style.display='none';populateDepts();}
 function switchTab(tab){
   S.tab=tab;
-['dept','emp','drive','qr','backup','role'].forEach(t=>{
+  ['dept','emp','drive','qr','backup','role'].forEach(t=>{
     const el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
     if(el) el.classList.toggle('on',t===tab);
   });
@@ -1782,11 +1782,11 @@ function switchTab(tab){
 }
 function renderAdmin(){
   const b=document.getElementById('adminBody');
-  if(S.tab==='dept')       rDepts(b);
-  else if(S.tab==='emp')   rEmps(b);
-  else if(S.tab==='drive') rDrives(b);
+  if(S.tab==='dept')        rDepts(b);
+  else if(S.tab==='emp')    rEmps(b);
+  else if(S.tab==='drive')  rDrives(b);
   else if(S.tab==='backup') rBackup(b);
-  else if(S.tab==='role')   rRoleSOP(b); 
+  else if(S.tab==='role')   rRoleSOP(b);
   else rQR(b);
 }
 
@@ -3660,6 +3660,276 @@ window.addEventListener('load', async ()=>{
   const aPass = document.getElementById('aPass');
   if(aPass) aPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
 });
+
+
+// ══════════════════════════════════════════════════════════════
+// ROLE SOP MANAGER — Integrasi SOP Builder
+// ══════════════════════════════════════════════════════════════
+
+const E3_TO_E4_MAP = {
+  // ── SEKRETARIAT ──
+  's02': { nama:'Bagian Kepegawaian',              children:['s03','s04','s05'] },
+  's06': { nama:'Bagian Ortala',                   children:['s07','s08','s09'] },
+  's10': { nama:'Bagian Perenc. & Keuangan',       children:['s11','s12','s13'] },
+  's14': { nama:'Bagian Umum',                     children:['s15','s16','s17'] },
+  // ── DIT. ADM. PA ──
+  'a02': { nama:'Subdit Bimon',                    children:['a03','a04','a05'] },
+  'a06': { nama:'Subdit Tata Kelola',              children:['a07','a08','a09'] },
+  'a10': { nama:'Subdit Stadok',                   children:['a11','a12','a13'] },
+  // ── DIT. TENAGA TEKNIS ──
+  't02': { nama:'Subdit Mutasi Hakim',             children:['t03','t04','t05'] },
+  't06': { nama:'Subdit Mutasi Panitera',          children:['t07','t08','t09'] },
+  't10': { nama:'Subdit Pengembangan',             children:['t11','t12','t13','t14'] },
+  't15': { nama:'Subdit Data & Evaluasi',          children:['t16','t17','t18'] },
+  // ── DIT. PRANATA ──
+  'p02': { nama:'Subdit Syariah',                  children:['p03','p04','p05'] },
+};
+
+const ROLE_LABELS = {
+  'maker'       : { label:'Pembuat SOP',             icon:'✍️',  color:'var(--cyan)',  desc:'Eselon IV — buat & update SOP unit kerjanya' },
+  'reviewer_e3' : { label:'Reviewer Unit (Es. III)', icon:'🔍',  color:'var(--amber)', desc:'Kabag/Kasubdit — review SOP unit di bawahnya' },
+  'admin_sop'   : { label:'Admin SOP Instansi',      icon:'⚙️',  color:'#a855f7',     desc:'Kasubbag Ketatalaksanaan — review final semua SOP' },
+  'approver_e2' : { label:'Pengesah (Es. II)',        icon:'✅',  color:'var(--green)', desc:'Direktur/Sekretaris — TTD digital pengesahan' },
+};
+
+// ── State untuk role setter ──
+var _roleTargetEmp = null;
+var _roleScopeIds  = [];
+
+function rRoleSOP(c) {
+  var byRole = { maker:[], reviewer_e3:[], admin_sop:[], approver_e2:[] };
+  S.emps.forEach(function(e) {
+    var r = e.role || 'maker';
+    if (!byRole[r]) byRole[r] = [];
+    byRole[r].push(e);
+  });
+
+  var h = '';
+
+  h += '<div style="background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--mu2);line-height:1.8;">';
+  h += '<strong style="color:var(--cyan);">📋 Cara kerja role:</strong><br>';
+  h += '• <strong>Pembuat</strong> — default semua pegawai, buat SOP via Builder<br>';
+  h += '• <strong>Reviewer Unit</strong> — Kabag/Kasubdit, approve SOP unit di bawahnya<br>';
+  h += '• <strong>Admin SOP Instansi</strong> — Kasubbag Ketatalaksanaan, review final semua SOP<br>';
+  h += '• <strong>Pengesah</strong> — Eselon II, tanda tangan digital pengesahan';
+  h += '</div>';
+
+  h += '<div class="addbox" style="margin-bottom:16px;">';
+  h += '<h4>🔐 Set Role Pegawai</h4>';
+  h += '<label class="flabel">Cari Pegawai (Nama / NIP)</label>';
+  h += '<input class="finput" id="roleSearch" placeholder="Ketik nama atau NIP..." oninput="filterRoleSearch(this.value)" style="margin-bottom:8px;"/>';
+  h += '<div id="roleSearchResult" style="max-height:180px;overflow-y:auto;margin-bottom:12px;"></div>';
+  h += '<div id="roleSetPanel" style="display:none;">';
+  h += '<div id="roleSelectedEmp" style="background:rgba(255,255,255,.04);border:1px solid var(--b2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--tx);"></div>';
+  h += '<label class="flabel">Role</label>';
+  h += '<select class="fselect" id="roleSelect" onchange="onRoleChange()">';
+  Object.keys(ROLE_LABELS).forEach(function(r) {
+    var rl = ROLE_LABELS[r];
+    h += '<option value="'+r+'">'+rl.icon+' '+rl.label+'</option>';
+  });
+  h += '</select>';
+  h += '<div id="emailPanel" style="display:none;margin-top:4px;">';
+  h += '<label class="flabel">Email untuk Notifikasi Review</label>';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:6px;">📧 Email ini yang akan menerima notifikasi saat ada SOP masuk untuk direview</div>';
+  h += '<input class="finput" id="roleEmail" type="email" placeholder="contoh: nama@badilag.go.id atau nama@gmail.com"/>';
+  h += '<div style="font-size:11px;color:var(--mu);margin-top:3px;">Pastikan email aktif dan bisa menerima pesan dari sopi@sopibadilag.my.id</div>';
+  h += '</div>';
+  h += '<div id="reviewScopePanel" style="display:none;margin-top:8px;">';
+  h += '<label class="flabel">Unit Eselon IV yang boleh direview</label>';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:8px;">Pilih berdasarkan posisi Eselon III pegawai ini</div>';
+  h += '<select class="fselect" id="e3Select" onchange="onE3ScopeChange()" style="margin-bottom:8px;">';
+  h += '<option value="">— Pilih Bagian/Subdit (Eselon III) —</option>';
+  Object.keys(E3_TO_E4_MAP).forEach(function(e3id) {
+    h += '<option value="'+e3id+'">'+E3_TO_E4_MAP[e3id].nama+'</option>';
+  });
+  h += '</select>';
+  h += '<div id="scopePreview" style="background:rgba(255,255,255,.03);border:1px solid var(--b1);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--mu2);min-height:40px;"></div>';
+  h += '</div>';
+  h += '<button class="addbtn" onclick="saveRole()" style="margin-top:12px;">💾 Simpan Role</button>';
+  h += '</div>';
+  h += '</div>';
+
+  Object.keys(ROLE_LABELS).forEach(function(role) {
+    var rl   = ROLE_LABELS[role];
+    var emps = byRole[role] || [];
+    h += '<div style="margin-bottom:16px;">';
+    h += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+rl.color+';margin-bottom:6px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:8px;display:flex;align-items:center;gap:8px;">';
+    h += '<span>'+rl.icon+' '+rl.label+'</span>';
+    h += '<span style="background:rgba(255,255,255,.08);border-radius:20px;padding:2px 10px;font-size:11px;">'+emps.length+' pegawai</span>';
+    h += '<span style="font-size:10px;color:var(--mu);font-weight:400;margin-left:4px;">'+rl.desc+'</span>';
+    h += '</div>';
+    if (!emps.length) {
+      h += '<div style="font-size:12px;color:var(--mu);padding:8px 12px;font-style:italic;">Belum ada pegawai dengan role ini</div>';
+    } else {
+      emps.slice(0,20).forEach(function(e) {
+        var scope = '';
+        if (role === 'reviewer_e3' && e.reviewScope && e.reviewScope.length) {
+          var names = e.reviewScope.map(function(id) {
+            var d = S.depts.find(function(x){ return x.id===id; });
+            return d ? d.name : id;
+          });
+          scope = ' <span style="color:var(--mu);font-size:10px;">→ '+names.join(', ')+'</span>';
+        }
+        var empId = e.id;
+        h += '<div class="acard" style="padding:10px 14px;margin-bottom:6px;">';
+        h += '<span class="acard-ico">'+(e.icon||'👤')+'</span>';
+        h += '<div class="acard-info">';
+        h += '<div class="acard-name">'+e.name+scope+'</div>';
+        h += '<div class="acard-sub">'+(e.jabatan||'—')+' · NIP: '+(e.nip||'—')+'</div>';
+        h += '</div>';
+        h += '<button class="bdel" onclick="resetRole(\''+empId+'\')" title="Reset ke Maker">✕</button>';
+        h += '</div>';
+      });
+      if (emps.length > 20) {
+        h += '<div style="font-size:11px;color:var(--mu);padding:4px 12px;">...dan '+(emps.length-20)+' pegawai lainnya</div>';
+      }
+    }
+    h += '</div>';
+  });
+
+  c.innerHTML = h;
+}
+
+function filterRoleSearch(q) {
+  var res = document.getElementById('roleSearchResult');
+  if (!q || q.length < 2) { res.innerHTML = ''; return; }
+  var found = S.emps.filter(function(e) {
+    return (e.name||'').toLowerCase().includes(q.toLowerCase()) || (e.nip||'').includes(q);
+  }).slice(0, 8);
+  if (!found.length) {
+    res.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:6px;">Pegawai tidak ditemukan</div>';
+    return;
+  }
+  res.innerHTML = found.map(function(e) {
+    return '<div onclick="selectRoleEmp(\''+e.id+'\')" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid var(--b1);margin-bottom:4px;" onmouseover="this.style.background=\'rgba(0,245,212,.06)\'" onmouseout="this.style.background=\'\'">'+
+      '<strong>'+e.name+'</strong> <span style="color:var(--mu);font-size:11px;">NIP: '+e.nip+'</span><br>'+
+      '<span style="font-size:11px;color:var(--mu2);">'+(e.jabatan||'—')+'</span>'+
+      '</div>';
+  }).join('');
+}
+
+function selectRoleEmp(id) {
+  _roleTargetEmp = S.emps.find(function(e){ return e.id===id; });
+  if (!_roleTargetEmp) return;
+  document.getElementById('roleSearchResult').innerHTML = '';
+  document.getElementById('roleSearch').value = _roleTargetEmp.name;
+  document.getElementById('roleSetPanel').style.display = 'block';
+  var info = document.getElementById('roleSelectedEmp');
+  info.innerHTML = '<strong>'+_roleTargetEmp.name+'</strong> · '+(_roleTargetEmp.jabatan||'—')+
+    '<br><span style="font-size:11px;color:var(--mu);">NIP: '+(_roleTargetEmp.nip||'—')+
+    ' · Role saat ini: <strong style="color:var(--cyan);">'+(ROLE_LABELS[_roleTargetEmp.role||'maker'].label||'Pembuat SOP')+'</strong></span>';
+  var sel = document.getElementById('roleSelect');
+  if (sel) sel.value = _roleTargetEmp.role || 'maker';
+  onRoleChange();
+  if (_roleTargetEmp.role === 'reviewer_e3' && _roleTargetEmp.reviewScope) {
+    _roleScopeIds = _roleTargetEmp.reviewScope.slice();
+    var e3sel = document.getElementById('e3Select');
+    if (e3sel) {
+      Object.keys(E3_TO_E4_MAP).forEach(function(e3id) {
+        var ch = E3_TO_E4_MAP[e3id].children;
+        if (_roleTargetEmp.reviewScope.every(function(id){ return ch.includes(id); })) {
+          e3sel.value = e3id; onE3ScopeChange();
+        }
+      });
+    }
+  }
+}
+
+function onRoleChange() {
+  var role = document.getElementById('roleSelect') && document.getElementById('roleSelect').value;
+  var scopePanel = document.getElementById('reviewScopePanel');
+  var emailPanel = document.getElementById('emailPanel');
+  if (scopePanel) scopePanel.style.display = role === 'reviewer_e3' ? 'block' : 'none';
+  if (emailPanel) emailPanel.style.display = role !== 'maker' ? 'block' : 'none';
+  _roleScopeIds = [];
+  if (_roleTargetEmp && _roleTargetEmp.email) {
+    var emailEl = document.getElementById('roleEmail');
+    if (emailEl) emailEl.value = _roleTargetEmp.email;
+  }
+}
+
+function onE3ScopeChange() {
+  var e3id = document.getElementById('e3Select') && document.getElementById('e3Select').value;
+  var preview = document.getElementById('scopePreview');
+  if (!e3id || !E3_TO_E4_MAP[e3id]) {
+    if (preview) preview.innerHTML = '<span style="color:var(--mu)">Pilih Bagian/Subdit dulu</span>';
+    _roleScopeIds = []; return;
+  }
+  var children = E3_TO_E4_MAP[e3id].children;
+  _roleScopeIds = children.slice();
+  var names = children.map(function(id) {
+    var d = S.depts.find(function(x){ return x.id===id; });
+    return d ? ('✓ '+d.name) : ('✓ '+id);
+  });
+  if (preview) {
+    preview.innerHTML = '<div style="color:var(--cyan);font-weight:600;margin-bottom:4px;">Unit yang akan bisa direview:</div>'+
+      names.map(function(n){ return '<div style="padding:2px 0;">'+n+'</div>'; }).join('');
+  }
+}
+
+async function saveRole() {
+  if (!_roleTargetEmp) { toast('⚠ Pilih pegawai dulu'); return; }
+  var role = document.getElementById('roleSelect') && document.getElementById('roleSelect').value;
+  if (!role) { toast('⚠ Pilih role'); return; }
+  var emailEl  = document.getElementById('roleEmail');
+  var emailVal = emailEl ? emailEl.value.trim() : '';
+  if (role !== 'maker') {
+    if (!emailVal) { toast('⚠ Email wajib diisi untuk role '+ROLE_LABELS[role].label); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) { toast('⚠ Format email tidak valid'); return; }
+  }
+  if (role === 'reviewer_e3' && !_roleScopeIds.length) {
+    toast('⚠ Pilih Bagian/Subdit untuk menentukan unit yang bisa direview'); return;
+  }
+  if (role === 'admin_sop') {
+    var existingAdmin = S.emps.filter(function(e){ return e.role==='admin_sop' && e.id!==_roleTargetEmp.id; });
+    if (existingAdmin.length) {
+      var ok = confirm('Sudah ada Admin SOP: '+existingAdmin[0].name+'.\n\nMengganti akan mencabut aksesnya. Lanjutkan?');
+      if (!ok) return;
+      existingAdmin[0].role = 'maker';
+      delete existingAdmin[0].reviewScope;
+      delete existingAdmin[0].email;
+      await fbSaveEmp(existingAdmin[0]);
+    }
+  }
+  _roleTargetEmp.role = role;
+  if (role !== 'maker') { _roleTargetEmp.email = emailVal; } else { delete _roleTargetEmp.email; }
+  if (role === 'reviewer_e3') { _roleTargetEmp.reviewScope = _roleScopeIds; } else { delete _roleTargetEmp.reviewScope; }
+  await fbSaveEmp(_roleTargetEmp);
+  toast('✅ Role '+ROLE_LABELS[role].label+' berhasil disimpan untuk '+_roleTargetEmp.name);
+  _roleTargetEmp = null; _roleScopeIds = [];
+  document.getElementById('roleSearch').value = '';
+  document.getElementById('roleSetPanel').style.display = 'none';
+  renderAdmin();
+}
+
+async function resetRole(id) {
+  var emp = S.emps.find(function(e){ return e.id===id; });
+  if (!emp) return;
+  if (!confirm('Reset role '+emp.name+' ke Pembuat SOP?')) return;
+  emp.role = 'maker';
+  delete emp.reviewScope;
+  delete emp.email;
+  await fbSaveEmp(emp);
+  toast('🔄 Role '+emp.name+' direset ke Pembuat SOP');
+  renderAdmin();
+}
+
+// ── Helper untuk SOP Builder ──
+function getReviewerE3ForDraft(deptId) {
+  return S.emps.find(function(e) {
+    return e.role === 'reviewer_e3' && Array.isArray(e.reviewScope) && e.reviewScope.includes(deptId);
+  }) || null;
+}
+function getAdminSOP() {
+  return S.emps.find(function(e){ return e.role === 'admin_sop'; }) || null;
+}
+function getApproverE2ForDept(deptId) {
+  var pembuat = S.emps.find(function(e){ return e.deptId === deptId; });
+  if (!pembuat) return S.emps.find(function(e){ return e.role==='approver_e2'; });
+  return S.emps.find(function(e){ return e.role==='approver_e2' && e.eselon2===pembuat.eselon2; }) ||
+         S.emps.find(function(e){ return e.role==='approver_e2'; });
+}
+
 </script>
 
 <!-- CLOUDFLARE WORKER v3.0
