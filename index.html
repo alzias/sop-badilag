@@ -1306,6 +1306,120 @@ async function sendMsg(){
   const drKw=['drive saya','folder saya','tampilkan drive','lihat drive','akses drive','drive ku','dokumen saya','sop saya','file saya'];
   const wDrive = S.mode==='pegawai' && drKw.some(k=>txt.toLowerCase().includes(k));
 
+  // ══ INTERCEPT LOKAL: Query Pegawai ══
+  // Deteksi: "siapa kasubbag X", "tampilkan kontak X", "info pegawai X", dll
+  const pegKw = /(?:siapa|tampilkan|kontak|info|cari|nama|who is|tunjukkan|data)\s+(?:pegawai\s+)?(?:kasubbag|kabag|kasubdit|kasi|direktur|sekretaris|kepala|pejabat|staf)?/i;
+  const isPegawaiQuery = pegKw.test(txt) && S.emps && S.emps.length > 0;
+
+  if(isPegawaiQuery) {
+    // Cari keyword jabatan/nama dari teks
+    const queryLow = txt.toLowerCase()
+      .replace(/tampilkan|kontak|siapa|info|cari|nama|tunjukkan|data|pegawai|pejabat/g,' ')
+      .trim();
+
+    // Cari pegawai yang cocok berdasarkan jabatan, nama, atau unit
+    const matched = S.emps.filter(function(e) {
+      const jabLow  = (e.jabatan || '').toLowerCase();
+      const namaLow = (e.name    || '').toLowerCase();
+      const bagLow  = (e.bagian  || e.subbag || e.eselon2 || '').toLowerCase();
+      const deptObj = S.depts.find(function(d){ return d.id===e.deptId; });
+      const deptLow = deptObj ? deptObj.name.toLowerCase() : '';
+      // Cari kata kunci dari query di jabatan/nama/unit
+      const words = queryLow.split(/\s+/).filter(function(w){ return w.length > 2; });
+      return words.some(function(w){
+        return jabLow.includes(w) || namaLow.includes(w) || bagLow.includes(w) || deptLow.includes(w);
+      });
+    });
+
+    if(matched.length > 0) {
+      hideTyping();
+      // Format hasil
+      const isLogin = S.mode === 'pegawai';
+      let reply = '';
+      if(matched.length === 1) {
+        const e = matched[0];
+        const dept = S.depts.find(function(d){ return d.id===e.deptId; });
+        reply = '\uD83D\uDCCB **'+e.name+'**\n';
+        reply += '\u2022 Jabatan: '+(e.jabatan||'\u2014')+'\n';
+        reply += '\u2022 Unit: '+(e.subbag||e.bagian||e.eselon2||'\u2014')+'\n';
+        if(dept) reply += '\u2022 Departemen: '+dept.name+'\n';
+        if(isLogin && e.telepon) reply += '\u2022 WA/Telp: **'+e.telepon+'**\n';
+        reply += '\nApakah ada informasi lain yang Bapak/Ibu butuhkan?';
+      } else {
+        reply = '\uD83D\uDCCB Ditemukan **'+matched.length+' pegawai** yang sesuai:\n';
+        matched.slice(0, 8).forEach(function(e, i) {
+          const dept = S.depts.find(function(d){ return d.id===e.deptId; });
+          reply += (i+1)+'. **'+e.name+'**\n';
+          reply += '   '+( e.jabatan||'—')+' | '+(e.subbag||e.bagian||'—');
+          if(isLogin && e.telepon) reply += ' | WA: '+e.telepon;
+          reply += '\n';
+        });
+        if(matched.length > 8) reply += '\n_...dan '+(matched.length-8)+' pegawai lainnya. Ketik nama jabatan lebih spesifik untuk filter._';
+        reply += '\nApakah ada yang ingin Bapak/Ibu tanyakan lebih lanjut?';
+      }
+      S.history.push({role:'assistant', content:reply});
+      addMsg(reply, false);
+      return;
+    }
+  }
+
+  // ══ INTERCEPT LOKAL: Struktur Organisasi ══
+  const isOrgQuery = /(?:struktur|organisasi|susunan|daftar unit|unit\s+organisasi|hirarki|hierarki)/i.test(txt);
+  if(isOrgQuery) {
+    hideTyping();
+    // Deteksi unit yang ditanya
+    const queryLow2 = txt.toLowerCase();
+    let targetE2 = ESELON2.find(function(e2){ return queryLow2.includes(e2.name.toLowerCase().split(' ').slice(0,3).join(' ')); });
+    // Fallback: cari bagian nama
+    if(!targetE2) {
+      targetE2 = ESELON2.find(function(e2){
+        return e2.name.toLowerCase().split(' ').some(function(w){ return w.length>4 && queryLow2.includes(w); });
+      });
+    }
+
+    // Build hierarki
+    const e2List = targetE2 ? [targetE2] : ESELON2;
+    let orgText = '🏛️ **Struktur Organisasi '+(targetE2?targetE2.name:'Ditjen Badilag')+'**\n';
+
+    e2List.forEach(function(e2) {
+      // Cari pejabat E2
+      const pejE2 = S.emps.find(function(e){ return (e.jabatan||'').toLowerCase().match(/direktur jenderal|dirjen|sekretaris ditjen/) && (e.eselon2||'').toLowerCase().includes(e2.name.toLowerCase().split(' ')[1]||''); });
+      orgText += (e2.icon||'🏛️')+' **'+e2.name+'**';
+      if(pejE2) orgText += '\n   👤 '+pejE2.name+' ('+pejE2.jabatan+')';
+      orgText += '\n';
+
+      const e3List = ESELON3.filter(function(e3){ return e3.eselon2 === e2.id; });
+      e3List.forEach(function(e3) {
+        // Cari pejabat E3
+        const pejE3 = S.emps.find(function(e){
+          const j = (e.jabatan||'').toLowerCase();
+          return (j.includes('kepala bagian')||j.includes('kasubdit')||j.includes('kabag')) &&
+            (e.bagian||'').toLowerCase().includes(e3.nama.toLowerCase().split(' ')[1]||'');
+        });
+        orgText += '  📁 **'+e3.nama+'**';
+        if(pejE3) orgText += ' — '+pejE3.name;
+        orgText += '\n';
+
+        const e4List = ESELON4.filter(function(e4){ return e4.eselon3 === e3.id; });
+        e4List.forEach(function(e4) {
+          const pejE4 = S.emps.find(function(e){
+            const j = (e.jabatan||'').toLowerCase();
+            return (j.includes('kasubbag')||j.includes('kasi')) &&
+              (e.subbag||'').toLowerCase().includes(e4.nama.toLowerCase().split(' ').slice(1,3).join(' ').toLowerCase());
+          });
+          orgText += '     • '+e4.nama;
+          if(pejE4) orgText += ': **'+pejE4.name+'**'+(S.mode==='pegawai'&&pejE4.telepon?' | WA: '+pejE4.telepon:'');
+          orgText += '\n';
+        });
+      });
+      orgText += '\n';
+    });
+
+    S.history.push({role:'assistant', content:orgText});
+    addMsg(orgText, false);
+    return;
+  }
+
   // ══ ROLE-BASED DRIVE ACCESS ══
   let myDr = [];
   let driveAccessLevel = 'eselon4'; // default
@@ -1540,25 +1654,50 @@ async function sendMsg(){
   // Data pegawai: semua user dapat nama+unit, login NIP dapat WA juga
   let pegawaiCtx = '';
   if(S.emps.length) {
-    // Kirim maks 40 pegawai paling relevan (unit sendiri + pejabat) untuk hemat token
-    const empRelevant = [
-      ...S.emps.filter(e => e.deptId === (S.user&&S.user.dept?S.user.dept.id:'')), // unit sendiri
-      ...S.emps.filter(e => e.deptId !== (S.user&&S.user.dept?S.user.dept.id:'') &&
-        (e.jabatan||'').toLowerCase().match(/direktur|sekretaris|kabag|kasubdit/))   // pejabat eselon
-    ].slice(0, 40);
-    const empData = empRelevant.map(function(e) {
+    // Kirim pegawai relevan berdasarkan query — bukan hanya unit sendiri
+    const qLow = txt.toLowerCase();
+    const myDeptId = S.user&&S.user.dept ? S.user.dept.id : '';
+
+    // Ambil semua pegawai yang namanya/jabatannya/unitnya relevan dengan query
+    const empByQuery = S.emps.filter(function(e) {
+      const j = (e.jabatan||'').toLowerCase();
+      const n = (e.name||'').toLowerCase();
+      const b = (e.bagian||e.subbag||'').toLowerCase();
+      const d = S.depts.find(function(d){ return d.id===e.deptId; });
+      const dl = d ? d.name.toLowerCase() : '';
+      const words = qLow.split(/\s+/).filter(function(w){ return w.length > 2; });
+      return words.some(function(w){ return j.includes(w)||n.includes(w)||b.includes(w)||dl.includes(w); });
+    });
+
+    // Gabung: pegawai relevan query + unit sendiri + pejabat eselon II/III
+    const empRelevant = [];
+    const seen = new Set();
+    const addEmp = function(e) { if(!seen.has(e.id||e.nip)) { seen.add(e.id||e.nip); empRelevant.push(e); } };
+    empByQuery.forEach(addEmp);
+    S.emps.filter(function(e){ return e.deptId===myDeptId; }).forEach(addEmp);
+    S.emps.filter(function(e){ return (e.jabatan||'').toLowerCase().match(/direktur|sekretaris ditjen|kabag|kasubdit/); }).forEach(addEmp);
+
+    const empData = empRelevant.slice(0, 80).map(function(e) {
       const dept = S.depts.find(function(d){ return d.id===e.deptId; });
       let line = '\u2022 '+e.name+' | '+(e.jabatan||'-')+' | '+(e.subbag||e.bagian||e.eselon2||'?');
       if(dept) line += ' ['+dept.name+']';
       if(!isGuest && e.telepon) line += ' | WA: '+e.telepon;
       return line;
     }).join('\n');
-    pegawaiCtx = 'DATA KEPEGAWAIAN DITJEN BADILAG ('+S.emps.length+' pegawai):\n'+empData
-      +'\nINSTRUKSI PENTING: Gunakan data ini HANYA untuk menjawab pertanyaan tentang pejabat/pegawai Ditjen Badilag.'
-      +'\nPERINGATAN: Jika pengguna menyebut nama diri sendiri (misal "saya Ana", "nama saya Budi"), JANGAN cocokkan dengan data pegawai di atas. Nama diri pengguna adalah identitas pribadi mereka, bukan referensi ke data pegawai.'
-      +(!isGuest
-        ? '\nUntuk login pegawai: tampilkan Nama, Jabatan, Unit, dan No. WA jika tersedia.'
-        : '\nUntuk TAMU: tampilkan Nama dan Unit pegawai saja (TANPA WA). Jika tamu bertanya info kontak unit, gunakan:\n'+PTSP_INFO);
+
+    // Jika semua pegawai sedikit (<60), kirim semua
+    const allEmpData = S.emps.length <= 60 ? S.emps.map(function(e) {
+      const dept = S.depts.find(function(d){ return d.id===e.deptId; });
+      let line = '\u2022 '+e.name+' | '+(e.jabatan||'-')+' | '+(e.subbag||e.bagian||e.eselon2||'?');
+      if(dept) line += ' ['+dept.name+']';
+      if(!isGuest && e.telepon) line += ' | WA: '+e.telepon;
+      return line;
+    }).join('\n') : empData;
+
+    pegawaiCtx = 'DATA KEPEGAWAIAN DITJEN BADILAG ('+S.emps.length+' pegawai terdaftar):\n'+allEmpData
+      +'\n\nINSTRUKSI WAJIB: Jika ditanya tentang pegawai/pejabat — CARI dari data di atas dan tampilkan. JANGAN bilang data tidak ada jika ada di daftar.'
+      +'\nPERINGATAN: Jika pengguna menyebut nama diri sendiri, JANGAN cocokkan dengan data pegawai.'
+      +(!isGuest ? '\nTampilkan: Nama, Jabatan, Unit, dan No. WA jika tersedia.' : '\nUntuk TAMU: tampilkan Nama dan Unit saja (TANPA WA).\n'+PTSP_INFO);
   }
 
   // Analisis kelengkapan SOP (hanya untuk pejabat Es II ke atas)
