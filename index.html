@@ -1235,10 +1235,15 @@ async function sendMsg(){
 
   // ══ INTERCEPT LOKAL — state machine tanpa Gemini ══
   // Deteksi dulu apakah user ingin mengakhiri sesi
-  const _endKw = ['terima kasih','makasih','cukup','selesai','sudah cukup','itu saja',
-    'ok terima','oke terima','sampai jumpa','bye','dadah','pamit','tutup','selesai ya',
-    'sudah','mantap','akhiri','close','keluar','logout'];
-  const _isEnding = _endKw.some(k => txt.toLowerCase().includes(k));
+  // Pemicu sesi penutup — harus EKSPLISIT pamit, bukan sekedar "terima kasih"
+  // Rule: harus ada kata pamit (sampai jumpa, selesai, cukup, bye, dll)
+  // "terima kasih" saja TIDAK cukup — bisa di tengah percakapan
+  const _pamitKw   = ['sampai jumpa','selesai','cukup','sudah cukup','itu saja','sudah selesai',
+    'bye','dadah','pamit','tutup sesi','akhiri sesi','close','keluar','logout','selesai ya',
+    'sudah ya','ok selesai','oke selesai','cukup ya','cukup sekian','sekian dulu',
+    'terima kasih sudah','makasih sudah','terima kasih banyak ya selesai','mantap terima kasih'];
+  const _terimaSaja = /^(terima kasih|makasih|thanks|thx|ok terima|oke terima|baik terima kasih|makasih ya)$/i.test(txt.trim());
+  const _isEnding = _pamitKw.some(k => txt.toLowerCase().includes(k)) && !_terimaSaja;
 
   // Jika user pamit DAN masih dalam state chat → masuk awaitEmail (WAJIB)
   if(_isEnding && S.sessionState === 'chat') {
@@ -1298,9 +1303,6 @@ async function sendMsg(){
                       txt.match(/^([A-Za-z]{3,20})$/i);
     if(nameMatch) S.guestName = nameMatch[1];
   }
-  // Deteksi percakapan selesai
-  const endKeywords = ['terima kasih','makasih','cukup','selesai','sudah cukup','itu saja','ok terima','oke terima','sampai jumpa','bye','dadah','pamit','tutup','selesai ya','sudah','mantap','akhiri','close','keluar','logout'];
-  const isEnding = endKeywords.some(k=>txt.toLowerCase().includes(k));
   // Deteksi penolakan email
   const userSaidNo = /^(tidak|tidak mau|no|enggak|gak|nggak|skip)$/i.test(txt.trim());
   const drKw=['drive saya','folder saya','tampilkan drive','lihat drive','akses drive','drive ku','dokumen saya','sop saya','file saya'];
@@ -1318,16 +1320,25 @@ async function sendMsg(){
       .trim();
 
     // Cari pegawai yang cocok berdasarkan jabatan, nama, atau unit
+    // Susun kata kunci dari query - hilangkan stopwords umum
+    const stopwords = ['dan','di','ke','dari','yang','ada','untuk','atau','dengan','dalam',
+      'unit','bagian','eselon','jabatan','kontak','info','tampilkan','siapa','cari','data',
+      'pejabat','pegawai','daftar','berapa','jumlah','semua'];
+    const queryWords = queryLow.split(/\s+/)
+      .filter(function(w){ return w.length > 2 && !stopwords.includes(w); });
+
     const matched = S.emps.filter(function(e) {
       const jabLow  = (e.jabatan || '').toLowerCase();
       const namaLow = (e.name    || '').toLowerCase();
-      const bagLow  = (e.bagian  || e.subbag || e.eselon2 || '').toLowerCase();
+      const bagLow  = (e.bagian  || '').toLowerCase();
+      const subLow  = (e.subbag  || '').toLowerCase();
+      const e2Low   = (e.eselon2 || '').toLowerCase();
       const deptObj = S.depts.find(function(d){ return d.id===e.deptId; });
       const deptLow = deptObj ? deptObj.name.toLowerCase() : '';
-      // Cari kata kunci dari query di jabatan/nama/unit
-      const words = queryLow.split(/\s+/).filter(function(w){ return w.length > 2; });
-      return words.some(function(w){
-        return jabLow.includes(w) || namaLow.includes(w) || bagLow.includes(w) || deptLow.includes(w);
+      // Semua kata kunci harus match (AND logic untuk hasil lebih presisi)
+      return queryWords.length > 0 && queryWords.every(function(w){
+        return jabLow.includes(w) || namaLow.includes(w) || bagLow.includes(w) 
+          || subLow.includes(w) || e2Low.includes(w) || deptLow.includes(w);
       });
     });
 
@@ -1391,10 +1402,15 @@ async function sendMsg(){
       const e3List = ESELON3.filter(function(e3){ return e3.eselon2 === e2.id; });
       e3List.forEach(function(e3) {
         // Cari pejabat E3
+        // Cari pejabat E3 — match bagian/jabatan dengan nama E3
+        const e3Words = e3.nama.toLowerCase().split(' ')
+          .filter(function(w){ return w.length > 3 && !['dan','atau','tata'].includes(w); });
         const pejE3 = S.emps.find(function(e){
           const j = (e.jabatan||'').toLowerCase();
-          return (j.includes('kepala bagian')||j.includes('kasubdit')||j.includes('kabag')) &&
-            (e.bagian||'').toLowerCase().includes(e3.nama.toLowerCase().split(' ')[1]||'');
+          const b = (e.bagian||'').toLowerCase();
+          const isKabag = j.includes('kepala bagian') || j.includes('kasubdit') || j.includes('kabag');
+          if(!isKabag) return false;
+          return e3Words.some(function(w){ return j.includes(w) || b.includes(w); });
         });
         orgText += '  📁 **'+e3.nama+'**';
         if(pejE3) orgText += ' — '+pejE3.name;
@@ -1402,10 +1418,17 @@ async function sendMsg(){
 
         const e4List = ESELON4.filter(function(e4){ return e4.eselon3 === e3.id; });
         e4List.forEach(function(e4) {
+          // Cari pejabat E4 — match subbag/jabatan dengan nama E4
+          const e4Words = e4.nama.toLowerCase().split(' ')
+            .filter(function(w){ return w.length > 3 && !['dan','atau','tata','umum'].includes(w); });
           const pejE4 = S.emps.find(function(e){
             const j = (e.jabatan||'').toLowerCase();
-            return (j.includes('kasubbag')||j.includes('kasi')) &&
-              (e.subbag||'').toLowerCase().includes(e4.nama.toLowerCase().split(' ').slice(1,3).join(' ').toLowerCase());
+            const sb = (e.subbag||'').toLowerCase();
+            const isKasi = j.includes('kasubbag')||j.includes('kasi ');
+            if(!isKasi) return false;
+            return e4Words.length>0 && e4Words.every(function(w){
+              return j.includes(w) || sb.includes(w);
+            });
           });
           orgText += '     • '+e4.nama;
           if(pejE4) orgText += ': **'+pejE4.name+'**'+(S.mode==='pegawai'&&pejE4.telepon?' | WA: '+pejE4.telepon:'');
@@ -1569,12 +1592,13 @@ async function sendMsg(){
   // Deteksi inisiatif user minta kirim email (tanpa melalui alur pamit)
   const userAskEmail = !userGaveEmail && /(kirim.*email|email.*rekap|rekap.*email|minta.*email|bisakah.*kirim|bisa.*kirim.*email)/i.test(txt);
 
-  // Update state machine — evaluasi SEBELUM set flags
+  // Update state machine — pakai _isEnding (sudah difilter ketat)
+  // SM ini hanya untuk konteks system prompt Gemini — state sebenarnya
+  // sudah di-handle lebih awal di interceptor lokal di atas
   const prevState = S.sessionState;
-  if(isEnding && S.sessionState === 'chat') {
+  if(_isEnding && S.sessionState === 'chat') {
     S.sessionState = 'awaitEmail';
   } else if(userAskEmail && S.sessionState === 'chat') {
-    // User inisiatif minta kirim email — langsung ke awaitEmail (tanya konfirmasi dulu)
     S.sessionState = 'awaitEmail';
   } else if(S.sessionState === 'awaitEmail' && userSaidYesEmail) {
     S.sessionState = 'awaitAddress';
@@ -1599,7 +1623,7 @@ async function sendMsg(){
   ];
   const selectedPantun = pantunList[Math.floor(Math.random() * pantunList.length)];
 
-  const endingInstr = ((isEnding || userAskEmail) && S.sessionState === 'awaitEmail') ? [
+  const endingInstr = ((_isEnding || userAskEmail) && S.sessionState === 'awaitEmail') ? [
     '',
     '⚠️ INSTRUKSI PENUTUP SESI — WAJIB DIIKUTI:',
     'Pengguna ingin mengakhiri percakapan. Lakukan HANYA 3 langkah ini:',
@@ -1831,43 +1855,8 @@ async function sendMsg(){
       addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
     }
     // Auto logout setelah konfirmasi email atau penolakan
-    const closingWords = ['sesi ini akan ditutup','sesi akan ditutup','wassalamualaikum','salam sejahtera','sampai jumpa di lain kesempatan','kembali menyapa saya','kembali bertugas'];
-    S.sessionState = 'closing'; // Pastikan state terkunci saat menutup
-    const isClosing = closingWords.some(w=>reply.toLowerCase().includes(w));
-    if(isClosing) {
-      // Kirim email jika ada email yang diberikan user
-      const emailMatch = reply.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
-      const pendingEmail = S.history.slice(-6).reduce((found, h) => {
-        if(found) return found;
-        const emailPat = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
-        const txt = typeof h.content === 'string' ? h.content : '';
-        const m = txt.match(emailPat);
-        return m ? m[0] : null;
-      }, null);
-      if(pendingEmail) {
-        sendRekapEmail(pendingEmail).then(result => {
-          if(result.success) {
-            console.log('✅ Rekap email terkirim ke', pendingEmail);
-          } else {
-            console.warn('❌ Gagal kirim email:', result.error);
-          }
-        });
-      }
-      let sec = 15;
-      const countEl = document.createElement('div');
-      countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;animation:fadeIn .5s ease;';
-      countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-      document.getElementById('chatArea').appendChild(countEl);
-      document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
-      // Disable input
-      const inp = document.getElementById('msgInput');
-      if(inp) inp.disabled = true;
-      const timer = setInterval(()=>{
-        sec--;
-        countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-        if(sec <= 0){ clearInterval(timer); doLogout(); }
-      }, 1000);
-    }
+    // Closing sekarang dihandle sepenuhnya oleh state machine (awaitEmail/awaitAddress)
+    // TIDAK ada auto-close dari Gemini reply — mencegah bypass email confirmation
   }catch(e){
     hideTyping();
     const stEl3=document.getElementById('stText'); if(stEl3) stEl3.textContent='⚠ Koneksi terputus';
