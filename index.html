@@ -4,7 +4,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>SOP Digital v2.0 — Ditjen Badilag MA RI</title>
+<title>SOP Digital v3.0 — Ditjen Badilag MA RI</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -439,7 +439,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   <div class="lcard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <h3 style="margin:0;">Masuk ke Sistem</h3>
-      <span style="background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;">v2.0</span>
+      <span style="background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;">v3.0</span>
     </div>
     <label class="flabel">Nomor Induk Pegawai (NIP)</label>
     <input class="finput" id="loginNIP" placeholder="Masukkan NIP..." inputmode="numeric" maxlength="18" style="font-size:18px;letter-spacing:2px;text-align:center;"/>
@@ -460,7 +460,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 <!-- ══ ADMIN PANEL ══ -->
 <div id="adminPanel">
   <div class="ahd">
-    <div class="ahd-title">⚙ Admin <span>Panel</span> <span style="font-size:11px;font-weight:400;color:var(--mu);margin-left:6px;">v2.0</span></div>
+    <div class="ahd-title">⚙ Admin <span>Panel</span> <span style="font-size:11px;font-weight:400;color:var(--mu);margin-left:6px;">v3.0</span></div>
     <button class="aclose" onclick="closeAdmin()">✕ Tutup</button>
   </div>
   <div class="atabs">
@@ -492,7 +492,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
     </div>
   <div style="padding:14px 20px;border-top:1px solid var(--b1);text-align:center;">
     <div style="font-size:10px;color:var(--mu);letter-spacing:.5px;">SOP Digital</div>
-    <div style="font-size:10px;color:var(--mu);margin-top:2px;">Ditjen Badilag MA RI · <span style="color:var(--cyan);">v2.0</span></div>
+    <div style="font-size:10px;color:var(--mu);margin-top:2px;">Ditjen Badilag MA RI · <span style="color:var(--cyan);">v3.0</span></div>
   </div>
 </div>
 
@@ -512,7 +512,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   </div>
   <div class="stbar" id="stbar">
     <div class="stdot"></div><span id="stText">Online · AI Aktif</span>
-    <span style="font-size:10px;color:var(--mu);margin-left:4px;">v2.0</span>
+    <span style="font-size:10px;color:var(--mu);margin-left:4px;">v3.0</span>
     <div class="stag" id="stTag">—</div>
   </div>
   <!-- Scroll body: chat + input mengikuti pesan terakhir -->
@@ -947,33 +947,37 @@ function doLogin() {
   showChat();
 }
 // ══ TRIGGER GEMINI CLOSING — pantun + logout ══
-async function triggerGeminiClosing() {
+async function triggerGeminiClosing(skipEmail) {
   const namaUser = S.mode==='guest' ? (S.guestName||'Bapak/Ibu') : (S.user?S.user.name:'Bapak/Ibu');
   const pantunList = [
     '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
     '***\"Malam hari keliling Semarang,***\n***Singgah sebentar membeli lumpia.***\n***Jika di sistem masih ada yang kurang,***\n***Jangan sungkan kembali menyapa saya!\"***',
     '***\"Pagi-pagi minum kopi hangat,***\n***Ditemani pisang goreng yang renyah.***\n***Semoga hari Bapak/Ibu penuh semangat,***\n***SOPI selalu siap saat kembali bertugas!\"***',
-    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
-    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Bunga melati semerbak harum,***\n***Ditata indah di atas meja.***\n***Semoga informasi yang kami sajikan maklum,***\n***Salam hangat dari SOPI untuk Bapak/Ibu semua!\"***',
   ];
   const pantun = pantunList[Math.floor(Math.random() * pantunList.length)];
-  const pesan = 'Untuk konsultasi SOP berikutnya, ' + namaUser + ' dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag.\n\n' + pantun + '\n\nSesi ini akan otomatis ditutup dalam 15 detik. Wassalamualaikum Wr. Wb. / Salam Sejahtera untuk Bapak/Ibu 🙏';
+  const pesan = 'Terima kasih telah menggunakan layanan SOPI, ' + namaUser + '. Untuk konsultasi SOP berikutnya, dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag.\n\n' + pantun + '\n\nWassalamualaikum Wr. Wb. / Salam Sejahtera 🙏';
   addMsg(pesan, false);
-  // Auto logout 15 detik
-  let sec = 15;
-  const countEl = document.createElement('div');
-  countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;';
-  countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-  document.getElementById('chatArea').appendChild(countEl);
-  document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
-  const timer = setInterval(() => {
-    sec--;
+  // Countdown logout — hanya dimulai setelah email terkirim atau user menolak
+  function startLogoutCountdown() {
+    let sec = 10;
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;';
     countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-    if(sec <= 0) {
-      clearInterval(timer);
-      doLogout();
-    }
-  }, 1000);
+    document.getElementById('chatArea').appendChild(countEl);
+    document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+    const timer = setInterval(() => {
+      sec--;
+      countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
+      if(sec <= 0) { clearInterval(timer); doLogout(); }
+    }, 1000);
+  }
+  // Jika skipEmail = true (user sudah menolak email), langsung countdown
+  if(skipEmail) { startLogoutCountdown(); return; }
+  // Jika user sudah di awaitAddress state → email baru saja dikirim → langsung countdown
+  if(S.sessionState === 'closing') { startLogoutCountdown(); return; }
+  // Seharusnya tidak sampai sini karena state machine handle email dulu
+  startLogoutCountdown();
 }
 
 // ══ KIRIM REKAP EMAIL VIA WORKER ══
@@ -1236,50 +1240,51 @@ async function sendMsg(){
     'sudah','mantap','akhiri','close','keluar','logout'];
   const _isEnding = _endKw.some(k => txt.toLowerCase().includes(k));
 
-  // Jika user pamit DAN masih dalam state chat → masuk awaitEmail
+  // Jika user pamit DAN masih dalam state chat → masuk awaitEmail (WAJIB)
   if(_isEnding && S.sessionState === 'chat') {
     S.sessionState = 'awaitEmail';
-    addMsg('Terima kasih sudah menggunakan layanan SOPI hari ini! 😊\n\nSebelum sesi berakhir, apakah Bapak/Ibu bersedia menerima rekap percakapan ini via email? (Ya / Tidak)', false);
+    const namaU = S.mode==='guest' ? (S.guestName||'Bapak/Ibu') : (S.user?S.user.name:'Bapak/Ibu');
+    addMsg('Terima kasih sudah menggunakan layanan SOPI hari ini, **' + namaU + '**! 😊\n\nSebelum sesi berakhir, apakah Bapak/Ibu ingin menerima rekap percakapan ini via email?\n\nSilakan jawab **Ya** atau **Tidak**.', false);
     return;
   }
 
-  // State: awaitEmail — menunggu jawaban Ya/Tidak rekap email
+  // State: awaitEmail — WAJIB tanya email, tidak bisa lompat
   if(S.sessionState === 'awaitEmail') {
-    const isYes = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju|boleh)$/i.test(txt.trim());
-    const isNo  = /(^tidak$|^ga$|^gak$|^nggak$|^no$|^enggak$|tidak perlu|gak perlu|gausah)/i.test(txt.trim());
+    const isYes = /^(ya|iya|yes|ok|oke|bersedia|mau|setuju|boleh|yaa|iaa)$/i.test(txt.trim());
+    const isNo  = /(^tidak$|^ga$|^gak$|^nggak$|^no$|^enggak$|^gausah$|tidak perlu|gak perlu|gausah|tidak mau)/i.test(txt.trim());
     if(isYes) {
       S.sessionState = 'awaitAddress';
-      addMsg('Baik! Silakan ketikkan alamat email Bapak/Ibu, rekap percakapan akan segera kami kirimkan. ✉️', false);
+      addMsg('Baik! Silakan ketikkan alamat email Bapak/Ibu. ✉️\n\nContoh: nama@gmail.com', false);
       return;
     } else if(isNo) {
       S.sessionState = 'closing';
-      // Minta Gemini berikan pantun penutup
-      await triggerGeminiClosing();
+      await triggerGeminiClosing(true); // skipEmail=true → langsung countdown
       return;
     }
-    // Jika bukan Ya/Tidak — ingatkan user
-    addMsg('Mohon jawab dengan **Ya** atau **Tidak** — apakah Bapak/Ibu ingin menerima rekap percakapan via email?', false);
+    // Apapun yang diketik selain Ya/Tidak → tetap tahan di state ini
+    addMsg('Mohon jawab dengan **Ya** atau **Tidak** — apakah Bapak/Ibu ingin menerima rekap percakapan via email sebelum sesi ditutup?', false);
     return;
   }
 
-  // State: awaitAddress — menunggu alamat email
+  // State: awaitAddress — WAJIB isi email, tidak bisa lanjut sebelum email valid
   if(S.sessionState === 'awaitAddress') {
     const emailPat = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
     const emailMatch = txt.match(emailPat);
     if(emailMatch) {
       const email = emailMatch[0];
       S.sessionState = 'closing';
-      addMsg('Terima kasih! Email **' + email + '** sudah kami catat. Rekap percakapan sedang dikirimkan... ✉️', false);
-      // Kirim email
+      addMsg('Terima kasih! Rekap percakapan sedang dikirimkan ke **' + email + '** ✉️\n\nMohon cek inbox atau folder spam dalam beberapa menit.', false);
+      // Kirim email terlebih dahulu
       sendRekapEmail(email).then(r => {
-        if(r.success) console.log('✅ Email terkirim ke', email);
-        else console.warn('❌ Gagal kirim email:', r.error);
+        if(r && r.success) console.log('✅ Email terkirim ke', email);
+        else console.warn('❌ Gagal kirim email:', r && r.error);
       });
-      // Minta Gemini berikan pantun penutup
-      await triggerGeminiClosing();
+      // Pantun penutup + countdown SETELAH email dikirim
+      setTimeout(async () => { await triggerGeminiClosing(false); }, 1200);
       return;
     }
-    addMsg('Format email kurang tepat. Silakan ketik ulang alamat email yang valid. (contoh: nama@gmail.com)', false);
+    // Email tidak valid → minta ulangi, TIDAK bisa lewat
+    addMsg('Format email belum tepat. Silakan ketik ulang alamat email yang valid.\n\nContoh: **nama@gmail.com** atau **nama@kemenkeu.go.id**', false);
     return;
   }
 
@@ -1638,16 +1643,31 @@ async function sendMsg(){
     '4. Jika SOP belum ada: sampaikan sopan dan berikan saran alternatif',
     '5. Rekomendasikan SOP terkait dari unit lain jika relevan',
     '6. Boleh bertanya balik untuk memahami kebutuhan pengguna lebih baik',
-    '7. Jika nama pengguna belum diketahui, gunakan Bapak/Ibu — jangan sebut variabel apapun',
+    '7. Jika nama pengguna belum diketahui, gunakan Bapak/Ibu',
     '',
-    'ATURAN PANJANG JAWABAN (WAJIB DIIKUTI):',
-    '1. SESUAIKAN PANJANG DENGAN PERTANYAAN: Pertanyaan singkat = jawab singkat. Pertanyaan tentang ISI SOP (dasar hukum, tahapan, persyaratan, prosedur) = jelaskan LENGKAP dari data ekstraksi yang tersedia.',
-    '2. WAJIB JELASKAN ISI SOP: Jika ada data konten SOP (dasar hukum, kualifikasi, peralatan, langkah-langkah) — TAMPILKAN SEMUANYA dengan bullet point. Jangan ringkas berlebihan.',
-    '3. GUNAKAN BULLET POINT untuk daftar, langkah, atau informasi lebih dari 2 item.',
-    '4. JANGAN POTONG DI TENGAH: Jika topik kompleks, selesaikan 1 bagian dulu lalu TAWARKAN untuk lanjut: "Apakah ingin saya jelaskan [bagian berikutnya]?"',
-    '5. TOPIK KELENGKAPAN SOP: Rekap per direktorat dulu, detail unit jika diminta.',
-    '6. DATA PEGAWAI: Tampilkan max 5 nama terkait, sisanya tawarkan filter per unit.',
-    '7. JANGAN BILANG "tidak bisa kirim email": Sistem AKAN mengirimkan email. Konfirmasi saja dengan hangat lalu lanjutkan alur penutup.',
+    'ATURAN DATA PEGAWAI — WAJIB IKUTI:',
+    '- Jika ditanya kontak/info/siapa pegawai: cari dari DATA KEPEGAWAIAN yang tersedia di atas',
+    '- Format: **Nama** | Jabatan | Unit Kerja | WA: xxx (jika ada)',
+    '- Tampilkan SEMUA pegawai yang relevan (max 5), jangan ringkas',
+    '- JANGAN jawab "tidak ada data" jika data sudah ada di daftar pegawai',
+    '- Untuk login pegawai: selalu sertakan No. WA jika tersedia',
+    '',
+    'ATURAN STRUKTUR ORGANISASI — WAJIB IKUTI:',
+    '- Tampilkan HIERARKI dengan format: Eselon II → III → IV',
+    '- Contoh format yang benar:',
+    '  🏛️ [Nama Unit Eselon II]',
+    '    📁 [Bagian/Subdit - Eselon III] (Kabag: Nama)',
+    '      • Kasubbag/Kasi [nama unit]: Nama pejabat',
+    '      • Kasubbag/Kasi [nama unit]: Nama pejabat',
+    '- Gunakan data pegawai untuk isi nama pejabat',
+    '- Bisa detail sampai Eselon IV jika diminta',
+    '',
+    'ATURAN PANJANG JAWABAN:',
+    '1. Pertanyaan singkat = jawab singkat. Pertanyaan detail ISI SOP = jelaskan lengkap',
+    '2. ISI SOP: tampilkan dasar hukum, kualifikasi, peralatan, langkah — SEMUA dengan bullet',
+    '3. DATA PEGAWAI: max 5 nama per tampilan, tawarkan filter jika lebih',
+    '4. Jangan potong di tengah — selesaikan 1 bagian lalu tawarkan lanjut',
+    '5. JANGAN BILANG tidak bisa kirim email — sistem yang kirim, konfirmasi saja dengan hangat',
     endingInstr,
     emailWaitInstr,
     emailConfirmInstr,
@@ -3670,7 +3690,7 @@ window.addEventListener('load', async ()=>{
   // Tampilkan loading state di tombol (tapi tombol SUDAH bisa diklik)
   const loginBtn = document.getElementById('btnDoLogin');
   if(loginBtn) {
-    loginBtn.textContent = '⏳ Memuat data...';
+    loginBtn.textContent = 'LOGIN PEGAWAI...';
     loginBtn.style.opacity = '0.75';
   }
   
