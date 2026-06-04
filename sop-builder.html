@@ -735,6 +735,11 @@ function parseTabelAktivitas(htmlString) {
     // Skip sub-header: capslock pendek tanpa tanda baca
     if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 35 && !/[,;.\d]/.test(aktivitas)) continue;
 
+    // Skip baris identitas yang salah masuk tabel prosedur
+    // (dokumen tidak standar: Nomor SOP, Tanggal, Disahkan, Nama SOP, dll sebagai "langkah")
+    const IDENTITAS_RE = /^(nomor\s*sop|nama\s*sop|tanggal\s*(pembuatan|revisi|efektif)|disahkan\s*oleh|tgl\s*(pembuatan|revisi|efektif)|unit\s*e[\-\s]?(iii|iv|3|4)|instansi|alamat|direktorat\s*jenderal.*mahkamah)/i;
+    if (IDENTITAS_RE.test(aktivitas)) continue;
+
     const n           = tds.length;
     // Posisi dari kanan — selalu konsisten terlepas jumlah kolom pelaksana
     const keterangan  = tds[n-1]?.textContent.trim() || '';
@@ -1800,7 +1805,7 @@ function processFile(file) {
       ? ' ✓ kolom Ket terbaca' : '';
     state.parseInfo = lc+' langkah '+src+', '+pc+' pelaksana terdeteksi'+ketWarn;
     if (lc === 0) {
-      state.parseInfo += ' — 0 langkah dari tabel, cek format kolom Uraian/Aktivitas';
+      state.parseInfo += ' — ⚠️ Tabel prosedur belum berisi langkah SOP. Isi langkah secara manual di bawah, atau pastikan dokumen Word sudah memiliki baris prosedur yang terisi.';
     }
     state.fileState = 'done';
     render();
