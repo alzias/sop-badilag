@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -114,7 +115,7 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .step-num{background:var(--cyan);color:#000;border-radius:50%;
   width:22px;height:22px;display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:800;flex-shrink:0;margin-top:3px;}
-.step-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;
+.step-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;
   padding-left:30px;margin-top:8px;}
 .step-sublabel{font-size:10px;font-weight:600;margin-bottom:3px;}
 .step-sublabel.amber{color:var(--amber);}
@@ -331,7 +332,7 @@ const EMPTY_FORM = {
   dasarHukum:[""],kualifikasiPelaksana:[""],keterkaitan:[""],
   peralatan:[""],peringatan:[""],pencatatan:[""],
   deskripsi:"",pelaksana:[""],
-  langkah:[{aktivitas:"",pelaksana:0,persyaratan:"",waktu:"",output:""}]
+  langkah:[{aktivitas:"",pelaksana:0,persyaratan:"",waktu:"",output:"",keterangan:""}]
 };
 
 // ══ APP STATE ══
@@ -525,18 +526,18 @@ function parseSOPFromText(raw) {
       if (/^(LANGKAH|URAIAN KEGIATAN|PROSEDUR|AKTIVITAS|NO\s*\.\s*URAIAN)/i.test(t)) { inP=true; continue; }
       if (inP) {
         const m=t.match(/^(\d{1,2})[.\)]\s+(.{10,})/);
-        if (m&&!skipRe.test(m[2])) hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+        if (m&&!skipRe.test(m[2])) hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
         if (hasil.length>=30) break;
       }
     }
     if (!hasil.length) for (const line of lines) {
       const m=line.trim().match(/^(\d{1,2})[.\)]\s+(.{10,})/);
       if (m&&!skipRe.test(m[2])&&m[2].length>15&&!/^\d{4}$/.test(m[2])&&!/^(SOP|Nomor|Nama|Tanggal|Unit|Instansi)/i.test(m[2])) {
-        hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+        hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
         if (hasil.length>=30) break;
       }
     }
-    return hasil.length ? hasil : [{aktivitas:'',pelaksana:0,persyaratan:'',waktu:'',output:''}];
+    return hasil.length ? hasil : [{aktivitas:'',pelaksana:0,persyaratan:'',waktu:'',output:'',keterangan:''}];
   };
   const perRe = /^(PP |UU |Undang|Peraturan|Keputusan|Instruksi|Perka|KMA |Surat Edaran|MA |PERMEN|PERPRES|INPRES)/i;
   const dhRaw = getSection('DASAR HUKUM');
@@ -578,6 +579,45 @@ function parseSOPFromText(raw) {
     deskripsi:'', pelaksana: extractPelaksana(), langkah: extractLangkah()
   };
 }
+
+// ══ PARSER TABEL AKTIVITAS (DOM-based, untuk tabel prosedur di Word) ══
+// Digunakan jika mammoth.convertToHtml berhasil membaca tabel utama SOP
+function parseTabelAktivitas(htmlString) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, 'text/html');
+  const tables = doc.querySelectorAll('table');
+  // Cari tabel yang paling banyak kolom (≥6) — kandidat tabel prosedur
+  let bestTable = null, bestCols = 0;
+  tables.forEach(t => {
+    const firstRow = t.querySelector('tr');
+    if (firstRow) {
+      const cols = firstRow.querySelectorAll('td,th').length;
+      if (cols > bestCols) { bestCols = cols; bestTable = t; }
+    }
+  });
+  if (!bestTable || bestCols < 6) return [];
+
+  const rows = Array.from(bestTable.querySelectorAll('tr'));
+  const hasil = [];
+  // Skip 2 baris header (baris 0 dan 1)
+  for (let i = 2; i < rows.length; i++) {
+    const tds = rows[i].querySelectorAll('td');
+    if (tds.length < 6) continue;
+    const aktivitas = tds[1]?.textContent.trim() || '';
+    // Lewati baris yang tidak berisi aktivitas (nomor saja, atau kosong)
+    if (!aktivitas || aktivitas.length < 3) continue;
+    hasil.push({
+      aktivitas,
+      pelaksana    : 0,  // di-resolve ke index setelah pelaksana array terbentuk
+      persyaratan  : tds[6]?.textContent.trim() || '',
+      waktu        : tds[7]?.textContent.trim() || '',
+      output       : tds[8]?.textContent.trim() || '',
+      keterangan   : tds[9]?.textContent.trim() || ''
+    });
+  }
+  return hasil;
+}
+
 
 // ══ TOAST ══
 function toast(msg, type) {
@@ -629,7 +669,8 @@ function syncFormFromDOM() {
       pelaksana: +(blk.querySelector('.step-pelaksana')||{value:0}).value,
       persyaratan: (blk.querySelector('.step-persyaratan')||{value:''}).value,
       waktu: (blk.querySelector('.step-waktu')||{value:''}).value,
-      output: (blk.querySelector('.step-output')||{value:''}).value
+      output: (blk.querySelector('.step-output')||{value:''}).value,
+      keterangan: (blk.querySelector('.step-keterangan')||{value:''}).value
     });
   });
   if (langkah.length) state.form.langkah=langkah;
@@ -758,6 +799,10 @@ function renderFormView() {
           <div class="step-sublabel mu">Output</div>
           <input class="step-input step-output" value="${esc(l.output)}" placeholder="Hasil...">
         </div>
+        <div>
+          <div class="step-sublabel mu">Ket.</div>
+          <input class="step-input step-keterangan" value="${esc(l.keterangan||'')}" placeholder="Keterangan...">
+        </div>
       </div>
     </div>`;
   });
@@ -820,6 +865,58 @@ function switchPreview(mode) {
     : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
   document.getElementById('previewPanel').innerHTML = mode==='flow'
     ? renderFlowchart(f) : renderDocPreview(f);
+}
+
+// ══ FLOWCHART SYMBOL HELPER ══
+// tipe: 'process' (default), 'decision' (belah ketupat), 'input' (parallelogram)
+// Digunakan di renderFlowchart untuk menggambar shape sesuai tipe langkah
+function getSymbol(tipe, text, cx, cy, col, boxW, boxH) {
+  const hw = boxW / 2, hh = boxH / 2;
+  let shape = '';
+  let textEl = '';
+
+  // Wrap teks menjadi maks 3 baris
+  const words = (text || '').split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w => {
+    if ((cur + ' ' + w).trim().length > 18) { lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  });
+  if (cur) lines.push(cur.trim());
+  const tLines = lines.slice(0, 3);
+  const lineH = 12;
+  const tStartY = cy - (tLines.length * lineH) / 2 + 5;
+  tLines.forEach((ln, li) => {
+    textEl += `<text x="${cx + 4}" y="${tStartY + li * lineH}" text-anchor="middle"
+      font-size="8" fill="${col.text}" font-family="sans-serif">${ln}</text>`;
+  });
+
+  switch (tipe) {
+    case 'decision': {
+      // Belah ketupat — lebar diperbesar agar muat teks
+      const dw = Math.max(boxW * 0.6, 44), dh = Math.max(boxH * 0.55, 22);
+      const pts = `${cx},${cy - dh} ${cx + dw},${cy} ${cx},${cy + dh} ${cx - dw},${cy}`;
+      shape = `<polygon points="${pts}"
+        fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" filter="url(#fsh)"/>`;
+      break;
+    }
+    case 'input': {
+      // Parallelogram (dokumen input/output)
+      const skew = 10;
+      const pts = `${cx - hw + skew},${cy - hh} ${cx + hw + skew},${cy - hh}
+                   ${cx + hw - skew},${cy + hh} ${cx - hw - skew},${cy + hh}`;
+      shape = `<polygon points="${pts}"
+        fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" filter="url(#fsh)"/>`;
+      break;
+    }
+    default: {
+      // Proses — persegi panjang rounded (bawaan)
+      shape = `<rect x="${cx - hw}" y="${cy - hh}" width="${boxW}" height="${boxH}"
+        rx="6" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" filter="url(#fsh)"/>`;
+    }
+  }
+  return shape + textEl;
 }
 
 function renderFlowchart(f) {
@@ -920,24 +1017,19 @@ function renderFlowchart(f) {
     const col = COLORS[pi % COLORS.length];
     const bx  = cx - BOX_W/2, by = cy - BOX_H/2;
 
-    // Kotak proses (rounded rectangle)
-    svg += `<rect x="${bx}" y="${by}" width="${BOX_W}" height="${BOX_H}"
-      rx="6" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" filter="url(#fsh)"/>`;
+    // Shape proses — gunakan getSymbol() sesuai tipe langkah
+    // Tentukan tipe: 'decision' jika aktivitas mengandung kata keputusan/cek/verifikasi
+    const isDecision = /\b(verifikasi|cek|periksa|sesuai|setuju|approved|decision|apakah|jika|bila)\b/i.test(l.aktivitas||'');
+    const isInput    = /\b(input|upload|isi|mengisi|melengkapi|menyerahkan|lampirkan)\b/i.test(l.aktivitas||'');
+    const symTipe    = isDecision ? 'decision' : isInput ? 'input' : 'process';
+    svg += getSymbol(symTipe, l.aktivitas, cx, cy, col, BOX_W, BOX_H);
 
     // Nomor langkah (circle di sudut kiri atas)
     svg += `<circle cx="${bx + 12}" cy="${by + 12}" r="9" fill="${col.stroke}"/>`;
     svg += `<text x="${bx + 12}" y="${by + 12}" text-anchor="middle" dominant-baseline="middle"
       font-size="8" font-weight="700" fill="#fff" font-family="sans-serif">${i+1}</text>`;
 
-    // Teks aktivitas (wrap 2 baris)
-    const lines = wrapText(l.aktivitas, 18);
-    const lineH = 12, startY = cy - (lines.length * lineH) / 2 + 5;
-    lines.forEach((ln, li) => {
-      svg += `<text x="${cx + 4}" y="${startY + li * lineH}" text-anchor="middle"
-        font-size="8" fill="${col.text}" font-family="sans-serif">${ln}</text>`;
-    });
-
-    // Waktu (kecil di bawah)
+    // Waktu (kecil di bawah kotak)
     if (l.waktu) {
       svg += `<text x="${cx}" y="${by + BOX_H - 5}" text-anchor="middle"
         font-size="7" fill="#94a3b8" font-family="sans-serif">⏱ ${l.waktu}</text>`;
@@ -1272,15 +1364,35 @@ function processFile(file) {
   render();
   file.arrayBuffer().then(ab => {
     if (!window.mammoth) throw new Error('Library mammoth belum dimuat, coba lagi');
-    return window.mammoth.extractRawText({ arrayBuffer: ab });
-  }).then(result => {
-    const raw = result.value||'';
+    // Ekstrak dua format sekaligus: HTML (untuk tabel) + teks mentah (untuk metadata)
+    return Promise.all([
+      window.mammoth.convertToHtml({ arrayBuffer: ab }),
+      window.mammoth.extractRawText({ arrayBuffer: ab })
+    ]);
+  }).then(([htmlResult, textResult]) => {
+    const raw  = textResult.value || '';
+    const html = htmlResult.value || '';
     if (raw.length < 50) throw new Error('File kosong atau tidak bisa dibaca');
+
+    // Tahap 1: parse metadata & struktur dari teks biasa
     const parsed = parseSOPFromText(raw);
+
+    // Tahap 2: coba baca tabel prosedur dari HTML (lebih presisi)
+    const langkahDariTabel = parseTabelAktivitas(html);
+    if (langkahDariTabel.length > 0) {
+      // Sesuaikan index pelaksana dari nama kolom tabel dengan array pelaksana
+      langkahDariTabel.forEach(l => {
+        // Untuk sementara biarkan pelaksana = 0; user bisa sesuaikan di form
+        l.pelaksana = 0;
+      });
+      parsed.langkah = langkahDariTabel;
+    }
+
     state.form = parsed;
     const lc = parsed.langkah.filter(l=>l.aktivitas).length;
     const pc = parsed.pelaksana.filter(p=>p).length;
-    state.parseInfo = lc+' langkah, '+pc+' pelaksana terdeteksi';
+    const src = langkahDariTabel.length > 0 ? ' (dari tabel)' : ' (dari teks)';
+    state.parseInfo = lc+' langkah'+src+', '+pc+' pelaksana terdeteksi';
     state.fileState = 'done';
     render();
   }).catch(e => {
@@ -1312,7 +1424,7 @@ function delMF(key, idx) {
 }
 function addLangkah() {
   syncFormFromDOM();
-  state.form.langkah.push({aktivitas:'',pelaksana:0,persyaratan:'',waktu:'1 hari',output:''});
+  state.form.langkah.push({aktivitas:'',pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
   render();
 }
 function delLangkah(idx) {
