@@ -658,13 +658,9 @@ function parseSectionFromHTML(htmlString, headerName) {
   return result;
 }
 
-// ══ PARSER TABEL AKTIVITAS ══
-// Membaca tabel prosedur (langkah-langkah) dari HTML mammoth.
-// Root cause bug sebelumnya:
-//   1. startIdx menganggap tabel header identitas sebagai tabel prosedur
-//   2. Baris header tabel (Tanggal Pembuatan, Nomor SOP, dll) lolos karena kolom 0 berupa angka
-// Solusi: pilih tabel prosedur berdasarkan kata "Uraian Kegiatan" di header baris,
-//   BUKAN hanya dari jumlah baris atau kata "uraian" di konten.
+// ══ PARSER TABEL AKTIVITAS (parseSOPFromWord) ══
+// Menggabungkan pendekatan Rio (cells.length >= 9, index dari kiri)
+// dengan filter identitas dan pemilihan tabel yang robust
 function parseTabelAktivitas(htmlString) {
   const parser = new DOMParser();
   const doc    = parser.parseFromString(htmlString, 'text/html');
@@ -719,37 +715,51 @@ function parseTabelAktivitas(htmlString) {
   }
   if (startIdx < 0 || startIdx >= rows.length) return [];
 
-  // ── Parse baris data ──
+  // ── Parse baris data (pendekatan Rio: cells.length + index eksplisit) ──
+  const IDENTITAS_RE = /^(nomor\s*sop|nama\s*sop|tanggal\s*(pembuatan|revisi|efektif)|disahkan\s*oleh|tgl\s*(pembuatan|revisi|efektif)|unit\s*e[\-\s]?(iii|iv|3|4)|instansi|alamat|direktorat\s*jenderal.*mahkamah)/i;
+
   const hasil = [];
   for (let i = startIdx; i < rows.length; i++) {
-    const tds = Array.from(rows[i].querySelectorAll('td'));
-    if (tds.length < 3) continue;
+    const cells = rows[i].querySelectorAll('td');
+    const n = cells.length;
 
-    const col0     = tds[0]?.textContent.trim();
-    const aktivitas = tds[1]?.textContent.trim() || '';
+    // Pendekatan Rio: tabel standar Badilag punya >= 9 kolom di baris data
+    // Format: [0]No [1]Uraian [2..k]Pelaksana [k+1..n-4]? [n-3]Persyaratan [n-2]Waktu [n-1]Output [n]?Ket
+    // Minimal 6 kolom untuk bisa dipetakan
+    if (n < 6) continue;
 
-    // Kolom 0 harus angka (baris data), atau kosong (baris lanjutan aktivitas panjang)
+    const col0     = cells[0]?.textContent.trim();
+    const aktivitas = cells[1]?.textContent.trim() || '';
+
+    // Kolom 0 harus angka urut
     if (col0 && !/^\d{1,2}$/.test(col0)) continue;
     if (!aktivitas || aktivitas.length < 4) continue;
 
-    // Skip sub-header: capslock pendek tanpa tanda baca
+    // Filter sub-header dan baris identitas
     if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 35 && !/[,;.\d]/.test(aktivitas)) continue;
-
-    // Skip baris identitas yang salah masuk tabel prosedur
-    // (dokumen tidak standar: Nomor SOP, Tanggal, Disahkan, Nama SOP, dll sebagai "langkah")
-    const IDENTITAS_RE = /^(nomor\s*sop|nama\s*sop|tanggal\s*(pembuatan|revisi|efektif)|disahkan\s*oleh|tgl\s*(pembuatan|revisi|efektif)|unit\s*e[\-\s]?(iii|iv|3|4)|instansi|alamat|direktorat\s*jenderal.*mahkamah)/i;
     if (IDENTITAS_RE.test(aktivitas)) continue;
 
-    const n           = tds.length;
-    // Posisi dari kanan — selalu konsisten terlepas jumlah kolom pelaksana
-    const keterangan  = tds[n-1]?.textContent.trim() || '';
-    const output      = n >= 2 ? (tds[n-2]?.textContent.trim() || '') : '';
-    const waktu       = n >= 3 ? (tds[n-3]?.textContent.trim() || '') : '';
-    const persyaratan = n >= 4 ? (tds[n-4]?.textContent.trim() || '') : '';
+    // Mapping kolom — dua strategi:
+    // A) Tabel >= 9 kolom (format standar): index eksplisit seperti pendekatan Rio
+    //    [0]No [1]Uraian [2]Pel1 [3]Pel2 [4]? [5]? [6]Persyaratan [7]Waktu [8]Output [9]Ket
+    // B) Tabel < 9 kolom: posisi dari kanan (format variatif)
+    let persyaratan, waktu, output, keterangan;
+    if (n >= 9) {
+      // Ikuti skema Rio: index dari kiri
+      persyaratan = cells[n-4]?.textContent.trim() || '';
+      waktu       = cells[n-3]?.textContent.trim() || '';
+      output      = cells[n-2]?.textContent.trim() || '';
+      keterangan  = cells[n-1]?.textContent.trim() || '';
+    } else {
+      // Fallback posisi dari kanan
+      keterangan  = cells[n-1]?.textContent.trim() || '';
+      output      = cells[n-2]?.textContent.trim() || '';
+      waktu       = cells[n-3]?.textContent.trim() || '';
+      persyaratan = n >= 4 ? (cells[n-4]?.textContent.trim() || '') : '';
+    }
 
-    // Validasi waktu: harus mengandung angka/kata durasi, atau kosong
-    // Kalau tidak valid = mapping kolom geser akibat colspan, skip kolom-kolom itu
-    const waktuValid = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length <= 15;
+    // Sanity check waktu
+    const waktuValid = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length <= 20;
 
     hasil.push({
       aktivitas,
@@ -990,6 +1000,40 @@ async function exportToWord() {
 }
 
 
+// ══ EXPORT KE PDF ══
+// Menggunakan html2pdf.js untuk cetak langsung dari Preview Dokumen
+// Sesuai pendekatan Rio — target element adalah #previewDoc
+function exportToPDF() {
+  // Pastikan user sedang di tab Preview Dokumen (bukan Flowchart)
+  const element = document.querySelector('.sop-preview-container');
+  if (!element) {
+    toast('Buka tab Preview Dokumen terlebih dahulu, lalu klik Export PDF', 'err');
+    return;
+  }
+  if (!window.html2pdf) {
+    toast('Library html2pdf belum siap, coba lagi sebentar', 'err');
+    return;
+  }
+
+  const f = state.form;
+  const filename = ((f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-')
+    + ' - ' + (f.namaSOP||'SOP').slice(0,40) + '.pdf');
+
+  const opt = {
+    margin       : [8, 8, 8, 8],
+    filename,
+    image        : { type:'jpeg', quality:0.98 },
+    html2canvas  : { scale:2, useCORS:true, logging:false },
+    jsPDF        : { unit:'mm', format:'a4', orientation:'portrait' }
+  };
+
+  toast('⏳ Membuat PDF...');
+  html2pdf().set(opt).from(element).save()
+    .then(() => toast('✅ PDF berhasil diunduh!'))
+    .catch(e => toast('❌ Gagal: '+e.message, 'err'));
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -1187,7 +1231,10 @@ function renderFormView() {
   // Tombol action bar: Export Word + Kirim Review
   h += `<div style="display:flex;gap:10px;margin-bottom:8px;">
     <button onclick="exportToWord()" style="flex:1;padding:12px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
-      📄 Export Word (.docx)
+      📄 Export Word
+    </button>
+    <button onclick="switchPreview('doc');setTimeout(exportToPDF,400);" style="flex:1;padding:12px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      🖨️ Export PDF
     </button>
   </div>`;
   h += `<button class="btn btn-primary" onclick="handleKirim()">📤 Kirim untuk Review Admin</button>`;
@@ -1230,7 +1277,11 @@ function renderPreviewView() {
     <div style="display:flex;gap:8px;margin-bottom:14px;">
       <button onclick="exportToWord()"
         style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
-        📄 Export Word (.docx)
+        📄 Export Word
+      </button>
+      <button onclick="exportToPDF()"
+        style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+        🖨️ Export PDF
       </button>
     </div>
     <div id="previewPanel">${renderFlowchart(f)}</div>
@@ -1473,7 +1524,7 @@ function renderFlowchart(f) {
 
 function renderDocPreview(f) {
   const fmt = d => { if(!d) return '-'; const dt=new Date(d); return isNaN(dt)?d:dt.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); };
-  return `<div id="previewDoc">
+  return `<div id="previewDoc" class="sop-preview-container">
     <div style="text-align:center;border:2px solid #000;padding:12px;margin-bottom:8px;">
       <img src="${LOGO_SRC}" style="height:40px;margin-bottom:6px;"><br>
       <strong style="font-size:12px;">${f.instansi}</strong><br>
