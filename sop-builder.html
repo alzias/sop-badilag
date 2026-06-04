@@ -443,9 +443,34 @@ function parseSOPFromText(raw) {
       for (const line of lines) {
         const m = line.match(new RegExp('^'+lb+'\\s*[:\\t]+\\s*(.+)$','i'));
         if (m && m[1].trim()) return m[1].trim();
+        // Format tabel | Label | Nilai |
+        const mTbl = line.match(new RegExp(lb+'\\s*\\|\\s*([^|]+)','i'));
+        if (mTbl && mTbl[1].trim()) return mTbl[1].trim();
       }
     return '';
   };
+
+  // getTable: baca nilai dari format tabel Word yang di-extract mammoth
+  // Format: "| Nomor SOP | 4372/DjA/... |"
+  const getTable = (...labels) => {
+    for (const lb of labels) {
+      for (const line of lines) {
+        // Split by | dan cari label yang cocok
+        const parts = line.split('|').map(s => s.trim()).filter(s => s.length > 0);
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (new RegExp('^'+lb+'$','i').test(parts[i])) {
+            const val = parts[i+1] && parts[i+1].trim();
+            if (val && val.length > 1) return val;
+          }
+        }
+        // Format baris tunggal: "Label | Nilai"
+        const m = line.match(new RegExp('^\\|?\\s*'+lb+'\\s*\\|\\s*([^|\\n]+)','i'));
+        if (m && m[1].trim()) return m[1].trim();
+      }
+    }
+    return '';
+  };
+
   const getNextLine = (...labels) => {
     for (const lb of labels)
       for (let i=0;i<lines.length-1;i++) {
