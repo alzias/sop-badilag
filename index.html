@@ -1742,72 +1742,72 @@ function rDepts(c){
   }
 
   // Helper: render satu baris unit (acard)
-  // ── Helper: apakah suatu emp/drive termasuk dalam unit ini (via berbagai field) ──
-  function matchUnit(d, empOrDrive) {
-    const x = empOrDrive;
-    const dNameLow = (d.name||'').toLowerCase().trim();
-    if(x.deptId === d.id) return true;
+    // ── Helper: apakah suatu emp/drive cocok dengan unit (nama-based matching) ──
+  function matchByName(nameLow, x) {
+    // 1. Cocokkan via S.depts lookup dari deptId
     const xDept = S.depts.find(function(dd){ return dd.id===x.deptId; });
-    if(xDept && xDept.name.toLowerCase().trim()===dNameLow) return true;
-    if(x.subbag && x.subbag.toLowerCase().trim()===dNameLow) return true;
-    if(x.bagian && x.bagian.toLowerCase().trim()===dNameLow) return true;
+    if(xDept && xDept.name.toLowerCase().trim()===nameLow) return true;
+    // 2. Exact deptId match — cari dept yang namanya cocok lalu bandingkan id
+    const matchedDept = S.depts.find(function(dd){ return dd.name.toLowerCase().trim()===nameLow; });
+    if(matchedDept && x.deptId===matchedDept.id) return true;
+    // 3. Field subbag di emps/drives
+    if(x.subbag && x.subbag.toLowerCase().trim()===nameLow) return true;
+    // 4. Field bagian di emps
+    if(x.bagian && x.bagian.toLowerCase().trim()===nameLow) return true;
+    // 5. Field eselon4 di drives
+    if(x.eselon4 && x.eselon4.toLowerCase().trim()===nameLow) return true;
+    // 6. Field eselon3 di drives
+    if(x.eselon3 && x.eselon3.toLowerCase().trim()===nameLow) return true;
     return false;
   }
 
-  // ── Helper: kumpulkan semua dept (ESELON3+ESELON4) di bawah suatu unit ──
-  // level: 'e2' → return semua E3 + E4 di bawahnya
-  //        'e3' → return semua E4 di bawahnya
-  //        'e4' → return []
-  function getDescendantDepts(d) {
-    const dNameLow = (d.name||'').toLowerCase().trim();
-    const results  = []; // array of dept objects
+  // ── Helper: kumpulkan SEMUA nama unit (lowercase) di bawah suatu unit ──
+  // Langsung dari ESELON constant — tidak bergantung findDept
+  function getAllDescendantNames(dNameLow) {
+    const names = [];
 
-    // Cek apakah d ini adalah E2
+    // Apakah ini E2?
     const asE2 = ESELON2.find(function(e2){ return e2.name.toLowerCase().trim()===dNameLow; });
     if(asE2) {
-      const e3list = ESELON3.filter(function(e3){ return e3.eselon2 === asE2.id; });
+      const e3list = ESELON3.filter(function(e3){ return e3.eselon2===asE2.id; });
       e3list.forEach(function(e3) {
-        const dE3 = findDept(e3.nama);
-        if(dE3) results.push(dE3);
-        // E4 di bawah E3 ini
+        names.push(e3.nama.toLowerCase().trim());
         ESELON4.filter(function(e4){ return e4.eselon3===e3.id; }).forEach(function(e4){
-          const dE4 = findDept(e4.nama);
-          if(dE4) results.push(dE4);
+          names.push(e4.nama.toLowerCase().trim());
         });
       });
-      return results;
+      return names;
     }
 
-    // Cek apakah d ini adalah E3
+    // Apakah ini E3?
     const asE3 = ESELON3.find(function(e3){ return e3.nama.toLowerCase().trim()===dNameLow; });
     if(asE3) {
       ESELON4.filter(function(e4){ return e4.eselon3===asE3.id; }).forEach(function(e4){
-        const dE4 = findDept(e4.nama);
-        if(dE4) results.push(dE4);
+        names.push(e4.nama.toLowerCase().trim());
       });
-      return results;
+      return names;
     }
 
-    // E4 atau unit custom: tidak punya descendant
+    // E4 / custom: tidak punya descendant
     return [];
   }
 
   function cardRow(d, indentPx, borderOpacity) {
     if(!d) return '';
 
-    // ── Hitung berjenjang ──
-    // Ambil semua unit di bawah d (E3+E4 jika d=E2, E4 jika d=E3, kosong jika d=E4)
-    const descendants = getDescendantDepts(d);
+    // ── Hitung berjenjang via nama — tidak bergantung ID Firestore ──
+    const dNameLow  = (d.name||'').toLowerCase().trim();
+    const childNames = getAllDescendantNames(dNameLow); // nama semua unit di bawah
+    const allNames   = [dNameLow].concat(childNames);  // termasuk unit sendiri
 
     // Hitung SOP: unit sendiri + semua descendant
-    const allUnitsD = [d].concat(descendants);
     const nD = S.drives.filter(function(x){
-      return allUnitsD.some(function(u){ return matchUnit(u, x); });
+      return allNames.some(function(n){ return matchByName(n, x); });
     }).length;
 
     // Hitung pegawai: unit sendiri + semua descendant
     const nE = S.emps.filter(function(x){
-      return allUnitsD.some(function(u){ return matchUnit(u, x); });
+      return allNames.some(function(n){ return matchByName(n, x); });
     }).length;
     const style = indentPx > 0
       ? `margin-left:${indentPx}px;border-left:2px solid rgba(0,245,212,${borderOpacity});padding-left:10px;`
