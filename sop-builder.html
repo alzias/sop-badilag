@@ -117,6 +117,9 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
   font-size:11px;font-weight:800;flex-shrink:0;margin-top:3px;}
 .step-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;
   padding-left:30px;margin-top:8px;}
+.step-sublabel.ket{color:var(--cyan);opacity:.7;}
+.step-input.step-keterangan{border-color:rgba(0,245,212,.18);background:rgba(0,245,212,.04);}
+.step-input.step-keterangan:focus{border-color:rgba(0,245,212,.45);}
 .step-sublabel{font-size:10px;font-weight:600;margin-bottom:3px;}
 .step-sublabel.amber{color:var(--amber);}
 .step-sublabel.mu{color:var(--mu2);}
@@ -483,12 +486,25 @@ function parseSOPFromText(raw) {
       }
     return '';
   };
-  const SEC_RE = /^(DASAR HUKUM|KUALIFIKASI PELAKSANA|KETERKAITAN|PERALATAN\s*\/?\s*PERLENGKAPAN|PERALATAN|PERINGATAN|PENCATATAN DAN PENDATAAN|PENCATATAN|PELAKSANA)\s*[:\t]*\s*$/i;
+  // ── Section parser: lebih toleran terhadap spasi, trailing char, dan baris-in-tabel ──
+  // Gunakan includes() bukan exact-match agar header seperti "KETERKAITAN:" atau
+  // "Keterkaitan" yang tidak berdiri sendiri tetap terdeteksi
+  const SECTION_KEYS = [
+    'PENCATATAN DAN PENDATAAN','KUALIFIKASI PELAKSANA',
+    'DASAR HUKUM','KETERKAITAN','PERALATAN','PERINGATAN','PENCATATAN','PELAKSANA'
+  ];
   const sections = {};
   let cur = null;
   for (const line of lines) {
-    const m = line.trim().match(SEC_RE);
-    if (m) { cur = m[1].toUpperCase().trim().replace(/\s+/g,' '); sections[cur]=[]; }
+    const t = line.trim().toUpperCase().replace(/[:\t]+$/, '').trim();
+    // Cek apakah baris ini adalah header section (toleran: includes + panjang wajar)
+    const matched = SECTION_KEYS.find(k => {
+      if (t === k) return true;                          // exact
+      if (t.startsWith(k) && t.length <= k.length + 5) return true; // "KETERKAITAN:" dll
+      // Baris pendek (≤50) yang mengandung kata kunci persis (bukan dalam kalimat panjang)
+      return t.length <= 50 && t.includes(k) && !t.match(/^\d+[.)]/);
+    });
+    if (matched) { cur = matched; sections[cur] = sections[cur] || []; }
     else if (cur && line.trim()) sections[cur].push(line.trim());
   }
   const NOISE = /^(kualifikasi pelaksana|keterkaitan|peralatan|peringatan|pencatatan|pelaksana|uraian kegiatan|langkah|prosedur|dasar hukum|mutu baku|persyaratan|waktu|output|ket\.?)\s*[:\t]*$/i;
@@ -572,7 +588,7 @@ function parseSOPFromText(raw) {
     tglEfektif:   toISO(getTable('Tanggal Evektif','Tanggal Efektif','Tgl Efektif')||getInline('TANGGAL EFEKTIF','TGL EFEKTIF')||getNextLine('TANGGAL EFEKTIF')),
     disahkanOleh: getTable('Disahkan Oleh','Ditetapkan Oleh')||getInline('DISAHKAN OLEH','DITETAPKAN OLEH')||getNextLine('DISAHKAN OLEH')||'Dirjen Badan Peradilan Agama',
     dasarHukum: dh.length?dh:[''], kualifikasiPelaksana: kual.length?kual:[''],
-    keterkaitan: getSection('KETERKAITAN').filter(l=>/SOP/i.test(l)||l.length>5).concat(['']).slice(0,10),
+    keterkaitan: getSection('KETERKAITAN').filter(l=>l.length>3).concat(['']).slice(0,10),
     peralatan:   getSection('PERALATAN').filter(l=>!perRe.test(l)&&l.length<80).concat(['']).slice(0,10),
     peringatan:  getSection('PERINGATAN').filter(l=>l.length>5).concat(['']).slice(0,5),
     pencatatan:  getSection('PENCATATAN').filter(l=>l.length>2).concat(['']).slice(0,5),
@@ -585,35 +601,64 @@ function parseSOPFromText(raw) {
 function parseTabelAktivitas(htmlString) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlString, 'text/html');
-  const tables = doc.querySelectorAll('table');
-  // Cari tabel yang paling banyak kolom (≥6) — kandidat tabel prosedur
-  let bestTable = null, bestCols = 0;
-  tables.forEach(t => {
-    const firstRow = t.querySelector('tr');
-    if (firstRow) {
-      const cols = firstRow.querySelectorAll('td,th').length;
-      if (cols > bestCols) { bestCols = cols; bestTable = t; }
-    }
-  });
-  if (!bestTable || bestCols < 6) return [];
+  const tables = Array.from(doc.querySelectorAll('table'));
+  if (!tables.length) return [];
 
-  const rows = Array.from(bestTable.querySelectorAll('tr'));
+  // Pilih tabel prosedur: yang punya baris terbanyak DAN ada kata "aktivitas"/"uraian"
+  // Format Badilag: tabel besar dengan kolom: No | Uraian | [pelaksana cols] | Persyaratan | Waktu | Output | Ket
+  const isProsesTabel = t => {
+    const txt = t.textContent.toLowerCase();
+    return (txt.includes('aktivitas') || txt.includes('uraian kegiatan') || txt.includes('uraian')) &&
+           t.querySelectorAll('tr').length > 3;
+  };
+  let tabel = tables.find(isProsesTabel) || tables.reduce((a,b) =>
+    b.querySelectorAll('tr').length > a.querySelectorAll('tr').length ? b : a
+  );
+  const rows = Array.from(tabel.querySelectorAll('tr'));
+  if (!rows.length) return [];
+
+  // Deteksi baris header secara heuristik: teks pendek + tidak ada angka di kolom pertama
+  const isHeaderRow = row => {
+    const cells = Array.from(row.querySelectorAll('td,th'));
+    if (!cells.length) return true;
+    const first = cells[0]?.textContent.trim();
+    // Header: kolom pertama berisi "No", "NO", angka 0, atau kosong
+    if (/^(no\.?|no|nomor|#)$/i.test(first) || first === '') return true;
+    // Header: semua sel pendek (teks label) dan tidak ada yang panjang
+    if (cells.every(c => c.textContent.trim().length <= 25)) {
+      const hasLabel = cells.some(c => /^(uraian|aktivitas|pelaksana|persyaratan|waktu|output|ket)/i.test(c.textContent.trim()));
+      if (hasLabel) return true;
+    }
+    return false;
+  };
+
+  // Cari indeks baris data pertama (setelah semua header)
+  let startIdx = 0;
+  while (startIdx < rows.length && isHeaderRow(rows[startIdx])) startIdx++;
+  if (startIdx >= rows.length) return [];
+
+  // Analisis struktur kolom dari baris data pertama
+  // Format Badilag v3: [0]No [1]Uraian [2..N-4]Pelaksana cols [N-3]Persyaratan [N-2]Waktu [N-1]Output [N]Ket
   const hasil = [];
-  // Skip 2 baris header (baris 0 dan 1)
-  for (let i = 2; i < rows.length; i++) {
-    const tds = rows[i].querySelectorAll('td');
-    if (tds.length < 6) continue;
+  for (let i = startIdx; i < rows.length; i++) {
+    const tds = Array.from(rows[i].querySelectorAll('td'));
+    if (tds.length < 4) continue;
+
     const aktivitas = tds[1]?.textContent.trim() || '';
-    // Lewati baris yang tidak berisi aktivitas (nomor saja, atau kosong)
     if (!aktivitas || aktivitas.length < 3) continue;
-    hasil.push({
-      aktivitas,
-      pelaksana    : 0,  // di-resolve ke index setelah pelaksana array terbentuk
-      persyaratan  : tds[6]?.textContent.trim() || '',
-      waktu        : tds[7]?.textContent.trim() || '',
-      output       : tds[8]?.textContent.trim() || '',
-      keterangan   : tds[9]?.textContent.trim() || ''
-    });
+    // Skip baris yang terlihat seperti sub-header (semua uppercase, singkat)
+    if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 30 && !/[0-9]/.test(aktivitas)) continue;
+
+    const n = tds.length;
+    // Mapping fleksibel berdasarkan jumlah kolom:
+    // Minimal: [0]No [1]Uraian [2]Waktu [3]Output → n=4
+    // Standar Badilag: n ≥ 8 → pakai posisi dari kanan
+    const persyaratan = n >= 8 ? (tds[n-4]?.textContent.trim() || '') : '';
+    const waktu       = n >= 3 ? (tds[n-3]?.textContent.trim() || '') : '';
+    const output      = n >= 2 ? (tds[n-2]?.textContent.trim() || '') : '';
+    const keterangan  = n >= 2 ? (tds[n-1]?.textContent.trim() || '') : '';
+
+    hasil.push({ aktivitas, pelaksana:0, persyaratan, waktu, output, keterangan });
   }
   return hasil;
 }
@@ -800,7 +845,7 @@ function renderFormView() {
           <input class="step-input step-output" value="${esc(l.output)}" placeholder="Hasil...">
         </div>
         <div>
-          <div class="step-sublabel mu">Ket.</div>
+          <div class="step-sublabel ket">Ket.</div>
           <input class="step-input step-keterangan" value="${esc(l.keterangan||'')}" placeholder="Keterangan...">
         </div>
       </div>
@@ -1391,8 +1436,13 @@ function processFile(file) {
     state.form = parsed;
     const lc = parsed.langkah.filter(l=>l.aktivitas).length;
     const pc = parsed.pelaksana.filter(p=>p).length;
-    const src = langkahDariTabel.length > 0 ? ' (dari tabel)' : ' (dari teks)';
-    state.parseInfo = lc+' langkah'+src+', '+pc+' pelaksana terdeteksi';
+    const src = langkahDariTabel.length > 0 ? ' (dari tabel Word)' : ' (dari teks biasa)';
+    const ketWarn = langkahDariTabel.length > 0 && langkahDariTabel.some(l=>l.keterangan)
+      ? ' ✓ kolom Ket terbaca' : '';
+    state.parseInfo = lc+' langkah'+src+', '+pc+' pelaksana terdeteksi'+ketWarn;
+    if (lc === 0) {
+      state.parseInfo += ' — coba format tabel Word pastikan ada kolom Uraian/Aktivitas';
+    }
     state.fileState = 'done';
     render();
   }).catch(e => {
