@@ -1744,8 +1744,28 @@ function rDepts(c){
   // Helper: render satu baris unit (acard)
   function cardRow(d, indentPx, borderOpacity) {
     if(!d) return '';
-    const nD = S.drives.filter(x=>x.deptId===d.id).length;
-    const nE = S.emps.filter(x=>x.deptId===d.id).length;
+    // Hitung dengan multi-match: exact ID + nama unit (toleransi jika ID tidak sinkron)
+    const dNameLow = (d.name||'').toLowerCase().trim();
+    const nD = S.drives.filter(function(x){
+      if(x.deptId===d.id) return true;
+      // Fallback: cocokkan via nama dept
+      const xDept = S.depts.find(function(dd){ return dd.id===x.deptId; });
+      return xDept && xDept.name.toLowerCase().trim()===dNameLow;
+    }).length;
+    const nE = S.emps.filter(function(x){
+      // 1. Exact deptId match
+      if(x.deptId===d.id) return true;
+      // 2. Cocokkan via nama dept di depts collection
+      const xDept = S.depts.find(function(dd){ return dd.id===x.deptId; });
+      if(xDept && xDept.name.toLowerCase().trim()===dNameLow) return true;
+      // 3. Field subbag di emps cocok dengan nama unit
+      if(x.subbag && x.subbag.toLowerCase().trim()===dNameLow) return true;
+      // 4. Field bagian di emps cocok dengan nama unit
+      if(x.bagian && x.bagian.toLowerCase().trim()===dNameLow) return true;
+      // 5. Gabungan "Bagian X" - "Kasubbag Y" jika subbag mengandung nama dept
+      if(x.subbag && dNameLow.length>4 && x.subbag.toLowerCase().includes(dNameLow.split(' ').slice(-2).join(' '))) return true;
+      return false;
+    }).length;
     const style = indentPx > 0
       ? `margin-left:${indentPx}px;border-left:2px solid rgba(0,245,212,${borderOpacity});padding-left:10px;`
       : '';
@@ -1914,8 +1934,14 @@ function rEmps(c){
   h += '<div id="empCount" style="font-size:11px;color:var(--mu);margin-bottom:8px;text-align:right;"></div>';
   if(!S.emps.length) h+='<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada pegawai</div>';
   S.emps.forEach(e=>{
-    const dept = S.depts.find(d=>d.id===e.deptId);
-    const searchData = [e.name,e.nip,e.jabatan,e.eselon2,e.bagian,e.subbag].filter(Boolean).join(' ').toLowerCase().split('"').join('');
+    // Cari dept: exact deptId match, lalu fallback nama bagian
+    const dept = S.depts.find(function(d){ return d.id===e.deptId; })
+      || S.depts.find(function(d){
+        const dLow = d.name.toLowerCase().trim();
+        return (e.subbag && e.subbag.toLowerCase().trim()===dLow)
+          || (e.bagian && e.bagian.toLowerCase().trim()===dLow);
+      });
+    const searchData = [e.name,e.nip,e.jabatan,e.eselon2,e.bagian,e.subbag,dept?dept.name:''].filter(Boolean).join(' ').toLowerCase().split('"').join('');
     const e2b = e.eselon2 ? '<span style="font-size:10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);padding:1px 8px;border-radius:10px;margin-left:4px;">'+(e.eselon2Icon||'')+' '+e.eselon2+'</span>' : '';
     const sub = e.subbag ? ' · <em style="color:var(--cyan);font-size:11px;">'+e.subbag+'</em>' : '';
     h += '<div class="acard emp-card" data-search="'+searchData+'" style="display:flex;">';
