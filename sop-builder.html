@@ -618,6 +618,83 @@ function populateForm(dataLangkah) {
 }
 
 
+// ══ PARSER SECTION DARI TABEL (untuk dokumen 1-tabel seperti SOP Cuti) ══
+// Dokumen Badilag ada dua format:
+//   A) Multi-tabel: section ada sebagai <p> di luar tabel → parseSectionFromHTML
+//   B) Single-tabel: section ada di <td> dalam tabel besar → parseSectionFromTable
+// Fungsi ini handle format B
+function parseSectionFromTable(htmlString) {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(htmlString, 'text/html');
+  const tables = Array.from(doc.querySelectorAll('table'));
+  if (!tables.length) return {};
+
+  // Cari tabel yang mengandung label section
+  const SECTION_LABEL_RE = /^(dasar hukum|kualifikasi pelaksana|keterkaitan|peralatan|peringatan|pencatatan)/i;
+  let sectionTable = null;
+  for (const t of tables) {
+    const txt = t.textContent.toLowerCase();
+    if (txt.includes('dasar hukum') && txt.includes('kualifikasi')) {
+      sectionTable = t; break;
+    }
+  }
+  if (!sectionTable) return {};
+
+  const rows = Array.from(sectionTable.querySelectorAll('tr'));
+  const result = {};
+
+  // Scan tiap sel — kalau berisi label section, sel berikutnya (kanan/bawah) = konten
+  const KEY_MAP = {
+    'DASAR HUKUM'            : 'dasarHukum',
+    'KUALIFIKASI PELAKSANA'  : 'kualifikasiPelaksana',
+    'KETERKAITAN'            : 'keterkaitan',
+    'PERALATAN'              : 'peralatan',
+    'PERALATAN/PERLENGKAPAN' : 'peralatan',
+    'PERALATAN / PERLENGKAPAN': 'peralatan',
+    'PERINGATAN'             : 'peringatan',
+    'PENCATATAN DAN PENDATAAN': 'pencatatan',
+    'PENCATATAN'             : 'pencatatan',
+  };
+
+  for (let ri = 0; ri < rows.length; ri++) {
+    const cells = Array.from(rows[ri].querySelectorAll('td'));
+    for (let ci = 0; ci < cells.length; ci++) {
+      const label = cells[ci]?.textContent.trim().replace(/\s*[:/]\s*$/, '').toUpperCase().trim();
+      const key   = KEY_MAP[label];
+      if (!key) continue;
+
+      // Konten ada di sel berikutnya di baris yang SAMA (format: Label | | Konten)
+      // atau di baris berikutnya kolom yang sama
+      let kontenTeks = '';
+
+      // Cek sel kanan (skip sel kosong)
+      for (let k = ci + 1; k < cells.length; k++) {
+        const txt = cells[k]?.textContent.trim();
+        if (txt && txt.length > 3 && !KEY_MAP[txt.replace(/\s*[:/]\s*$/, '').toUpperCase().trim()]) {
+          kontenTeks = txt; break;
+        }
+      }
+
+      // Kalau tidak ada di kanan, cek baris berikutnya kolom yang sama
+      if (!kontenTeks && ri + 1 < rows.length) {
+        const nextCells = Array.from(rows[ri + 1].querySelectorAll('td'));
+        if (nextCells[ci]) kontenTeks = nextCells[ci].textContent.trim();
+      }
+
+      if (kontenTeks && kontenTeks.length > 3) {
+        // Split berdasarkan titik-koma atau newline (format list Badilag)
+        const items = kontenTeks
+          .split(/;|\n/)
+          .map(s => s.trim().replace(/^\d+[.)\s]+/, ''))
+          .filter(s => s.length > 2);
+        if (items.length > 0) result[key] = items.concat(['']);
+      }
+    }
+  }
+  return result;
+}
+
+
 // ══ PARSER SECTION DARI HTML (untuk Keterkaitan, Peringatan, dll) ══
 // mammoth.convertToHtml menghasilkan <p> per paragraf — lebih akurat untuk section berbasis list
 // Fungsi ini melengkapi parseSOPFromText yang bekerja di raw text
@@ -699,13 +776,23 @@ function parseTabelAktivitas(htmlString) {
   const getDataRowCols = t => {
     const rows = Array.from(t.querySelectorAll('tr'));
     for (const row of rows) {
-      const tds = row.querySelectorAll('td');
+      const tds  = row.querySelectorAll('td');
       const col0 = tds[0]?.textContent.trim();
-      // Baris data: kolom 0 = angka, kolom 1 = teks cukup panjang
-      if (/^\d{1,2}$/.test(col0) && tds.length >= 6) return tds.length;
+      const col1 = tds[1]?.textContent.trim() || '';
+      // Angka urut dengan atau tanpa titik: "1", "2", "1.", "2." dst
+      // Kolom 1 harus berisi teks bermakna (bukan kosong/label header)
+      // Pastikan bukan baris separator kosong (semua sel kosong)
+      const isDataRow = /^\d{1,2}\.?$/.test(col0) && col1.length >= 5 && tds.length >= 6;
+      if (isDataRow) return tds.length;
     }
-    // Fallback: baris terbanyak sel
-    return Math.max(...rows.map(r => r.querySelectorAll('td,th').length), 0);
+    // Fallback: baris terbanyak sel yang bukan baris kosong
+    let maxN = 0;
+    for (const row of rows) {
+      const tds = row.querySelectorAll('td');
+      const hasContent = Array.from(tds).some(td => td.textContent.trim().length > 2);
+      if (tds.length > maxN && hasContent) maxN = tds.length;
+    }
+    return maxN;
   };
 
   // Urutkan: tabel dengan baris data paling banyak kolom = tabel prosedur
@@ -726,17 +813,23 @@ function parseTabelAktivitas(htmlString) {
     const n    = cells.length;
     const col0 = cells[0]?.textContent.trim();
     const col1 = cells[1]?.textContent.trim() || '';
-    // Baris data valid: angka di col0, teks bermakna di col1, dan kolom >= 6
-    // (baris header di tabel Badilag sering punya < 6 karena colspan)
-    if (/^\d{1,2}$/.test(col0) && col1.length >= 5 && n >= 6) {
+    // Angka urut dengan atau tanpa titik: "1", "1.", "2.", dst
+    // Harus punya teks di col1 minimal 5 karakter (bukan baris kosong/separator)
+    // Harus punya minimal 6 kolom (baris data tidak pakai colspan)
+    if (/^\d{1,2}\.?$/.test(col0) && col1.length >= 5 && n >= 6) {
       const looksLikeHeader = col1 === col1.toUpperCase() && col1.length < 25 && !/[,;.\d]/.test(col1);
       if (!looksLikeHeader) { startIdx = i; break; }
     }
   }
   if (startIdx === -1) {
-    // Fallback: cari baris pertama dengan >= 6 kolom (skip baris colspan header)
+    // Fallback: cari baris yang punya kolom >= 6 DAN ada konten di col1
+    // Skip baris separator kosong (meski punya banyak kolom)
     for (let i = 0; i < allRows.length; i++) {
-      if (allRows[i].querySelectorAll('td').length >= 6) { startIdx = i; break; }
+      const cells = allRows[i].querySelectorAll('td');
+      if (cells.length >= 6) {
+        const col1 = cells[1]?.textContent.trim() || '';
+        if (col1.length >= 5) { startIdx = i; break; }
+      }
     }
   }
   if (startIdx < 0 || startIdx >= allRows.length) return [];
@@ -754,8 +847,8 @@ function parseTabelAktivitas(htmlString) {
       const col0      = cells[0]?.textContent.trim();
       const aktivitas = cells[1]?.textContent.trim() || '';
 
-      // Skip baris non-data
-      if (col0 && !/^\d{1,2}$/.test(col0)) return null;
+      // Skip baris non-data — izinkan "1", "1.", "2." (format Badilag pakai titik)
+      if (col0 && !/^\d{1,2}\.?$/.test(col0)) return null;
       if (!aktivitas || aktivitas.length < 4) return null;
       if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 35 && !/[,;.\d]/.test(aktivitas)) return null;
       if (IDENTITAS_RE.test(aktivitas)) return null;
@@ -1835,28 +1928,22 @@ function processFile(file) {
     // Tahap 1: parse metadata & struktur dari teks biasa
     const parsed = parseSOPFromText(raw);
 
-    // Tahap 2: overwrite HANYA Keterkaitan & Peringatan dari HTML
-    // Karena kedua section ini ada sebagai <p> di dokumen Word (bukan dalam tabel),
-    // sehingga parser HTML lebih akurat.
-    // Dasar Hukum & Kualifikasi Pelaksana ada dalam tabel Word → biarkan hasil parseSOPFromText.
-    const htmlOnlySections = [
-      { sec: 'KETERKAITAN',         key: 'keterkaitan' },
-      { sec: 'PERINGATAN',          key: 'peringatan'  },
-      { sec: 'PENCATATAN DAN PENDATAAN', key: 'pencatatan' },
-      { sec: 'PENCATATAN',          key: 'pencatatan'  },
-    ];
-    // Coba ambil dari HTML, hanya replace kalau hasilnya lebih banyak dari parser teks
-    htmlOnlySections.forEach(({sec, key}) => {
-      if (parsed[key] && parsed[key].filter(x=>x).length > 0) return; // sudah ada dari teks
-      const items = parseSectionFromHTML(html, sec);
-      if (items.length > 0) parsed[key] = items.concat(['']);
-    });
-    // Keterkaitan selalu coba dari HTML (sering kosong dari parser teks)
+    // Tahap 2a: overwrite section dari <p>/<li> HTML (format multi-tabel)
     const ktItems = parseSectionFromHTML(html, 'KETERKAITAN');
     if (ktItems.length > 0) parsed.keterkaitan = ktItems.concat(['']);
-    // Peringatan selalu coba dari HTML
     const prItems = parseSectionFromHTML(html, 'PERINGATAN');
     if (prItems.length > 0) parsed.peringatan = prItems.concat(['']);
+
+    // Tahap 2b: fallback — baca section dari <td> tabel (format single-tabel seperti SOP Cuti)
+    // Dipakai kalau section masih kosong setelah parser teks dan parser HTML
+    const tblSections = parseSectionFromTable(html);
+    const SECTION_KEYS = ['dasarHukum','kualifikasiPelaksana','keterkaitan','peralatan','peringatan','pencatatan'];
+    SECTION_KEYS.forEach(key => {
+      const isEmpty = !parsed[key] || parsed[key].filter(x=>x).length === 0;
+      if (isEmpty && tblSections[key] && tblSections[key].length > 0) {
+        parsed[key] = tblSections[key];
+      }
+    });
 
     // Tahap 3: baca tabel prosedur dengan parseSOPPro (via parseTabelAktivitas)
     const langkahDariTabel = parseTabelAktivitas(html);
