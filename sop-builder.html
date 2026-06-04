@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -671,25 +672,21 @@ function parseTabelAktivitas(htmlString) {
   if (!tables.length) return [];
 
   // ── Pilih tabel prosedur ──
-  // Tabel prosedur Badilag PASTI punya baris header yang berisi "Uraian Kegiatan" atau "Aktivitas"
-  // di salah satu selnya. Ini pembeda utama dari tabel identitas / tabel header SOP.
-  const PROC_HEADER_RE = /uraian\s*kegiatan|uraian\s*aktivitas|langkah|aktivitas/i;
+  // Pembeda DEFINITIF: tabel prosedur Badilag selalu punya >= 7 kolom
+  // (No | Uraian | Pelaksana1 | [Pelaksana2..] | Persyaratan | Waktu | Output | Ket)
+  // Tabel identitas/header SOP hanya 2-4 kolom.
+  // Hitung max kolom di setiap tabel dari baris yang paling banyak td-nya.
+  const maxCols = t => Math.max(...Array.from(t.querySelectorAll('tr'))
+    .map(r => r.querySelectorAll('td,th').length), 0);
 
-  const isProcTable = t => {
-    // Cek 3 baris pertama apakah ada sel yang berisi kata kunci prosedur
-    const rows = Array.from(t.querySelectorAll('tr')).slice(0, 3);
-    return rows.some(r =>
-      Array.from(r.querySelectorAll('td,th')).some(c => PROC_HEADER_RE.test(c.textContent))
-    );
-  };
-
-  let tabel = tables.find(isProcTable);
-  if (!tabel) {
-    // Fallback: tabel dengan baris terbanyak (kemungkinan tabel prosedur)
-    tabel = tables.reduce((a, b) =>
-      b.querySelectorAll('tr').length > a.querySelectorAll('tr').length ? b : a
-    );
-  }
+  // Urutkan tabel berdasarkan jumlah kolom terbanyak — tabel prosedur paling atas
+  const sortedByWidth = [...tables].sort((a,b) => maxCols(b) - maxCols(a));
+  // Tabel prosedur: kolom >= 6, dan punya minimal 4 baris
+  let tabel = sortedByWidth.find(t =>
+    maxCols(t) >= 6 && t.querySelectorAll('tr').length >= 4
+  );
+  // Fallback: tabel dengan kolom terbanyak
+  if (!tabel) tabel = sortedByWidth[0];
 
   const rows = Array.from(tabel.querySelectorAll('tr'));
   if (!rows.length) return [];
@@ -759,6 +756,232 @@ function parseTabelAktivitas(htmlString) {
     });
   }
   return hasil;
+}
+
+
+// ══ EXPORT KE WORD (.docx) ══
+// Menghasilkan file Word SOP format Badilag dari state.form
+// Menggunakan docx.js (UMD) yang di-load via CDN
+async function exportToWord() {
+  const f = state.form;
+  const D = window.docx;
+  if (!D) { toast('Library docx.js belum siap, coba beberapa detik lagi', 'err'); return; }
+
+  const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    AlignmentType, WidthType, BorderStyle, ShadingType, VerticalAlign,
+    PageOrientation, HeadingLevel
+  } = D;
+
+  const fmt = d => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    return isNaN(dt) ? d : dt.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+  };
+  const esc = s => (s||'').toString().trim();
+
+  // ── Helpers ──
+  const border1 = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+  const borders  = { top:border1, bottom:border1, left:border1, right:border1 };
+  const cellOpts = (w, opts={}) => ({
+    borders, width:{size:w, type:WidthType.DXA},
+    margins:{top:60,bottom:60,left:100,right:100},
+    ...opts
+  });
+  const cell = (text, w, opts={}, runOpts={}) => new TableCell({
+    ...cellOpts(w, opts),
+    children:[new Paragraph({
+      alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+      children:[new TextRun({text:esc(text), font:'Arial', size:18, ...runOpts})]
+    })]
+  });
+  const headerCell = (text, w, span=1) => new TableCell({
+    ...cellOpts(w),
+    columnSpan: span,
+    shading: { fill:'D0D0D0', type:ShadingType.CLEAR },
+    children:[new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children:[new TextRun({text:esc(text), font:'Arial', size:18, bold:true})]
+    })]
+  });
+  const para = (text, opts={}) => new Paragraph({
+    children:[new TextRun({text:esc(text), font:'Arial', size:20, ...opts})]
+  });
+
+  // ── Halaman landscape A4 ──
+  // Content width landscape: 16838 - 1440(top) - 1440(bot) sebagai tinggi
+  // Landscape A4: 16838 × 11906 DXA
+  const PAGE_W = 15120; // usable width landscape A4 dengan margin 0.7"
+  const COL_NO = 400;
+  const COL_URAIAN = 2800;
+  // Kolom pelaksana — bagi rata sesuai jumlah pelaksana
+  const pelaksana = (f.pelaksana||[]).filter(p=>p);
+  const nPel = Math.max(pelaksana.length, 1);
+  const COL_PEL = Math.floor(2400 / nPel);
+  const pelTotalW = COL_PEL * nPel;
+  const COL_SYARAT = 1800;
+  const COL_WAKTU  = 900;
+  const COL_OUTPUT = 1800;
+  const COL_KET    = 1200;
+  const totalW = COL_NO + COL_URAIAN + pelTotalW + COL_SYARAT + COL_WAKTU + COL_OUTPUT + COL_KET;
+
+  // ── Tabel Header Identitas ──
+  const HALF = Math.floor(PAGE_W / 2);
+  const tblIdentitas = new Table({
+    width:{size:PAGE_W, type:WidthType.DXA},
+    columnWidths:[HALF, HALF],
+    rows:[
+      new TableRow({ children:[
+        new TableCell({ ...cellOpts(HALF), rowSpan:4,
+          children:[
+            para('Nomor SOP : '+esc(f.nomorSOP), {bold:true}),
+            para('Nama SOP  : '+esc(f.namaSOP),  {bold:true}),
+            para('Unit E-III: '+esc(f.eselon3)),
+            para('Unit E-IV : '+esc(f.eselon4)),
+          ]
+        }),
+        cell('Tgl Pembuatan : '+fmt(f.tglPembuatan), HALF),
+      ]}),
+      new TableRow({ children:[ cell('Tgl Revisi    : '+fmt(f.tglRevisi), HALF) ]}),
+      new TableRow({ children:[ cell('Tgl Efektif   : '+fmt(f.tglEfektif), HALF) ]}),
+      new TableRow({ children:[ cell('Disahkan Oleh : '+esc(f.disahkanOleh), HALF) ]}),
+    ]
+  });
+
+  // ── Helper: buat tabel section (Dasar Hukum, Kualifikasi, dll) ──
+  const makeSectionTable = (title, items) => {
+    const clean = (items||[]).filter(x=>x);
+    if (!clean.length) return null;
+    return new Table({
+      width:{size:PAGE_W, type:WidthType.DXA},
+      columnWidths:[PAGE_W/5|0, PAGE_W - (PAGE_W/5|0)],
+      rows:[
+        new TableRow({ children:[
+          new TableCell({
+            ...cellOpts(PAGE_W),
+            columnSpan:2,
+            shading:{fill:'E8E8E8', type:ShadingType.CLEAR},
+            children:[new Paragraph({children:[new TextRun({text:title,font:'Arial',size:18,bold:true})]})]
+          })
+        ]}),
+        ...clean.map((item,i) => new TableRow({ children:[
+          cell(String(i+1)+'.', PAGE_W/5|0),
+          cell(item, PAGE_W - (PAGE_W/5|0))
+        ]}))
+      ]
+    });
+  };
+
+  // ── Tabel Prosedur (Langkah) ──
+  // Header row 1: No | Uraian Kegiatan | Pelaksana (colspan nPel) | Mutu Baku (colspan 3) | Ket
+  // Header row 2: (kosong) | (kosong) | pel1 | pel2 | ... | Persyaratan | Waktu | Output | (kosong)
+  const tblProsedurRows = [
+    // Header baris 1
+    new TableRow({ children:[
+      headerCell('No', COL_NO),
+      headerCell('Uraian Kegiatan', COL_URAIAN),
+      headerCell('Pelaksana', pelTotalW, nPel),
+      headerCell('Mutu Baku', COL_SYARAT+COL_WAKTU+COL_OUTPUT, 3),
+      headerCell('Ket', COL_KET),
+    ]}),
+    // Header baris 2 — sub-header pelaksana + mutu baku
+    new TableRow({ children:[
+      headerCell('', COL_NO),
+      headerCell('', COL_URAIAN),
+      ...pelaksana.map(p => headerCell(p, COL_PEL)),
+      ...(pelaksana.length === 0 ? [headerCell('Pelaksana', COL_PEL)] : []),
+      headerCell('Persyaratan', COL_SYARAT),
+      headerCell('Waktu', COL_WAKTU),
+      headerCell('Output', COL_OUTPUT),
+      headerCell('', COL_KET),
+    ]}),
+    // Baris data
+    ...(f.langkah||[]).filter(l=>l.aktivitas).map((l,i) => {
+      const pelCells = Array.from({length:nPel}, (_,pi) =>
+        new TableCell({
+          ...cellOpts(COL_PEL),
+          children:[new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children:[new TextRun({
+              text: l.pelaksana===pi ? String.fromCharCode(10003) : '',
+              font:'Arial', size:18, bold:true
+            })]
+          })]
+        })
+      );
+      return new TableRow({ children:[
+        cell(String(i+1), COL_NO, {center:true}),
+        cell(l.aktivitas, COL_URAIAN),
+        ...pelCells,
+        cell(l.persyaratan||'', COL_SYARAT),
+        cell(l.waktu||'', COL_WAKTU, {center:true}),
+        cell(l.output||'', COL_OUTPUT),
+        cell(l.keterangan||'', COL_KET),
+      ]});
+    })
+  ];
+  const tblProsedur = new Table({
+    width:{size:totalW, type:WidthType.DXA},
+    columnWidths:[COL_NO, COL_URAIAN, ...Array(nPel).fill(COL_PEL), COL_SYARAT, COL_WAKTU, COL_OUTPUT, COL_KET],
+    rows: tblProsedurRows
+  });
+
+  // ── Susun konten dokumen ──
+  const children = [
+    new Paragraph({ alignment:AlignmentType.CENTER,
+      children:[new TextRun({text:esc(f.instansi), font:'Arial', size:22, bold:true})] }),
+    new Paragraph({ alignment:AlignmentType.CENTER,
+      children:[new TextRun({text:esc(f.alamat), font:'Arial', size:18})] }),
+    new Paragraph({ children:[] }), // spacer
+    tblIdentitas,
+    new Paragraph({ children:[] }),
+  ];
+
+  // Section tables
+  const secs = [
+    ['Dasar Hukum',           f.dasarHukum],
+    ['Kualifikasi Pelaksana', f.kualifikasiPelaksana],
+    ['Keterkaitan',           f.keterkaitan],
+    ['Peralatan / Perlengkapan', f.peralatan],
+    ['Peringatan',            f.peringatan],
+    ['Pencatatan dan Pendataan', f.pencatatan],
+  ];
+  secs.forEach(([title, items]) => {
+    const t = makeSectionTable(title, items);
+    if (t) { children.push(t); children.push(new Paragraph({children:[]})); }
+  });
+
+  children.push(new Paragraph({
+    children:[new TextRun({text:'Prosedur', font:'Arial', size:20, bold:true})]
+  }));
+  children.push(tblProsedur);
+
+  // ── Buat dokumen landscape A4 ──
+  const doc = new Document({
+    sections:[{
+      properties:{
+        page:{
+          size:{ width:11906, height:16838, orientation: PageOrientation.LANDSCAPE },
+          margin:{ top:720, bottom:720, left:720, right:720 }
+        }
+      },
+      children
+    }]
+  });
+
+  try {
+    const blob = await Packer.toBlob(doc);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = (f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-') + ' - ' + (f.namaSOP||'SOP').slice(0,50) + '.docx';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ File Word berhasil diunduh!');
+  } catch(e) {
+    toast('❌ Gagal export: '+e.message, 'err');
+    console.error(e);
+  }
 }
 
 
@@ -956,6 +1179,12 @@ function renderFormView() {
   </button></div>`;
 
   // SUBMIT BUTTON
+  // Tombol action bar: Export Word + Kirim Review
+  h += `<div style="display:flex;gap:10px;margin-bottom:8px;">
+    <button onclick="exportToWord()" style="flex:1;padding:12px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      📄 Export Word (.docx)
+    </button>
+  </div>`;
   h += `<button class="btn btn-primary" onclick="handleKirim()">📤 Kirim untuk Review Admin</button>`;
 
   return h;
@@ -987,11 +1216,17 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function renderPreviewView() {
   const f = state.form;
   return `<div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
       <button class="btn" id="btnDoc" onclick="switchPreview('doc')"
         style="flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);">📄 Preview Dokumen</button>
       <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
         style="flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;">🔀 Flowchart</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button onclick="exportToWord()"
+        style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+        📄 Export Word (.docx)
+      </button>
     </div>
     <div id="previewPanel">${renderFlowchart(f)}</div>
   </div>`;
