@@ -691,39 +691,55 @@ function parseTabelAktivitas(htmlString) {
   const tables = Array.from(doc.querySelectorAll('table'));
   if (!tables.length) return [];
 
-  // ── Pilih tabel prosedur: paling banyak kolom, minimal 9 ──
-  // Sesuai saran Gemini: targetTable = find(t => rows[0].cells.length >= 9)
-  // Kita perkuat: hitung maxCols dari seluruh baris (bukan hanya rows[0])
-  // karena header baris 1 sering punya colspan sehingga cells < 9
-  const maxCols = t => Math.max(
-    ...Array.from(t.querySelectorAll('tr')).map(r => r.querySelectorAll('td,th').length), 0
-  );
+  // ── Pilih tabel prosedur ──
+  // ROOT CAUSE FIX: header tabel Badilag pakai colspan (5 <td> fisik untuk 11 kolom efektif)
+  // Sehingga rows[0].cells.length = 5, BUKAN 11 — filter >= 9 selalu gagal di header!
+  // Solusi: hitung maxCols dari BARIS DATA (skip baris yang kemungkinan header).
+  // Baris data = baris yang kolom pertamanya berisi angka urut (1, 2, 3...)
+  const getDataRowCols = t => {
+    const rows = Array.from(t.querySelectorAll('tr'));
+    for (const row of rows) {
+      const tds = row.querySelectorAll('td');
+      const col0 = tds[0]?.textContent.trim();
+      // Baris data: kolom 0 = angka, kolom 1 = teks cukup panjang
+      if (/^\d{1,2}$/.test(col0) && tds.length >= 6) return tds.length;
+    }
+    // Fallback: baris terbanyak sel
+    return Math.max(...rows.map(r => r.querySelectorAll('td,th').length), 0);
+  };
 
-  // Cari tabel dengan >= 9 kolom terlebih dahulu (standar Badilag)
-  const sortedByWidth = [...tables].sort((a,b) => maxCols(b) - maxCols(a));
-  let tabel = sortedByWidth.find(t => maxCols(t) >= 9 && t.querySelectorAll('tr').length >= 3);
-  // Fallback: >= 6 kolom
-  if (!tabel) tabel = sortedByWidth.find(t => maxCols(t) >= 6 && t.querySelectorAll('tr').length >= 3);
+  // Urutkan: tabel dengan baris data paling banyak kolom = tabel prosedur
+  const sortedByWidth = [...tables].sort((a,b) => getDataRowCols(b) - getDataRowCols(a));
+  let tabel = sortedByWidth.find(t =>
+    getDataRowCols(t) >= 6 && t.querySelectorAll('tr').length >= 3
+  );
+  if (!tabel) tabel = sortedByWidth[0];
   if (!tabel) return [];
 
-  // ── Temukan startIdx: baris data pertama (kolom 0 = angka urut) ──
-  // Ini adalah pengaman utama vs saran Gemini yang pakai .slice(1) / .slice(2) hardcoded
-  // karena jumlah baris header bisa 1, 2, atau 3 tergantung dokumen
+  // ── Temukan startIdx: baris data pertama ──
+  // Strategi: cari baris di mana kolom 0 = angka urut (1,2,3)
+  // DAN jumlah kolom di baris itu >= 6 (baris data tidak pakai colspan)
   const allRows = Array.from(tabel.querySelectorAll('tr'));
   let startIdx = -1;
   for (let i = 0; i < allRows.length; i++) {
     const cells = allRows[i].querySelectorAll('td');
-    const col0  = cells[0]?.textContent.trim();
-    const col1  = cells[1]?.textContent.trim() || '';
-    if (/^\d{1,2}$/.test(col0) && col1.length >= 4) {
-      // Bukan baris header yang kebetulan ada angka
+    const n    = cells.length;
+    const col0 = cells[0]?.textContent.trim();
+    const col1 = cells[1]?.textContent.trim() || '';
+    // Baris data valid: angka di col0, teks bermakna di col1, dan kolom >= 6
+    // (baris header di tabel Badilag sering punya < 6 karena colspan)
+    if (/^\d{1,2}$/.test(col0) && col1.length >= 5 && n >= 6) {
       const looksLikeHeader = col1 === col1.toUpperCase() && col1.length < 25 && !/[,;.\d]/.test(col1);
       if (!looksLikeHeader) { startIdx = i; break; }
     }
   }
-  // Fallback Gemini: slice(1) jika tidak ketemu angka di kolom 0
-  if (startIdx === -1) startIdx = 1;
-  if (startIdx >= allRows.length) return [];
+  if (startIdx === -1) {
+    // Fallback: cari baris pertama dengan >= 6 kolom (skip baris colspan header)
+    for (let i = 0; i < allRows.length; i++) {
+      if (allRows[i].querySelectorAll('td').length >= 6) { startIdx = i; break; }
+    }
+  }
+  if (startIdx < 0 || startIdx >= allRows.length) return [];
 
   // ── Filter baris identitas yang nyasar ──
   const IDENTITAS_RE = /^(nomor\s*sop|nama\s*sop|tanggal\s*(pembuatan|revisi|efektif)|disahkan\s*oleh|tgl\s*(pembuatan|revisi|efektif)|unit\s*e[\-\s]?(iii|iv|3|4)|instansi|alamat|direktorat\s*jenderal.*mahkamah)/i;
