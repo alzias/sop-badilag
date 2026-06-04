@@ -958,26 +958,33 @@ async function triggerGeminiClosing(skipEmail) {
   const pantun = pantunList[Math.floor(Math.random() * pantunList.length)];
   const pesan = 'Terima kasih telah menggunakan layanan SOPI, ' + namaUser + '. Untuk konsultasi SOP berikutnya, dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag.\n\n' + pantun + '\n\nWassalamualaikum Wr. Wb. / Salam Sejahtera 🙏';
   addMsg(pesan, false);
-  // Countdown logout — hanya dimulai setelah email terkirim atau user menolak
-  function startLogoutCountdown() {
-    let sec = 10;
-    const countEl = document.createElement('div');
-    countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;';
-    countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-    document.getElementById('chatArea').appendChild(countEl);
-    document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
-    const timer = setInterval(() => {
-      sec--;
-      countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
-      if(sec <= 0) { clearInterval(timer); doLogout(); }
-    }, 1000);
-  }
+  // Countdown — panggil fungsi global startLogoutCountdown()
   // Jika skipEmail = true (user sudah menolak email), langsung countdown
   if(skipEmail) { startLogoutCountdown(); return; }
   // Jika user sudah di awaitAddress state → email baru saja dikirim → langsung countdown
   if(S.sessionState === 'closing') { startLogoutCountdown(); return; }
   // Seharusnya tidak sampai sini karena state machine handle email dulu
   startLogoutCountdown();
+}
+
+// ══ COUNTDOWN LOGOUT — fungsi global ══
+function startLogoutCountdown() {
+  // Cegah duplikasi countdown
+  if(document.getElementById('logoutCountEl')) return;
+  const chatArea = document.getElementById('chatArea');
+  if(!chatArea) { setTimeout(doLogout, 10000); return; }
+  let sec = 12;
+  const countEl = document.createElement('div');
+  countEl.id = 'logoutCountEl';
+  countEl.style.cssText = 'text-align:center;color:var(--mu);font-size:12px;padding:12px 8px;letter-spacing:0.5px;';
+  countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
+  chatArea.appendChild(countEl);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  const timer = setInterval(function() {
+    sec--;
+    if(countEl) countEl.textContent = '🔒 Sesi ditutup dalam ' + sec + ' detik...';
+    if(sec <= 0) { clearInterval(timer); doLogout(); }
+  }, 1000);
 }
 
 // ══ KIRIM REKAP EMAIL VIA WORKER ══
@@ -1592,9 +1599,25 @@ async function sendMsg(){
     } else if(wDrive && !myDr.length) {
       addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
     }
-    // Auto logout setelah konfirmasi email atau penolakan
-    // Closing sekarang dihandle sepenuhnya oleh state machine (awaitEmail/awaitAddress)
-    // TIDAK ada auto-close dari Gemini reply — mencegah bypass email confirmation
+    // ══ POST-REPLY: cek state untuk trigger email + countdown ══
+    if(S.sessionState === 'closing') {
+      // State sudah closing — cari email dari history user terbaru
+      const lastUserMsgs = S.history.filter(function(h){ return h.role==='user'; });
+      const lastTxt = lastUserMsgs.length ? lastUserMsgs[lastUserMsgs.length-1].content : '';
+      const emailPat = new RegExp('[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}');
+      const emailFound = lastTxt.match(emailPat);
+
+      if(emailFound) {
+        // Kirim rekap email
+        const emailAddr = emailFound[0];
+        sendRekapEmail(emailAddr).then(function(r) {
+          if(r && r.success) console.log('✅ Email rekap terkirim ke', emailAddr);
+          else console.warn('❌ Gagal kirim email:', r && r.error);
+        }).catch(function(e){ console.warn('Email error:', e); });
+      }
+      // Start countdown logout
+      setTimeout(function(){ startLogoutCountdown(); }, 1500);
+    }
   }catch(e){
     hideTyping();
     const stEl3=document.getElementById('stText'); if(stEl3) stEl3.textContent='⚠ Koneksi terputus';
@@ -1606,11 +1629,11 @@ async function sendMsg(){
 // ══ GEMINI API HELPER ══
 // API key aman di Cloudflare Worker - tidak ada key di sini
 const WORKER_URL = 'https://sop-ai-proxy.rio-prastia.workers.dev';
-async function callGemini(systemPrompt, messages) {
+async function callGemini(systemPrompt, messages, maxTokens) {
   const res = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ systemPrompt, messages })
+    body: JSON.stringify({ systemPrompt, messages, maxTokens: maxTokens || 2000 })
   });
   if (!res.ok) throw new Error('Worker error: ' + res.status);
   const data = await res.json();
