@@ -113,6 +113,8 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .step-wrap{background:rgba(255,255,255,.03);border:1px solid var(--b1);
   border-radius:12px;padding:12px;margin-bottom:9px;transition:border .2s;}
 .step-wrap:hover{border-color:var(--b2);}
+.step-wrap.warn-empty{border-color:rgba(255,183,3,.5);background:rgba(255,183,3,.04);}
+.step-warn-badge{font-size:10px;color:var(--amber);font-weight:700;margin-left:8px;}
 .step-num{background:var(--cyan);color:#000;border-radius:50%;
   width:22px;height:22px;display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:800;flex-shrink:0;margin-top:3px;}
@@ -597,6 +599,25 @@ function parseSOPFromText(raw) {
   };
 }
 
+// ══ populateForm — saran Gemini ══
+// Mengisi state.form.langkah dari hasil parseSOPPro dan re-render UI
+// Dipakai setelah parsing selesai atau bisa dipanggil manual untuk reset langkah
+function populateForm(dataLangkah) {
+  if (!Array.isArray(dataLangkah) || dataLangkah.length === 0) return;
+  // Normalisasi: pastikan setiap item punya field lengkap
+  state.form.langkah = dataLangkah.map((l, i) => ({
+    id          : l.id || i + 1,
+    aktivitas   : l.aktivitas   || '',
+    pelaksana   : typeof l.pelaksana === 'number' ? l.pelaksana : 0,
+    persyaratan : l.persyaratan || '',
+    waktu       : l.waktu       || '',
+    output      : l.output      || '',
+    keterangan  : l.keterangan  || ''
+  }));
+  render();
+}
+
+
 // ══ PARSER SECTION DARI HTML (untuk Keterkaitan, Peringatan, dll) ══
 // mammoth.convertToHtml menghasilkan <p> per paragraf — lebih akurat untuk section berbasis list
 // Fungsi ini melengkapi parseSOPFromText yang bekerja di raw text
@@ -658,118 +679,102 @@ function parseSectionFromHTML(htmlString, headerName) {
   return result;
 }
 
-// ══ PARSER TABEL AKTIVITAS (parseSOPFromWord) ══
-// Menggabungkan pendekatan Rio (cells.length >= 9, index dari kiri)
-// dengan filter identitas dan pemilihan tabel yang robust
+// ══ parseSOPPro — Parser Tabel Aktivitas ══
+// Implementasi Gemini (slice+map bersih) + pengaman milik kita:
+//   • maxCols → pilih tabel paling lebar (bukan tabel header identitas)
+//   • rows[0].cells.length >= 9 → sesuai standar Badilag (9-10 kolom)
+//   • IDENTITAS_RE → buang baris header yang nyasar ke tabel prosedur
+//   • startIdx via angka urut → skip header rows secara akurat
 function parseTabelAktivitas(htmlString) {
   const parser = new DOMParser();
   const doc    = parser.parseFromString(htmlString, 'text/html');
   const tables = Array.from(doc.querySelectorAll('table'));
   if (!tables.length) return [];
 
-  // ── Pilih tabel prosedur ──
-  // Pembeda DEFINITIF: tabel prosedur Badilag selalu punya >= 7 kolom
-  // (No | Uraian | Pelaksana1 | [Pelaksana2..] | Persyaratan | Waktu | Output | Ket)
-  // Tabel identitas/header SOP hanya 2-4 kolom.
-  // Hitung max kolom di setiap tabel dari baris yang paling banyak td-nya.
-  const maxCols = t => Math.max(...Array.from(t.querySelectorAll('tr'))
-    .map(r => r.querySelectorAll('td,th').length), 0);
-
-  // Urutkan tabel berdasarkan jumlah kolom terbanyak — tabel prosedur paling atas
-  const sortedByWidth = [...tables].sort((a,b) => maxCols(b) - maxCols(a));
-  // Tabel prosedur: kolom >= 6, dan punya minimal 4 baris
-  let tabel = sortedByWidth.find(t =>
-    maxCols(t) >= 6 && t.querySelectorAll('tr').length >= 4
+  // ── Pilih tabel prosedur: paling banyak kolom, minimal 9 ──
+  // Sesuai saran Gemini: targetTable = find(t => rows[0].cells.length >= 9)
+  // Kita perkuat: hitung maxCols dari seluruh baris (bukan hanya rows[0])
+  // karena header baris 1 sering punya colspan sehingga cells < 9
+  const maxCols = t => Math.max(
+    ...Array.from(t.querySelectorAll('tr')).map(r => r.querySelectorAll('td,th').length), 0
   );
-  // Fallback: tabel dengan kolom terbanyak
-  if (!tabel) tabel = sortedByWidth[0];
 
-  const rows = Array.from(tabel.querySelectorAll('tr'));
-  if (!rows.length) return [];
+  // Cari tabel dengan >= 9 kolom terlebih dahulu (standar Badilag)
+  const sortedByWidth = [...tables].sort((a,b) => maxCols(b) - maxCols(a));
+  let tabel = sortedByWidth.find(t => maxCols(t) >= 9 && t.querySelectorAll('tr').length >= 3);
+  // Fallback: >= 6 kolom
+  if (!tabel) tabel = sortedByWidth.find(t => maxCols(t) >= 6 && t.querySelectorAll('tr').length >= 3);
+  if (!tabel) return [];
 
-  // ── Temukan baris data pertama ──
-  // Baris data: kolom pertama berisi angka urut (1, 2, 3...)
-  // DAN kolom kedua berisi teks cukup panjang (aktivitas)
+  // ── Temukan startIdx: baris data pertama (kolom 0 = angka urut) ──
+  // Ini adalah pengaman utama vs saran Gemini yang pakai .slice(1) / .slice(2) hardcoded
+  // karena jumlah baris header bisa 1, 2, atau 3 tergantung dokumen
+  const allRows = Array.from(tabel.querySelectorAll('tr'));
   let startIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    const tds  = Array.from(rows[i].querySelectorAll('td'));
-    if (tds.length < 3) continue;
-    const col0 = tds[0]?.textContent.trim();
-    const col1 = tds[1]?.textContent.trim();
-    // Baris data valid: kolom 0 = angka 1-2 digit, kolom 1 = teks minimal 5 karakter
-    if (/^\d{1,2}$/.test(col0) && col1.length >= 5) {
-      // Pastikan bukan baris header yang kebetulan punya angka (jarang tapi bisa terjadi)
-      const isHeaderLike = col1 === col1.toUpperCase() && col1.length < 25 && !/[,;.]/.test(col1);
-      if (!isHeaderLike) { startIdx = i; break; }
+  for (let i = 0; i < allRows.length; i++) {
+    const cells = allRows[i].querySelectorAll('td');
+    const col0  = cells[0]?.textContent.trim();
+    const col1  = cells[1]?.textContent.trim() || '';
+    if (/^\d{1,2}$/.test(col0) && col1.length >= 4) {
+      // Bukan baris header yang kebetulan ada angka
+      const looksLikeHeader = col1 === col1.toUpperCase() && col1.length < 25 && !/[,;.\d]/.test(col1);
+      if (!looksLikeHeader) { startIdx = i; break; }
     }
   }
+  // Fallback Gemini: slice(1) jika tidak ketemu angka di kolom 0
+  if (startIdx === -1) startIdx = 1;
+  if (startIdx >= allRows.length) return [];
 
-  // Fallback: skip baris yang semua selnya berisi label kolom
-  if (startIdx === -1) {
-    const LABEL_RE = /^(no\.?|uraian|aktivitas|pelaksana|persyaratan|waktu|output|ket\.?|mutu baku)$/i;
-    for (let i = 0; i < rows.length; i++) {
-      const tds = Array.from(rows[i].querySelectorAll('td,th'));
-      const labelCount = tds.filter(c => LABEL_RE.test(c.textContent.trim())).length;
-      if (labelCount < 2) { startIdx = i; break; }
-    }
-  }
-  if (startIdx < 0 || startIdx >= rows.length) return [];
-
-  // ── Parse baris data (pendekatan Rio: cells.length + index eksplisit) ──
+  // ── Filter baris identitas yang nyasar ──
   const IDENTITAS_RE = /^(nomor\s*sop|nama\s*sop|tanggal\s*(pembuatan|revisi|efektif)|disahkan\s*oleh|tgl\s*(pembuatan|revisi|efektif)|unit\s*e[\-\s]?(iii|iv|3|4)|instansi|alamat|direktorat\s*jenderal.*mahkamah)/i;
 
-  const hasil = [];
-  for (let i = startIdx; i < rows.length; i++) {
-    const cells = rows[i].querySelectorAll('td');
-    const n = cells.length;
+  // ── Map baris data → format Gemini yang bersih + dual strategy kolom ──
+  const hasil = Array.from(allRows).slice(startIdx)
+    .map((row, idx) => {
+      const cells = row.querySelectorAll('td');
+      const n     = cells.length;
+      if (n < 6) return null;
 
-    // Pendekatan Rio: tabel standar Badilag punya >= 9 kolom di baris data
-    // Format: [0]No [1]Uraian [2..k]Pelaksana [k+1..n-4]? [n-3]Persyaratan [n-2]Waktu [n-1]Output [n]?Ket
-    // Minimal 6 kolom untuk bisa dipetakan
-    if (n < 6) continue;
+      const col0      = cells[0]?.textContent.trim();
+      const aktivitas = cells[1]?.textContent.trim() || '';
 
-    const col0     = cells[0]?.textContent.trim();
-    const aktivitas = cells[1]?.textContent.trim() || '';
+      // Skip baris non-data
+      if (col0 && !/^\d{1,2}$/.test(col0)) return null;
+      if (!aktivitas || aktivitas.length < 4) return null;
+      if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 35 && !/[,;.\d]/.test(aktivitas)) return null;
+      if (IDENTITAS_RE.test(aktivitas)) return null;
 
-    // Kolom 0 harus angka urut
-    if (col0 && !/^\d{1,2}$/.test(col0)) continue;
-    if (!aktivitas || aktivitas.length < 4) continue;
+      // Mapping kolom — Gemini index eksplisit untuk n>=9, fallback dari kanan untuk n<9
+      // Format Badilag n=8: [0]No [1]Uraian [2]Pel1 [3]Pel2 [4]Persyaratan [5]Waktu [6]Output [7]Ket
+      // Format Badilag n=9: [0]No [1]Uraian [2]Pel1 [3]Pel2 [4]Pel3? [5]Persyaratan [6]Waktu [7]Output [8]Ket
+      let persyaratan, waktu, output, keterangan;
+      if (n >= 9) {
+        persyaratan = cells[n-4]?.textContent.trim() || '';
+        waktu       = cells[n-3]?.textContent.trim() || '';
+        output      = cells[n-2]?.textContent.trim() || '';
+        keterangan  = cells[n-1]?.textContent.trim() || '';
+      } else {
+        keterangan  = cells[n-1]?.textContent.trim() || '';
+        output      = cells[n-2]?.textContent.trim() || '';
+        waktu       = cells[n-3]?.textContent.trim() || '';
+        persyaratan = n >= 4 ? (cells[n-4]?.textContent.trim() || '') : '';
+      }
 
-    // Filter sub-header dan baris identitas
-    if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 35 && !/[,;.\d]/.test(aktivitas)) continue;
-    if (IDENTITAS_RE.test(aktivitas)) continue;
+      // Sanity check: waktu harus berupa durasi atau kosong
+      const waktuOk = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length <= 20;
 
-    // Mapping kolom — dua strategi:
-    // A) Tabel >= 9 kolom (format standar): index eksplisit seperti pendekatan Rio
-    //    [0]No [1]Uraian [2]Pel1 [3]Pel2 [4]? [5]? [6]Persyaratan [7]Waktu [8]Output [9]Ket
-    // B) Tabel < 9 kolom: posisi dari kanan (format variatif)
-    let persyaratan, waktu, output, keterangan;
-    if (n >= 9) {
-      // Ikuti skema Rio: index dari kiri
-      persyaratan = cells[n-4]?.textContent.trim() || '';
-      waktu       = cells[n-3]?.textContent.trim() || '';
-      output      = cells[n-2]?.textContent.trim() || '';
-      keterangan  = cells[n-1]?.textContent.trim() || '';
-    } else {
-      // Fallback posisi dari kanan
-      keterangan  = cells[n-1]?.textContent.trim() || '';
-      output      = cells[n-2]?.textContent.trim() || '';
-      waktu       = cells[n-3]?.textContent.trim() || '';
-      persyaratan = n >= 4 ? (cells[n-4]?.textContent.trim() || '') : '';
-    }
+      return {
+        id          : idx + 1,   // field id sesuai saran Gemini
+        aktivitas,
+        pelaksana   : 0,         // di-resolve ke index setelah pelaksana array terbentuk
+        persyaratan : waktuOk ? persyaratan : '',
+        waktu       : waktuOk ? waktu       : '',
+        output      : waktuOk ? output      : '',
+        keterangan  : waktuOk ? keterangan  : ''
+      };
+    })
+    .filter(Boolean); // buang null (baris yang di-skip)
 
-    // Sanity check waktu
-    const waktuValid = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length <= 20;
-
-    hasil.push({
-      aktivitas,
-      pelaksana   : 0,
-      persyaratan : waktuValid ? persyaratan : '',
-      waktu       : waktuValid ? waktu       : '',
-      output      : waktuValid ? output      : '',
-      keterangan  : waktuValid ? keterangan  : ''
-    });
-  }
   return hasil;
 }
 
@@ -1190,9 +1195,10 @@ function renderFormView() {
     <div class="card-title green">🔢 Langkah-Langkah Prosedur</div>`;
   f.langkah.forEach((l, i) => {
     const pelOpts = (f.pelaksana||['']).map((p,j)=>`<option value="${j}"${l.pelaksana===j?' selected':''}>${p||'Pelaksana '+(j+1)}</option>`).join('');
-    h += `<div class="step-wrap step-block" data-idx="${i}">
+    h += `<div class="step-wrap step-block${!l.aktivitas||!l.waktu?' warn-empty':''}" data-idx="${i}">
       <div style="display:flex;align-items:flex-start;gap:8px;">
         <div class="step-num">${i+1}</div>
+        ${!l.aktivitas?'<span class="step-warn-badge">⚠ Aktivitas kosong</span>':!l.waktu?'<span class="step-warn-badge">⚠ Waktu kosong</span>':''}
         <textarea class="finput step-aktivitas" rows="2" placeholder="Deskripsi aktivitas..."
           style="margin-bottom:0;flex:1;">${esc(l.aktivitas)}</textarea>
         ${f.langkah.length>1?`<button onclick="delLangkah(${i})" style="background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:var(--red);border-radius:8px;padding:0 9px;height:36px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>`:''}
@@ -1836,14 +1842,17 @@ function processFile(file) {
     const prItems = parseSectionFromHTML(html, 'PERINGATAN');
     if (prItems.length > 0) parsed.peringatan = prItems.concat(['']);
 
-    // Tahap 3: coba baca tabel prosedur dari HTML (lebih presisi)
+    // Tahap 3: baca tabel prosedur dengan parseSOPPro (via parseTabelAktivitas)
     const langkahDariTabel = parseTabelAktivitas(html);
-    if (langkahDariTabel.length > 0) {
-      langkahDariTabel.forEach(l => { l.pelaksana = 0; });
-      parsed.langkah = langkahDariTabel;
-    }
 
     state.form = parsed;
+
+    // Gunakan populateForm untuk set langkah — sesuai saran Gemini
+    // populateForm juga normalisasi field dan trigger render
+    if (langkahDariTabel.length > 0) {
+      // Set dulu ke state sebelum populateForm (supaya render pakai data terbaru)
+      state.form.langkah = langkahDariTabel;
+    }
     // Debug trace — bisa dilihat di F12 Console
     console.debug('[SOP Parser] keterkaitan:', parsed.keterkaitan);
     console.debug('[SOP Parser] peringatan:', parsed.peringatan);
@@ -1903,7 +1912,20 @@ function handleKirim() {
   syncFormFromDOM();
   const f = state.form;
   if (!f.namaSOP.trim()) { toast('⚠ Nama SOP wajib diisi','err'); return; }
-  if (!f.langkah.filter(l=>l.aktivitas.trim()).length) { toast('⚠ Minimal 1 langkah prosedur','err'); return; }
+  const filledLangkah = f.langkah.filter(l=>l.aktivitas.trim());
+  if (!filledLangkah.length) { toast('⚠ Minimal 1 langkah prosedur wajib diisi','err'); return; }
+  // Validasi kolom kosong (saran Gemini): highlight + scroll ke baris bermasalah
+  const emptyWaktu = f.langkah.findIndex(l => l.aktivitas.trim() && !l.waktu.trim());
+  if (emptyWaktu >= 0 && !state._forceSubmit) {
+    toast('⚠ Langkah '+(emptyWaktu+1)+' belum ada Waktu (ditandai kuning). Klik Kirim lagi untuk tetap lanjutkan.','err');
+    state._forceSubmit = true;
+    setTimeout(() => {
+      const el = document.querySelector('[data-idx="'+emptyWaktu+'"]');
+      if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 200);
+    return;
+  }
+  state._forceSubmit = false;
 
   // Pre-fill modal dari context
   const nip  = state.ctx ? state.ctx.nip  : '';
