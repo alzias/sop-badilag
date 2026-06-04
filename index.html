@@ -1260,8 +1260,38 @@ async function sendMsg(){
   const drKw=['drive saya','folder saya','tampilkan drive','lihat drive','akses drive','drive ku','dokumen saya','sop saya','file saya'];
   const wDrive = S.mode==='pegawai' && drKw.some(k=>txt.toLowerCase().includes(k));
 
-  // Semua query (pegawai, org, SOP) dihandle Gemini via system prompt
-  // Data lengkap sudah dikirim di pegawaiCtx + hierarchyInfo + sopInfo
+  // ══ Persiapkan data drive untuk ditampilkan setelah Gemini reply ══
+  let myDr = [];
+  let driveAccessLevel = 'eselon4';
+  if(S.mode === 'pegawai' && S.user && S.user.dept) {
+    const jabLow = (S.user.jabatan||'').toLowerCase();
+    const isTopJabatan = jabLow.includes('direktur jenderal') || jabLow.includes('dirjen')
+      || jabLow.includes('sekretaris direktorat jenderal') || jabLow.includes('sekretaris ditjen');
+    const isE3 = jabLow.includes('kepala bagian') || jabLow.includes('kabag')
+      || jabLow.includes('kepala sub direktorat') || jabLow.includes('kasubdit');
+
+    if(isTopJabatan) {
+      myDr = S.drives.slice();
+      driveAccessLevel = 'eselon2';
+    } else if(isE3) {
+      // Eselon III: drive semua unit di bawahnya
+      const e3Id = S.user.dept ? S.user.dept.id : '';
+      const E3map = E3_TO_E4_MAP[e3Id] || {};
+      const childIds = E3map.children || [];
+      myDr = S.drives.filter(function(d){
+        return d.deptId === e3Id || childIds.includes(d.deptId);
+      });
+      driveAccessLevel = 'eselon3';
+    } else {
+      // Eselon IV: drive unit sendiri saja
+      myDr = S.drives.filter(function(d){ return d.deptId === S.user.dept.id; });
+      driveAccessLevel = 'eselon4';
+    }
+    // Jika tidak ada yg cocok, tetap tampilkan milik unit sendiri
+    if(!myDr.length) {
+      myDr = S.drives.filter(function(d){ return d.deptId === S.user.dept.id; });
+    }
+  }
 
   showTyping();
   const stEl=document.getElementById('stText'); if(stEl) stEl.textContent='AI memproses...';
