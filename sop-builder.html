@@ -596,6 +596,50 @@ function parseSOPFromText(raw) {
   };
 }
 
+// ══ PARSER SECTION DARI HTML (untuk Keterkaitan, Peringatan, dll) ══
+// mammoth.convertToHtml menghasilkan <p> per paragraf — lebih akurat untuk section berbasis list
+// Fungsi ini melengkapi parseSOPFromText yang bekerja di raw text
+function parseSectionFromHTML(htmlString, headerName) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, 'text/html');
+  const ALL_HEADERS = ['DASAR HUKUM','KUALIFIKASI PELAKSANA','KETERKAITAN',
+    'PERALATAN','PERINGATAN','PENCATATAN','PELAKSANA','LANGKAH','URAIAN KEGIATAN','MUTU BAKU'];
+  const isOtherHeader = txt => {
+    const up = txt.toUpperCase().trim();
+    return ALL_HEADERS.some(h => h !== headerName.toUpperCase() &&
+      (up === h || (up.startsWith(h) && up.length <= h.length + 6)));
+  };
+
+  const elems = Array.from(doc.querySelectorAll('p, li'));
+  const result = [];
+  let found = false;
+
+  for (const el of elems) {
+    const txt = el.textContent.trim();
+    if (!txt) continue;
+    const up = txt.toUpperCase().replace(/[:\t]+$/, '').trim();
+
+    // Deteksi header section ini
+    if (!found) {
+      if (up === headerName.toUpperCase() ||
+          (up.startsWith(headerName.toUpperCase()) && up.length <= headerName.length + 6) ||
+          (up.length <= 60 && up.includes(headerName.toUpperCase()))) {
+        found = true;
+      }
+      continue;
+    }
+
+    // Berhenti kalau ketemu header section lain
+    if (isOtherHeader(up)) break;
+
+    // Filter noise (label saja tanpa isi)
+    const NOISE_RE = /^(kualifikasi pelaksana|keterkaitan|peralatan|peringatan|pencatatan|pelaksana|dasar hukum|mutu baku|persyaratan|waktu|output|ket\.?)\s*[:\t]*$/i;
+    if (NOISE_RE.test(txt)) continue;
+    if (txt.length > 3) result.push(txt.replace(/^\d+[.)\s]+/, '').replace(/^[•\-\*]\s*/, '').trim());
+  }
+  return result;
+}
+
 // ══ PARSER TABEL AKTIVITAS (DOM-based, untuk tabel prosedur di Word) ══
 // Digunakan jika mammoth.convertToHtml berhasil membaca tabel utama SOP
 function parseTabelAktivitas(htmlString) {
@@ -604,61 +648,91 @@ function parseTabelAktivitas(htmlString) {
   const tables = Array.from(doc.querySelectorAll('table'));
   if (!tables.length) return [];
 
-  // Pilih tabel prosedur: yang punya baris terbanyak DAN ada kata "aktivitas"/"uraian"
-  // Format Badilag: tabel besar dengan kolom: No | Uraian | [pelaksana cols] | Persyaratan | Waktu | Output | Ket
+  // ── Pilih tabel prosedur ──
+  // Prioritas: tabel yang punya kata "uraian"/"aktivitas" DAN baris terbanyak
   const isProsesTabel = t => {
     const txt = t.textContent.toLowerCase();
-    return (txt.includes('aktivitas') || txt.includes('uraian kegiatan') || txt.includes('uraian')) &&
-           t.querySelectorAll('tr').length > 3;
+    return t.querySelectorAll('tr').length > 3 &&
+      (txt.includes('uraian kegiatan') || txt.includes('uraian aktivitas') ||
+       txt.includes('aktivitas') || txt.includes('no.') || txt.includes('no '));
   };
-  let tabel = tables.find(isProsesTabel) || tables.reduce((a,b) =>
-    b.querySelectorAll('tr').length > a.querySelectorAll('tr').length ? b : a
-  );
+  const tabel = tables.find(isProsesTabel)
+    || tables.reduce((a,b) => b.querySelectorAll('tr').length > a.querySelectorAll('tr').length ? b : a);
   const rows = Array.from(tabel.querySelectorAll('tr'));
   if (!rows.length) return [];
 
-  // Deteksi baris header secara heuristik: teks pendek + tidak ada angka di kolom pertama
-  const isHeaderRow = row => {
-    const cells = Array.from(row.querySelectorAll('td,th'));
-    if (!cells.length) return true;
-    const first = cells[0]?.textContent.trim();
-    // Header: kolom pertama berisi "No", "NO", angka 0, atau kosong
-    if (/^(no\.?|no|nomor|#)$/i.test(first) || first === '') return true;
-    // Header: semua sel pendek (teks label) dan tidak ada yang panjang
-    if (cells.every(c => c.textContent.trim().length <= 25)) {
-      const hasLabel = cells.some(c => /^(uraian|aktivitas|pelaksana|persyaratan|waktu|output|ket)/i.test(c.textContent.trim()));
-      if (hasLabel) return true;
-    }
-    return false;
+  // ── Tentukan kolom header: scan semua <tr> dan cari baris yang berisi label kolom ──
+  // Lebih akurat daripada "skip 2 baris": cari baris yang ada kata Uraian/No/Persyaratan
+  const HEADER_LABELS = /^(no\.?|no|uraian|aktivitas|pelaksana|persyaratan|waktu|output|ket\.?|mutu baku|keterangan)$/i;
+  const isHeaderTr = tr => {
+    const cells = Array.from(tr.querySelectorAll('td,th'));
+    if (!cells.length) return true; // baris kosong = phantom dari colspan
+    const nonEmpty = cells.filter(c => c.textContent.trim().length > 0);
+    if (nonEmpty.length === 0) return true;
+    // Hitung berapa sel yang isinya label kolom
+    const labelCount = nonEmpty.filter(c => HEADER_LABELS.test(c.textContent.trim())).length;
+    return labelCount >= 2; // minimal 2 sel label = baris header
   };
 
-  // Cari indeks baris data pertama (setelah semua header)
-  let startIdx = 0;
-  while (startIdx < rows.length && isHeaderRow(rows[startIdx])) startIdx++;
+  // Scan dari bawah untuk cari baris data pertama yang valid
+  // Strategi: cari baris pertama yang kolom pertamanya berisi angka (nomor urut)
+  let startIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const cells = Array.from(rows[i].querySelectorAll('td'));
+    if (!cells.length) continue;
+    const firstTxt = cells[0]?.textContent.trim();
+    // Baris data: kolom pertama berisi angka urut (1, 2, 3...)
+    if (/^\d{1,2}$/.test(firstTxt)) { startIdx = i; break; }
+  }
+  // Fallback: kalau tidak ada angka di kolom 1, skip header dengan isHeaderTr
+  if (startIdx === -1) {
+    startIdx = 0;
+    while (startIdx < rows.length && isHeaderTr(rows[startIdx])) startIdx++;
+  }
   if (startIdx >= rows.length) return [];
 
-  // Analisis struktur kolom dari baris data pertama
-  // Format Badilag v3: [0]No [1]Uraian [2..N-4]Pelaksana cols [N-3]Persyaratan [N-2]Waktu [N-1]Output [N]Ket
+  // ── Tentukan struktur kolom dari baris data pertama ──
+  // Format Badilag: [0]No [1]Uraian [2..k]Pelaksana [k+1]Persyaratan [k+2]Waktu [k+3]Output [k+4]Ket
+  // Hitung jumlah kolom di baris data pertama yang valid
+  const sampleRow = rows[startIdx];
+  const sampleTds = Array.from(sampleRow.querySelectorAll('td'));
+  const totalCols = sampleTds.length;
+
   const hasil = [];
   for (let i = startIdx; i < rows.length; i++) {
     const tds = Array.from(rows[i].querySelectorAll('td'));
-    if (tds.length < 4) continue;
+    if (tds.length < 3) continue; // baris terlalu pendek, skip
+
+    // Kolom pertama harus angka urut atau baris lanjutan (kosong)
+    const col0 = tds[0]?.textContent.trim();
+    if (col0 && !/^\d{1,2}$/.test(col0) && col0.length > 3) continue; // bukan baris data
 
     const aktivitas = tds[1]?.textContent.trim() || '';
     if (!aktivitas || aktivitas.length < 3) continue;
-    // Skip baris yang terlihat seperti sub-header (semua uppercase, singkat)
-    if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 30 && !/[0-9]/.test(aktivitas)) continue;
+
+    // Skip sub-header: teks semua capslock, singkat, tanpa angka
+    if (aktivitas === aktivitas.toUpperCase() && aktivitas.length < 40 && !/\d/.test(aktivitas)) continue;
 
     const n = tds.length;
-    // Mapping fleksibel berdasarkan jumlah kolom:
-    // Minimal: [0]No [1]Uraian [2]Waktu [3]Output → n=4
-    // Standar Badilag: n ≥ 8 → pakai posisi dari kanan
-    const persyaratan = n >= 8 ? (tds[n-4]?.textContent.trim() || '') : '';
-    const waktu       = n >= 3 ? (tds[n-3]?.textContent.trim() || '') : '';
+    // Posisi dari kanan: selalu Ket=last, Output=last-1, Waktu=last-2, Persyaratan=last-3
+    // Jika n < totalCols (merged cell), ambil sesuai yang tersedia
+    const keterangan  = tds[n-1]?.textContent.trim() || '';
     const output      = n >= 2 ? (tds[n-2]?.textContent.trim() || '') : '';
-    const keterangan  = n >= 2 ? (tds[n-1]?.textContent.trim() || '') : '';
+    const waktu       = n >= 3 ? (tds[n-3]?.textContent.trim() || '') : '';
+    const persyaratan = n >= 4 ? (tds[n-4]?.textContent.trim() || '') : '';
 
-    hasil.push({ aktivitas, pelaksana:0, persyaratan, waktu, output, keterangan });
+    // Sanity check: waktu harus terlihat seperti durasi (angka + satuan) atau kosong
+    // Kalau tidak, kemungkinan mapping kolom geser karena colspan — pakai totalCols sebagai acuan
+    const waktuOk = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length < 20;
+
+    hasil.push({
+      aktivitas,
+      pelaksana   : 0,
+      persyaratan : waktuOk ? persyaratan : '',
+      waktu       : waktuOk ? waktu : '',
+      output      : waktuOk ? output : '',
+      keterangan  : waktuOk ? keterangan : ''
+    });
   }
   return hasil;
 }
@@ -1422,26 +1496,46 @@ function processFile(file) {
     // Tahap 1: parse metadata & struktur dari teks biasa
     const parsed = parseSOPFromText(raw);
 
-    // Tahap 2: coba baca tabel prosedur dari HTML (lebih presisi)
+    // Tahap 2: overwrite section berbasis list dari HTML — lebih akurat dari raw text
+    // Keterkaitan & Peringatan sering ada di <p>/<li> yang tidak terbaca parser teks
+    const htmlSections = ['KETERKAITAN','PERINGATAN','DASAR HUKUM','KUALIFIKASI PELAKSANA',
+      'PERALATAN','PENCATATAN'];
+    htmlSections.forEach(sec => {
+      const items = parseSectionFromHTML(html, sec);
+      if (items.length > 0) {
+        const key = {
+          'KETERKAITAN':          'keterkaitan',
+          'PERINGATAN':           'peringatan',
+          'DASAR HUKUM':          'dasarHukum',
+          'KUALIFIKASI PELAKSANA':'kualifikasiPelaksana',
+          'PERALATAN':            'peralatan',
+          'PENCATATAN':           'pencatatan'
+        }[sec];
+        if (key) parsed[key] = items.concat(['']);
+      }
+    });
+
+    // Tahap 3: coba baca tabel prosedur dari HTML (lebih presisi)
     const langkahDariTabel = parseTabelAktivitas(html);
     if (langkahDariTabel.length > 0) {
-      // Sesuaikan index pelaksana dari nama kolom tabel dengan array pelaksana
-      langkahDariTabel.forEach(l => {
-        // Untuk sementara biarkan pelaksana = 0; user bisa sesuaikan di form
-        l.pelaksana = 0;
-      });
+      langkahDariTabel.forEach(l => { l.pelaksana = 0; });
       parsed.langkah = langkahDariTabel;
     }
 
     state.form = parsed;
+    // Debug trace — bisa dilihat di F12 Console
+    console.debug('[SOP Parser] keterkaitan:', parsed.keterkaitan);
+    console.debug('[SOP Parser] peringatan:', parsed.peringatan);
+    console.debug('[SOP Parser] langkah count:', parsed.langkah.filter(l=>l.aktivitas).length);
+    console.debug('[SOP Parser] langkah sample:', parsed.langkah.slice(0,2));
     const lc = parsed.langkah.filter(l=>l.aktivitas).length;
     const pc = parsed.pelaksana.filter(p=>p).length;
     const src = langkahDariTabel.length > 0 ? ' (dari tabel Word)' : ' (dari teks biasa)';
     const ketWarn = langkahDariTabel.length > 0 && langkahDariTabel.some(l=>l.keterangan)
       ? ' ✓ kolom Ket terbaca' : '';
-    state.parseInfo = lc+' langkah'+src+', '+pc+' pelaksana terdeteksi'+ketWarn;
+    state.parseInfo = lc+' langkah '+src+', '+pc+' pelaksana terdeteksi'+ketWarn;
     if (lc === 0) {
-      state.parseInfo += ' — coba format tabel Word pastikan ada kolom Uraian/Aktivitas';
+      state.parseInfo += ' — 0 langkah dari tabel, cek format kolom Uraian/Aktivitas';
     }
     state.fileState = 'done';
     render();
