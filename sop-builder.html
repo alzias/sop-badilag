@@ -1228,8 +1228,18 @@ function bindEvents() {
 
 // ══ FILE PROCESSING ══
 function processFile(file) {
-  if (!file.name.match(/\.(docx|doc)$/i)) {
-    state.fileState='error'; state.parseInfo='Format tidak didukung. Gunakan file .docx atau .doc';
+  // Validasi: cek extension DAN MIME type (untuk file dari WhatsApp/mobile yang nama berubah)
+  const validExt  = file.name.match(/\.(docx|doc)$/i);
+  const validMime = file.type && (
+    file.type.includes('word') ||
+    file.type.includes('document') ||
+    file.type.includes('officedocument') ||
+    file.type.includes('msword') ||
+    file.type === 'application/octet-stream' // beberapa mobile kirim generic
+  );
+  if (!validExt && !validMime) {
+    state.fileState='error';
+    state.parseInfo='Format tidak didukung. Gunakan file .docx atau .doc (MIME: '+file.type+', nama: '+file.name+')';
     render(); return;
   }
   state.fileName = file.name;
