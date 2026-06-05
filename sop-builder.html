@@ -123,6 +123,13 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .step-sublabel.ket{color:var(--cyan);opacity:.7;}
 .step-input.step-keterangan{border-color:rgba(0,245,212,.18);background:rgba(0,245,212,.04);}
 .step-input.step-keterangan:focus{border-color:rgba(0,245,212,.45);}
+/* Multi-pelaksana pills */
+.pel-checks{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;}
+.pel-pill{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--mu2);
+  transition:all .15s;user-select:none;}
+.pel-pill:hover{border-color:var(--cyan);color:var(--cyan);}
+.pel-pill-on{background:rgba(0,245,212,.15);border-color:var(--cyan);color:var(--cyan);}
 .step-sublabel{font-size:10px;font-weight:600;margin-bottom:3px;}
 .step-sublabel.amber{color:var(--amber);}
 .step-sublabel.mu{color:var(--mu2);}
@@ -338,7 +345,7 @@ const EMPTY_FORM = {
   dasarHukum:[""],kualifikasiPelaksana:[""],keterkaitan:[""],
   peralatan:[""],peringatan:[""],pencatatan:[""],
   deskripsi:"",pelaksana:[""],
-  langkah:[{aktivitas:"",pelaksana:0,persyaratan:"",waktu:"",output:"",keterangan:""}]
+  langkah:[{aktivitas:"",pelaksana:[0],persyaratan:"",waktu:"",output:"",keterangan:""}]
 };
 
 // ══ APP STATE ══
@@ -545,18 +552,18 @@ function parseSOPFromText(raw) {
       if (/^(LANGKAH|URAIAN KEGIATAN|PROSEDUR|AKTIVITAS|NO\s*\.\s*URAIAN)/i.test(t)) { inP=true; continue; }
       if (inP) {
         const m=t.match(/^(\d{1,2})[.\)]\s+(.{10,})/);
-        if (m&&!skipRe.test(m[2])) hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
+        if (m&&!skipRe.test(m[2])) hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:[0],persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
         if (hasil.length>=30) break;
       }
     }
     if (!hasil.length) for (const line of lines) {
       const m=line.trim().match(/^(\d{1,2})[.\)]\s+(.{10,})/);
       if (m&&!skipRe.test(m[2])&&m[2].length>15&&!/^\d{4}$/.test(m[2])&&!/^(SOP|Nomor|Nama|Tanggal|Unit|Instansi)/i.test(m[2])) {
-        hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
+        hasil.push({aktivitas:m[2].trim().slice(0,250),pelaksana:[0],persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
         if (hasil.length>=30) break;
       }
     }
-    return hasil.length ? hasil : [{aktivitas:'',pelaksana:0,persyaratan:'',waktu:'',output:'',keterangan:''}];
+    return hasil.length ? hasil : [{aktivitas:'',pelaksana:[0],persyaratan:'',waktu:'',output:'',keterangan:''}];
   };
   const perRe = /^(PP |UU |Undang|Peraturan|Keputusan|Instruksi|Perka|KMA |Surat Edaran|MA |PERMEN|PERPRES|INPRES)/i;
   const dhRaw = getSection('DASAR HUKUM');
@@ -610,7 +617,10 @@ function populateForm(dataLangkah) {
     id          : l.id || i + 1,
     aktivitas   : l.aktivitas   || '',
     // Clamp pelaksana ke range valid — kalau index melebihi jumlah pelaksana, ke 0
-    pelaksana   : typeof l.pelaksana === 'number' ? Math.min(l.pelaksana, nPel - 1) : 0,
+    // Normalisasi pelaksana ke array, clamp semua index ke range valid
+    pelaksana   : (Array.isArray(l.pelaksana)
+      ? l.pelaksana.map(p => Math.min(+p||0, nPel-1))
+      : [Math.min(+(l.pelaksana)||0, nPel-1)]),
     persyaratan : l.persyaratan || '',
     waktu       : l.waktu       || '',
     output      : l.output      || '',
@@ -888,7 +898,7 @@ function parseTabelAktivitas(htmlString) {
       return {
         id          : idx + 1,
         aktivitas,
-        pelaksana   : pelaksanaIdx,  // index relatif ke array pelaksana
+        pelaksana   : [pelaksanaIdx],  // array index — mendukung multi-pelaksana
         persyaratan : waktuOk ? persyaratan : '',
         waktu       : waktuOk ? waktu       : '',
         output      : waktuOk ? output      : '',
@@ -1045,7 +1055,9 @@ async function exportToWord() {
           children:[new Paragraph({
             alignment: AlignmentType.CENTER,
             children:[new TextRun({
-              text: l.pelaksana===pi ? String.fromCharCode(10003) : '',
+              // Multi-pelaksana: centang di semua kolom yang terlibat
+              text: (Array.isArray(l.pelaksana) ? l.pelaksana.includes(pi) : l.pelaksana===pi)
+                    ? String.fromCharCode(10003) : '',
               font:'Arial', size:18, bold:true
             })]
           })]
@@ -1182,6 +1194,31 @@ async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tomb
 }
 
 
+// ══ TOGGLE PELAKSANA MULTI-SELECT ══
+// Dipanggil saat checkbox pelaksana dicentang/dilepas
+// Tidak re-render penuh agar tidak reset posisi scroll
+function togglePelaksana(stepIdx, pelIdx, checked) {
+  syncFormFromDOM();  // ambil state terkini dulu
+  const l = state.form.langkah[stepIdx];
+  if (!l) return;
+  // Pastikan pelaksana adalah array
+  if (!Array.isArray(l.pelaksana)) l.pelaksana = [l.pelaksana || 0];
+  if (checked) {
+    if (!l.pelaksana.includes(pelIdx)) l.pelaksana.push(pelIdx);
+  } else {
+    l.pelaksana = l.pelaksana.filter(p => p !== pelIdx);
+    if (!l.pelaksana.length) l.pelaksana = [0]; // minimal 1 pelaksana
+  }
+  // Update tampilan pill tanpa re-render
+  const block = document.querySelector('.step-block[data-idx="'+stepIdx+'"]');
+  if (block) {
+    block.querySelectorAll('.pel-pill').forEach((pill, pi) => {
+      pill.classList.toggle('pel-pill-on', l.pelaksana.includes(pi));
+    });
+  }
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -1229,7 +1266,12 @@ function syncFormFromDOM() {
   document.querySelectorAll('.step-block').forEach((blk,i)=>{
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
-      pelaksana: +(blk.querySelector('.step-pelaksana')||{value:0}).value,
+      // Multi-pelaksana: baca semua checkbox yang checked
+      pelaksana: (()=>{
+        const cbs = blk.querySelectorAll('.pel-cb:checked');
+        const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
+        return arr.length ? arr : [0];
+      })(),
       persyaratan: (blk.querySelector('.step-persyaratan')||{value:''}).value,
       waktu: (blk.querySelector('.step-waktu')||{value:''}).value,
       output: (blk.querySelector('.step-output')||{value:''}).value,
@@ -1351,9 +1393,18 @@ function renderFormView() {
           <div class="step-sublabel amber">Persyaratan</div>
           <input class="step-input step-persyaratan" value="${esc(l.persyaratan)}" placeholder="Dokumen/syarat...">
         </div>
-        <div>
-          <div class="step-sublabel mu">Pelaksana</div>
-          <select class="step-select step-pelaksana">${pelOpts}</select>
+        <div style="grid-column:span 2;">
+          <div class="step-sublabel mu">Pelaksana (bisa lebih dari 1)</div>
+          <div class="pel-checks" data-step="${i}">
+            ${(f.pelaksana||['']).map((p,j) => {
+              const checked = Array.isArray(l.pelaksana) ? l.pelaksana.includes(j) : l.pelaksana===j;
+              return `<label class="pel-pill${checked?' pel-pill-on':''}">
+                <input type="checkbox" class="pel-cb" data-step="${i}" data-idx="${j}" ${checked?'checked':''}
+                  onchange="togglePelaksana(${i},${j},this.checked)" style="display:none;">
+                ${p||'Pelaksana '+(j+1)}
+              </label>`;
+            }).join('')}
+          </div>
         </div>
         <div>
           <div class="step-sublabel mu">Waktu</div>
@@ -1578,7 +1629,9 @@ function renderFlowchart(f) {
   });
 
   // ── MULAI — oval ──
-  const startCol  = langkah[0] ? langkah[0].pelaksana : 0;
+  const startCol  = langkah[0]
+    ? (Array.isArray(langkah[0].pelaksana) ? langkah[0].pelaksana[0] : langkah[0].pelaksana) || 0
+    : 0;
   const startCX   = colCX(startCol);
   const startCY   = PAD_Y + HDR_H + 18;
   svg += `<ellipse cx="${startCX}" cy="${startCY}" rx="${OVAL_W/2}" ry="${OVAL_H/2}"
@@ -1594,7 +1647,9 @@ function renderFlowchart(f) {
 
   // ── Langkah-langkah — persegi panjang (rounded) ──
   langkah.forEach((l, i) => {
-    const pi  = Math.min(l.pelaksana || 0, pelaksana.length - 1);
+    // Support multi-pelaksana: pakai index pertama sebagai posisi kotak
+    const pelArr = Array.isArray(l.pelaksana) ? l.pelaksana : [l.pelaksana || 0];
+    const pi  = Math.min(pelArr[0] || 0, pelaksana.length - 1);
     const cx  = colCX(pi);
     const cy  = rowCY(i);
     const col = COLORS[pi % COLORS.length];
@@ -1609,6 +1664,22 @@ function renderFlowchart(f) {
 
     // Nomor langkah (circle di sudut kiri atas)
     svg += `<circle cx="${bx + 12}" cy="${by + 12}" r="9" fill="${col.stroke}"/>`;
+
+    // Multi-pelaksana: gambar dot kecil di kolom lain yang terlibat
+    if (pelArr.length > 1) {
+      pelArr.slice(1).forEach(extraPi => {
+        const epi  = Math.min(extraPi, pelaksana.length - 1);
+        const ecx  = colCX(epi);
+        const ecol = COLORS[epi % COLORS.length];
+        // Garis putus-putus dari kotak utama ke kolom tambahan
+        svg += `<line x1="${cx}" y1="${cy}" x2="${ecx}" y2="${cy}"
+          stroke="${ecol.stroke}" stroke-width="1" stroke-dasharray="3 2" opacity="0.6"/>`;
+        // Dot di kolom tambahan
+        svg += `<circle cx="${ecx}" cy="${cy}" r="10" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.5" opacity="0.85"/>`;
+        svg += `<text x="${ecx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle"
+          font-size="7" fill="${ecol.text}" font-family="sans-serif">↔</text>`;
+      });
+    }
     svg += `<text x="${bx + 12}" y="${by + 12}" text-anchor="middle" dominant-baseline="middle"
       font-size="8" font-weight="700" fill="#fff" font-family="sans-serif">${i+1}</text>`;
 
@@ -1620,7 +1691,8 @@ function renderFlowchart(f) {
 
     // ── Panah ke langkah berikutnya ──
     if (i < langkah.length - 1) {
-      const nextPi = Math.min(langkah[i+1].pelaksana || 0, pelaksana.length - 1);
+      const nextPelArr = Array.isArray(langkah[i+1].pelaksana) ? langkah[i+1].pelaksana : [langkah[i+1].pelaksana || 0];
+      const nextPi = Math.min(nextPelArr[0] || 0, pelaksana.length - 1);
       const nextCX = colCX(nextPi);
       const nextCY = rowCY(i + 1);
       const fromX  = cx, fromY = cy + BOX_H/2;
@@ -1641,7 +1713,8 @@ function renderFlowchart(f) {
 
   // ── SELESAI — pentagon/home shape ──
   const lastL    = langkah[langkah.length - 1];
-  const lastPi   = Math.min(lastL.pelaksana || 0, pelaksana.length - 1);
+  const lastPelArr = Array.isArray(lastL.pelaksana) ? lastL.pelaksana : [lastL.pelaksana || 0];
+  const lastPi   = Math.min(lastPelArr[0] || 0, pelaksana.length - 1);
   const endCX    = colCX(lastPi);
   const endCY    = rowCY(langkah.length - 1) + BOX_H/2 + ROW_H * 0.65;
   const endW = 80, endH = 28;
@@ -2036,7 +2109,7 @@ function delMF(key, idx) {
 }
 function addLangkah() {
   syncFormFromDOM();
-  state.form.langkah.push({aktivitas:'',pelaksana:0,persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
+  state.form.langkah.push({aktivitas:'',pelaksana:[0],persyaratan:'',waktu:'1 hari',output:'',keterangan:''});
   render();
 }
 function delLangkah(idx) {
