@@ -1284,6 +1284,9 @@ function closeModal(id) { document.getElementById(id).classList.remove('on'); }
 
 // ══ TAB ══
 function setTab(i) {
+  // PENTING: sync state dari DOM dulu sebelum pindah tab
+  // agar data form tidak hilang saat berpindah antar tab
+  if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
   [0,1,2].forEach(j => {
     const b = document.getElementById('tab'+j);
@@ -1303,17 +1306,28 @@ function syncFormFromDOM() {
   // Sync identitas
   const fields = ['nomorSOP','namaSOP','eselon3','eselon4','instansi','alamat',
                   'tglPembuatan','tglRevisi','tglEfektif','disahkanOleh','deskripsi'];
-  fields.forEach(k => { const v=getFormVal('f_'+k); if(v!==undefined) state.form[k]=v; });
+  // Hanya sync kalau elemen ada di DOM (tab 0 aktif) — jangan overwrite dengan kosong
+  fields.forEach(k => {
+    const el = document.getElementById('f_'+k);
+    if (el && el.value !== undefined) state.form[k] = el.value;
+    // Kalau elemen tidak ada (tab lain aktif), biarkan state yang ada
+  });
   // Sync multifields
   const mfKeys = ['dasarHukum','kualifikasiPelaksana','keterkaitan','peralatan','peringatan','pencatatan','pelaksana'];
   mfKeys.forEach(k => {
-    const items=[];
-    document.querySelectorAll('.mf-item-'+k).forEach(el=>items.push(el.value));
-    if (items.length) state.form[k]=items;
+    const els = document.querySelectorAll('.mf-item-'+k);
+    // Hanya sync kalau elemen benar-benar ada di DOM
+    if (els.length > 0) {
+      const items = [];
+      els.forEach(el => items.push(el.value));
+      state.form[k] = items;
+    }
   });
-  // Sync langkah
+  // Sync langkah — hanya kalau step-block ada di DOM (tab 0 aktif)
+  const stepBlocks = document.querySelectorAll('.step-block');
+  if (stepBlocks.length > 0) {
   const langkah=[];
-  document.querySelectorAll('.step-block').forEach((blk,i)=>{
+  stepBlocks.forEach((blk,i)=>{
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
       // Multi-pelaksana: baca semua checkbox yang checked
@@ -1329,6 +1343,7 @@ function syncFormFromDOM() {
     });
   });
   if (langkah.length) state.form.langkah=langkah;
+  } // end if stepBlocks
 }
 
 // ══ RENDER ══
@@ -1523,8 +1538,8 @@ function renderPreviewView() {
       <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
     </div>` : `
     <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
       <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
+      <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
     </div>`}
     <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
   </div>`;
@@ -1603,7 +1618,7 @@ function renderFlowchart(f) {
     return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
 
   // ── Layout constants ──
-  const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
+  const COL_W  = 130, HDR_H = 44, PAD_X = 20, PAD_Y = 40;  // PAD_Y lebih besar agar MULAI tidak terpotong
   const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
   const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
   const ROW_H  = 90;                 // jarak antar baris
@@ -1798,7 +1813,7 @@ function renderFlowchartSVG(f) {
   // Dimensi — lebih kecil untuk embed di preview
   const nPel    = pelaksana.length;
   const COL_W   = 130, BOX_W = 100, BOX_H = 54;
-  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 30;
+  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 50;  // PAD_Y besar agar MULAI tidak terpotong
   const totalW  = PAD_X*2 + nPel*COL_W;
   const totalH  = PAD_Y + 50 + langkah.length * ROW_H + 80;
 
