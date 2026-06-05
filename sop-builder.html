@@ -605,10 +605,12 @@ function parseSOPFromText(raw) {
 function populateForm(dataLangkah) {
   if (!Array.isArray(dataLangkah) || dataLangkah.length === 0) return;
   // Normalisasi: pastikan setiap item punya field lengkap
+  const nPel = (state.form.pelaksana || []).filter(p => p).length || 1;
   state.form.langkah = dataLangkah.map((l, i) => ({
     id          : l.id || i + 1,
     aktivitas   : l.aktivitas   || '',
-    pelaksana   : typeof l.pelaksana === 'number' ? l.pelaksana : 0,
+    // Clamp pelaksana ke range valid — kalau index melebihi jumlah pelaksana, ke 0
+    pelaksana   : typeof l.pelaksana === 'number' ? Math.min(l.pelaksana, nPel - 1) : 0,
     persyaratan : l.persyaratan || '',
     waktu       : l.waktu       || '',
     output      : l.output      || '',
@@ -872,10 +874,21 @@ function parseTabelAktivitas(htmlString) {
       // Sanity check: waktu harus berupa durasi atau kosong
       const waktuOk = !waktu || /\d|hari|menit|jam|minggu|bulan/i.test(waktu) || waktu.length <= 20;
 
+      // Simpan teks pelaksana dari kolom 2 untuk di-resolve ke index nanti
+      // Format Badilag: kolom 2 = Pelaksana 1, kolom 3 = Pelaksana 2, dst
+      // Kita cek kolom mana yang berisi tanda centang (✓) atau tidak kosong
+      let pelaksanaIdx = 0;
+      const pelStart = 2;
+      const pelEnd   = Math.max(2, n - 4); // kolom pelaksana = antara 2 dan n-4
+      for (let pk = pelStart; pk < pelEnd; pk++) {
+        const c = cells[pk]?.textContent.trim();
+        if (c && c.length > 0 && c !== '' ) { pelaksanaIdx = pk - pelStart; break; }
+      }
+
       return {
-        id          : idx + 1,   // field id sesuai saran Gemini
+        id          : idx + 1,
         aktivitas,
-        pelaksana   : 0,         // di-resolve ke index setelah pelaksana array terbentuk
+        pelaksana   : pelaksanaIdx,  // index relatif ke array pelaksana
         persyaratan : waktuOk ? persyaratan : '',
         waktu       : waktuOk ? waktu       : '',
         output      : waktuOk ? output      : '',
@@ -1114,37 +1127,58 @@ async function exportToWord() {
 }
 
 
-// ══ EXPORT KE PDF ══
-// Menggunakan html2pdf.js untuk cetak langsung dari Preview Dokumen
-// Sesuai pendekatan Rio — target element adalah #previewDoc
-function exportToPDF() {
-  // Pastikan user sedang di tab Preview Dokumen (bukan Flowchart)
-  const element = document.querySelector('.sop-preview-container');
-  if (!element) {
-    toast('Buka tab Preview Dokumen terlebih dahulu, lalu klik Export PDF', 'err');
-    return;
-  }
-  if (!window.html2pdf) {
-    toast('Library html2pdf belum siap, coba lagi sebentar', 'err');
-    return;
-  }
-
+// ══ EXPORT KE JPG ══
+// Export flowchart SVG langsung ke JPG — lebih ringan untuk Google Drive & SOPI
+// Menggunakan Canvas API (built-in browser, tidak perlu library tambahan)
+async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tombol
   const f = state.form;
-  const filename = ((f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-')
-    + ' - ' + (f.namaSOP||'SOP').slice(0,40) + '.pdf');
 
-  const opt = {
-    margin       : [8, 8, 8, 8],
-    filename,
-    image        : { type:'jpeg', quality:0.98 },
-    html2canvas  : { scale:2, useCORS:true, logging:false },
-    jsPDF        : { unit:'mm', format:'a4', orientation:'portrait' }
-  };
+  // Cek apakah ada SVG flowchart yang ter-render
+  const svgEl = document.querySelector('#previewPanel svg');
+  if (!svgEl) {
+    // Coba switch ke flowchart dulu
+    if (typeof switchPreview === 'function') switchPreview('flow');
+    setTimeout(() => exportToPDF(), 500);
+    return;
+  }
 
-  toast('⏳ Membuat PDF...');
-  html2pdf().set(opt).from(element).save()
-    .then(() => toast('✅ PDF berhasil diunduh!'))
-    .catch(e => toast('❌ Gagal: '+e.message, 'err'));
+  try {
+    toast('⏳ Membuat JPG...');
+    const svgData  = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob  = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl   = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      // Render ke canvas dengan skala 2x untuk kualitas tinggi
+      const scale  = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.width  * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(svgUrl);
+
+      // Download sebagai JPG
+      const link = document.createElement('a');
+      const nama  = (f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40);
+      link.download = 'Flowchart - ' + nama + '.jpg';
+      link.href = canvas.toDataURL('image/jpeg', 0.95);
+      link.click();
+      toast('✅ Flowchart berhasil diunduh sebagai JPG!');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(svgUrl);
+      toast('❌ Gagal render SVG ke JPG', 'err');
+    };
+    img.src = svgUrl;
+  } catch(e) {
+    toast('❌ Gagal export JPG: ' + e.message, 'err');
+    console.error(e);
+  }
 }
 
 
@@ -1348,8 +1382,8 @@ function renderFormView() {
     <button onclick="exportToWord()" style="flex:1;padding:12px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
       📄 Export Word
     </button>
-    <button onclick="switchPreview('doc');setTimeout(exportToPDF,400);" style="flex:1;padding:12px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
-      🖨️ Export PDF
+    <button onclick="switchPreview('flow');setTimeout(exportToPDF,500);" style="flex:1;padding:12px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      🖼️ Export JPG
     </button>
   </div>`;
   h += `<button class="btn btn-primary" onclick="handleKirim()">📤 Kirim untuk Review Admin</button>`;
@@ -1396,7 +1430,7 @@ function renderPreviewView() {
       </button>
       <button onclick="exportToPDF()"
         style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
-        🖨️ Export PDF
+        🖼️ Export JPG
       </button>
     </div>
     <div id="previewPanel">${renderFlowchart(f)}</div>
@@ -1956,11 +1990,12 @@ function processFile(file) {
       // Set dulu ke state sebelum populateForm (supaya render pakai data terbaru)
       state.form.langkah = langkahDariTabel;
     }
-    // Debug trace — bisa dilihat di F12 Console
-    console.debug('[SOP Parser] keterkaitan:', parsed.keterkaitan);
-    console.debug('[SOP Parser] peringatan:', parsed.peringatan);
-    console.debug('[SOP Parser] langkah count:', parsed.langkah.filter(l=>l.aktivitas).length);
-    console.debug('[SOP Parser] langkah sample:', parsed.langkah.slice(0,2));
+    // Debug trace (console.log agar kompatibel semua browser termasuk mobile)
+    const _dbg = console.log.bind(console);
+    _dbg('[SOP Parser] keterkaitan:', parsed.keterkaitan);
+    _dbg('[SOP Parser] peringatan:', parsed.peringatan);
+    _dbg('[SOP Parser] langkah count:', parsed.langkah.filter(l=>l.aktivitas).length);
+    _dbg('[SOP Parser] langkah sample:', parsed.langkah.slice(0,2));
     const lc = parsed.langkah.filter(l=>l.aktivitas).length;
     const pc = parsed.pelaksana.filter(p=>p).length;
     const src = langkahDariTabel.length > 0 ? ' (dari tabel Word)' : ' (dari teks biasa)';
