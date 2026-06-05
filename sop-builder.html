@@ -94,8 +94,13 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
 /* MULTIFIELD */
-.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;}
+.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;border-radius:8px;transition:background .12s,opacity .15s;}
+.mf-row.dragging{opacity:0.35;background:rgba(0,245,212,.07);}
+.mf-row.drag-over-top{box-shadow:0 -2px 0 var(--cyan);}
+.mf-row.drag-over-bot{box-shadow:0 2px 0 var(--cyan);}
 .mf-num{color:var(--mu);font-size:12px;min-width:18px;flex-shrink:0;}
+.drag-handle{color:var(--mu);font-size:13px;cursor:grab;padding:0 2px;user-select:none;flex-shrink:0;line-height:1;}
+.drag-handle:hover{color:var(--cyan);}
 .mf-input{flex:1;padding:8px 11px;background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.09);border-radius:9px;color:var(--tx);
   font-size:13px;outline:none;font-family:inherit;transition:border .2s;}
@@ -1269,6 +1274,74 @@ function exportFlowPDF() {
 
 // ══ Fix switchPreview — sync state.previewMode ══
 
+// ══ DRAG & DROP UNTUK MULTIFIELD ══
+// Memungkinkan user reorder item di Dasar Hukum, Peralatan, Pelaksana, dll
+// dengan drag & drop — smooth, tanpa library tambahan
+
+let _dragKey   = null;  // key field yang sedang di-drag (misalnya 'peralatan')
+let _dragIdx   = null;  // index item yang sedang di-drag
+let _dragEl    = null;  // element yang sedang di-drag
+
+function mfDragStart(e) {
+  const row = e.currentTarget;
+  _dragKey = row.dataset.mfkey;
+  _dragIdx = +row.dataset.mfidx;
+  _dragEl  = row;
+  // Sync state dulu agar urutan terkini masuk state
+  syncFormFromDOM();
+  row.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', _dragIdx);
+}
+
+function mfDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget;
+  if (row === _dragEl) return;
+  // Tentukan posisi: atas atau bawah tengah row
+  const rect = row.getBoundingClientRect();
+  const mid  = rect.top + rect.height / 2;
+  document.querySelectorAll('.mf-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bot'));
+  row.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bot');
+}
+
+function mfDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-top','drag-over-bot');
+}
+
+function mfDrop(e, targetIdx) {
+  e.preventDefault();
+  document.querySelectorAll('.mf-row').forEach(r => {
+    r.classList.remove('dragging','drag-over-top','drag-over-bot');
+  });
+  if (_dragKey === null || _dragIdx === null) return;
+
+  const key = _dragKey;
+  const fromIdx = _dragIdx;
+  // Hitung posisi akhir: apakah drop di atas atau bawah target
+  const row  = e.currentTarget;
+  const rect = row.getBoundingClientRect();
+  const dropBefore = e.clientY < rect.top + rect.height / 2;
+  let toIdx = dropBefore ? targetIdx : targetIdx + 1;
+  if (toIdx > fromIdx) toIdx--;  // kompensasi karena elemen sudah dipindah
+
+  if (fromIdx === toIdx) return;
+
+  // Reorder array di state
+  const arr = [...(state.form[key] || [])];
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  state.form[key] = arr;
+
+  // Kalau yang di-drag adalah 'langkah', update index pelaksana tidak berubah
+  // Kalau 'pelaksana', flowchart kolom otomatis ikut urutan baru
+
+  _dragKey = null; _dragIdx = null; _dragEl = null;
+  render();  // re-render form dengan urutan baru
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -1284,9 +1357,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('on'); }
 
 // ══ TAB ══
 function setTab(i) {
-  // PENTING: sync state dari DOM dulu sebelum pindah tab
-  // agar data form tidak hilang saat berpindah antar tab
-  if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
   [0,1,2].forEach(j => {
     const b = document.getElementById('tab'+j);
@@ -1306,28 +1376,17 @@ function syncFormFromDOM() {
   // Sync identitas
   const fields = ['nomorSOP','namaSOP','eselon3','eselon4','instansi','alamat',
                   'tglPembuatan','tglRevisi','tglEfektif','disahkanOleh','deskripsi'];
-  // Hanya sync kalau elemen ada di DOM (tab 0 aktif) — jangan overwrite dengan kosong
-  fields.forEach(k => {
-    const el = document.getElementById('f_'+k);
-    if (el && el.value !== undefined) state.form[k] = el.value;
-    // Kalau elemen tidak ada (tab lain aktif), biarkan state yang ada
-  });
+  fields.forEach(k => { const v=getFormVal('f_'+k); if(v!==undefined) state.form[k]=v; });
   // Sync multifields
   const mfKeys = ['dasarHukum','kualifikasiPelaksana','keterkaitan','peralatan','peringatan','pencatatan','pelaksana'];
   mfKeys.forEach(k => {
-    const els = document.querySelectorAll('.mf-item-'+k);
-    // Hanya sync kalau elemen benar-benar ada di DOM
-    if (els.length > 0) {
-      const items = [];
-      els.forEach(el => items.push(el.value));
-      state.form[k] = items;
-    }
+    const items=[];
+    document.querySelectorAll('.mf-item-'+k).forEach(el=>items.push(el.value));
+    if (items.length) state.form[k]=items;
   });
-  // Sync langkah — hanya kalau step-block ada di DOM (tab 0 aktif)
-  const stepBlocks = document.querySelectorAll('.step-block');
-  if (stepBlocks.length > 0) {
+  // Sync langkah
   const langkah=[];
-  stepBlocks.forEach((blk,i)=>{
+  document.querySelectorAll('.step-block').forEach((blk,i)=>{
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
       // Multi-pelaksana: baca semua checkbox yang checked
@@ -1343,7 +1402,6 @@ function syncFormFromDOM() {
     });
   });
   if (langkah.length) state.form.langkah=langkah;
-  } // end if stepBlocks
 }
 
 // ══ RENDER ══
@@ -1509,7 +1567,9 @@ function inp(label, key, val, ph, type) {
 function renderMultiField(key, label, items, ph) {
   let h = `<label class="flabel amber">${label}</label>`;
   items.forEach((item, i) => {
-    h += `<div class="mf-row">
+    h += `<div class="mf-row" draggable="true" data-mfkey="${key}" data-mfidx="${i}"
+      ondragstart="mfDragStart(event)" ondragover="mfDragOver(event)" ondragleave="mfDragLeave(event)" ondrop="mfDrop(event,${i})">
+      <span class="drag-handle" title="Geser untuk urutkan">⠿</span>
       <span class="mf-num">${i+1}.</span>
       <input class="mf-input mf-item-${key}" value="${esc(item)}" placeholder="${ph}">
       ${items.length>1?`<button class="mf-del" onclick="delMF('${key}',${i})">✕</button>`:''}
@@ -1618,7 +1678,7 @@ function renderFlowchart(f) {
     return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
 
   // ── Layout constants ──
-  const COL_W  = 130, HDR_H = 44, PAD_X = 20, PAD_Y = 40;  // PAD_Y lebih besar agar MULAI tidak terpotong
+  const COL_W  = 130, HDR_H = 44, PAD_X = 20, PAD_Y = 48;  // PAD_Y besar = ruang MULAI tidak terpotong
   const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
   const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
   const ROW_H  = 90;                 // jarak antar baris
@@ -1813,7 +1873,7 @@ function renderFlowchartSVG(f) {
   // Dimensi — lebih kecil untuk embed di preview
   const nPel    = pelaksana.length;
   const COL_W   = 130, BOX_W = 100, BOX_H = 54;
-  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 50;  // PAD_Y besar agar MULAI tidak terpotong
+  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 50;  // ruang atas untuk MULAI
   const totalW  = PAD_X*2 + nPel*COL_W;
   const totalH  = PAD_Y + 50 + langkah.length * ROW_H + 80;
 
