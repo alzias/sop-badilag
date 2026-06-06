@@ -64,6 +64,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 .tab-btn:hover{background:rgba(255,255,255,.08);color:var(--tx);}
 .tab-btn.on{background:var(--cyan);color:#000;}
 .tab-btn.on.amber{background:var(--amber);}
+.tab-btn.on.teal{background:#00c9a7;color:#000;}
 .tab-btn.on.purple{background:var(--purple);}
 
 /* MAIN CONTENT */
@@ -305,9 +306,10 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 
 <!-- TABS -->
 <div class="tabs">
-  <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
-  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
-  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">📋 SOP Saya</button>
+  <button class="tab-btn on"     id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
+  <button class="tab-btn amber"  id="tab1" onclick="setTab(1)">📄 Preview Dokumen</button>
+  <button class="tab-btn teal"   id="tab2" onclick="setTab(2)">🔀 Flowchart</button>
+  <button class="tab-btn purple" id="tab3" onclick="setTab(3)">📋 SOP Saya</button>
 </div>
 
 <!-- MAIN -->
@@ -1407,8 +1409,7 @@ function viewSignedSOP(draftId) {
       nomorSOP   : d.nomorSOP    || sopData.nomorSOP    || '',
       namaSOP    : d.namaSOP     || sopData.namaSOP     || '',
     });
-    state.previewMode = 'doc';
-    setTab(1);
+    setTab(1);  // Tab 1 = Preview Dokumen
     toast('👁️ Membuka preview SOP');
   } catch(e) {
     toast('Gagal membuka SOP: '+e.message, 'err');
@@ -1484,14 +1485,16 @@ function setTab(i) {
   // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
   if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
-  [0,1,2].forEach(j => {
+  [0,1,2,3].forEach(j => {
     const b = document.getElementById('tab'+j);
-    const classes = ['on','on amber','on purple'];
-    if (j===i) b.className = 'tab-btn '+classes[j];
-    else b.className = 'tab-btn ' + (['','amber','purple'][j]);
+    if (!b) return;
+    const activeClasses = ['on','on amber','on teal','on purple'];
+    const inactiveClasses = ['','amber','teal','purple'];
+    if (j===i) b.className = 'tab-btn ' + activeClasses[j];
+    else b.className = 'tab-btn ' + inactiveClasses[j];
   });
   render();
-  if (i===2) loadDrafts();
+  if (i===3) loadDrafts();
 }
 
 // ══ FORM HELPERS ══
@@ -1543,9 +1546,10 @@ function syncFormFromDOM() {
 // ══ RENDER ══
 function render() {
   const cont = document.getElementById('mainContent');
-  if (state.tab===0) cont.innerHTML = renderFormView();
-  else if (state.tab===1) cont.innerHTML = renderPreviewView();
-  else cont.innerHTML = renderAdminView();
+  if      (state.tab===0) cont.innerHTML = renderFormView();
+  else if (state.tab===1) cont.innerHTML = renderPreviewDocTab();
+  else if (state.tab===2) cont.innerHTML = renderFlowchartTab();
+  else                    cont.innerHTML = renderAdminView();
   bindEvents();
 }
 
@@ -1719,54 +1723,52 @@ function renderMultiField(key, label, items, ph) {
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ══ TAB 1: PREVIEW + FLOWCHART ══
-function renderPreviewView() {
+// ══ TAB 1: PREVIEW DOKUMEN (langsung, tanpa sub-tab) ══
+function renderPreviewDocTab() {
   const f = state.form;
-  const isDoc = (state.previewMode !== 'flow');
   return `<div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button class="btn" id="btnDoc" onclick="switchPreview('doc')"
-        style="flex:1;padding:9px;font-size:13px;background:${isDoc?'var(--cyan)':'rgba(255,255,255,.06)'};color:${isDoc?'#000':'var(--mu2)'};">📄 Preview Dokumen</button>
-      <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
-        style="flex:1;padding:9px;font-size:13px;background:${!isDoc?'var(--amber)':'rgba(255,255,255,.06)'};color:${!isDoc?'#000':'var(--mu2)'};">🔀 Flowchart</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="exportToWord()" style="flex:1;padding:10px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
+      <button onclick="exportDocPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
     </div>
-    <div id="previewToolbar" style="display:flex;gap:8px;margin-bottom:10px;">
-      ${isDoc
-        ? '<button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button><button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>'
-        : '<button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button><button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>'
-      }
-    </div>
-    <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
+    ${renderDocPreview(f)}
   </div>`;
 }
 
-function switchPreview(mode) {
-  syncFormFromDOM();
-  state.previewMode = mode;
+// ══ TAB 2: FLOWCHART (langsung, tanpa sub-tab) ══
+function renderFlowchartTab() {
   const f = state.form;
-  // Update tab buttons
-  document.getElementById('btnDoc').style.cssText = mode==='doc'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  document.getElementById('btnFlow').style.cssText = mode==='flow'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  // Update toolbar export buttons sesuai mode
-  const toolbarEl = document.getElementById('previewToolbar');
-  if (toolbarEl) {
-    if (mode === 'doc') {
-      toolbarEl.innerHTML = `
-        <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
-        <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>`;
-    } else {
-      toolbarEl.innerHTML = `
-        <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-        <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>`;
-    }
-  }
-  // Update panel
-  document.getElementById('previewPanel').innerHTML = mode==='flow'
-    ? renderFlowchart(f) : renderDocPreview(f);
+  return `<div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="exportFlowPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
+      <button onclick="exportToPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
+    </div>
+    <div style="background:rgba(15,28,46,.6);border:1px solid rgba(0,245,212,.12);border-radius:14px;padding:14px;">
+      <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;margin-bottom:10px;">
+        🔀 FLOWCHART PROSES — ${f.namaSOP ? f.namaSOP.toUpperCase() : 'SOP'}
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-bottom:8px;">
+        ⬭ Oval = Mulai/Selesai &nbsp;|&nbsp; ☐ Persegi = Aktivitas/Proses &nbsp;|&nbsp; Warna = Pelaksana berbeda
+      </div>
+      <div id="flowWrap" style="overflow-x:auto;background:#f8fafc;border-radius:10px;padding:12px;">
+        ${renderFlowchart(f)}
+      </div>
+    </div>
+  </div>`;
 }
+
+// ══ renderPreviewView — dipertahankan untuk kompatibilitas switchPreview ══
+function renderPreviewView() {
+  return renderPreviewDocTab();
+}
+
+
+function switchPreview(mode) {
+  // Redirect ke tab yang tepat (tidak ada lagi sub-tab)
+  if (mode === 'flow') setTab(2);
+  else setTab(1);
+}
+
 
 // ══ FLOWCHART SYMBOL HELPER ══
 // tipe: 'process' (default), 'decision' (belah ketupat), 'input' (parallelogram)
@@ -2766,7 +2768,7 @@ async function doKirim() {
     }
     state.fileState = 'idle';
 
-    setTimeout(() => setTab(2), 800);
+    setTimeout(() => setTab(3), 800);  // Tab 3 = SOP Saya
   } else {
     toast('❌ Gagal menyimpan. Cek koneksi.','err');
   }
