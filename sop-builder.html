@@ -1328,28 +1328,51 @@ function togglePelaksana(stepIdx, pelIdx, checked) {
 
 // ══ EXPORT PDF DARI PREVIEW DOKUMEN ══
 // ══ EXPORT PDF PREVIEW DOKUMEN ══
-// Render dari state.form langsung — tidak perlu tab aktif
+// Portrait A4, centered — render dari state.form langsung
 async function exportDocPDF() {
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
 
-  // Render preview dokumen ke div hidden
+  // A4 portrait usable width: 210mm - 2×15mm margin = 180mm ≈ 680px at 96dpi
+  // Render di div fixed off-screen dengan lebar tepat A4
+  const A4_PX = 680;
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;background:#fff;';
+  wrapper.style.cssText = [
+    'position:fixed', 'top:-99999px', 'left:50%',
+    'transform:translateX(-50%)',   // centered secara horizontal
+    'width:' + A4_PX + 'px',
+    'background:#fff',
+    'box-sizing:border-box',
+    'padding:0',
+  ].join(';');
   wrapper.innerHTML = renderDocPreview(f);
+
+  // Override padding di dalam previewDoc agar tidak dobel margin
+  const inner = wrapper.querySelector('.sop-preview-container');
+  if (inner) inner.style.padding = '0';
+
   document.body.appendChild(wrapper);
 
-  const element = wrapper.querySelector('.sop-preview-container') || wrapper;
+  const element = inner || wrapper;
   const filename = ((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)
     + ' - ' + (f.namaSOP||'SOP').slice(0,30) + '.pdf');
 
   toast('⏳ Membuat PDF dokumen...');
   try {
     await html2pdf().set({
-      margin       : [12, 12, 12, 12],
+      margin       : [15, 15, 15, 15],   // mm — sama semua sisi
       filename,
       image        : { type:'jpeg', quality:0.97 },
-      html2canvas  : { scale:2, useCORS:true, logging:false, width:794, windowWidth:794 },
+      html2canvas  : {
+        scale       : 2,
+        useCORS     : true,
+        logging     : false,
+        width       : A4_PX,
+        windowWidth : A4_PX,
+        x           : 0,
+        scrollX     : 0,
+        scrollY     : 0,
+      },
       jsPDF        : { unit:'mm', format:'a4', orientation:'portrait' },
       pagebreak    : { mode:['avoid-all','css','legacy'] }
     }).from(element).save();
@@ -1357,7 +1380,7 @@ async function exportDocPDF() {
   } catch(e) {
     toast('❌ Gagal: '+e.message,'err');
   } finally {
-    document.body.removeChild(wrapper);
+    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
   }
 }
 
@@ -1862,18 +1885,19 @@ function renderFlowchart(f) {
     return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
 
   // ── Layout constants ──
-  const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
-  const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
-  const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
-  const ROW_H  = 90;                 // jarak antar baris
+  const COL_W  = 140, HDR_H = 48, PAD_X = 20, PAD_Y = 50;  // PAD_Y besar = header tidak terpotong
+  const BOX_W  = 110, BOX_H = 56;   // persegi panjang = proses
+  const OVAL_H = 30, OVAL_W = 84;   // oval = mulai/selesai
+  const ROW_H  = 95;                 // jarak antar baris
 
-  const totalCols = pelaksana.length;
+  const totalCols = Math.max(pelaksana.length, 1);
   const totalRows = langkah.length;
   const svgW = PAD_X*2 + totalCols * COL_W;
-  const svgH = PAD_Y + HDR_H + 30 + OVAL_H + (totalRows * ROW_H) + ROW_H + 20;
+  // svgH: PAD_Y (ruang atas) + header + gap MULAI + MULAI oval + semua baris + footer SELESAI + padding bawah
+  const svgH = PAD_Y + HDR_H + 20 + OVAL_H + 10 + (totalRows * ROW_H) + ROW_H + 40;
 
   const colCX = pi => PAD_X + pi * COL_W + COL_W / 2;  // center-x per kolom
-  const rowCY = i  => PAD_Y + HDR_H + 30 + OVAL_H + 10 + i * ROW_H + BOX_H / 2;
+  const rowCY = i  => PAD_Y + HDR_H + 20 + OVAL_H + 10 + i * ROW_H + BOX_H / 2;
 
   // ── Warna per pelaksana ──
   const COLORS = [
@@ -1935,7 +1959,7 @@ function renderFlowchart(f) {
     ? (Array.isArray(langkah[0].pelaksana) ? langkah[0].pelaksana[0] : langkah[0].pelaksana) || 0
     : 0;
   const startCX   = colCX(startCol);
-  const startCY   = PAD_Y + HDR_H + 18;
+  const startCY   = PAD_Y + HDR_H + 10 + OVAL_H/2;  // tepat di bawah header
   svg += `<ellipse cx="${startCX}" cy="${startCY}" rx="${OVAL_W/2}" ry="${OVAL_H/2}"
     fill="#1e293b" filter="url(#fsh)"/>`;
   svg += `<text x="${startCX}" y="${startCY + 1}" text-anchor="middle" dominant-baseline="middle"
@@ -2205,7 +2229,7 @@ function renderDocPreview(f) {
   const COL_SYR = 14, COL_WKT = 7, COL_OUT = 13, COL_KET = 8;
 
   // Flowchart SVG inline (kecil)
-  return `<div id="previewDoc" class="sop-preview-container" style="background:#fff;color:#000;font-family:Arial,sans-serif;padding:14px;font-size:10px;line-height:1.4;max-width:100%;box-sizing:border-box;">
+  return `<div id="previewDoc" class="sop-preview-container" style="background:#fff;color:#000;font-family:Arial,sans-serif;padding:16px;font-size:10px;line-height:1.4;width:100%;max-width:100%;box-sizing:border-box;">
 
     <!-- HEADER KEMENTERIAN -->
     <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;">
