@@ -1246,17 +1246,20 @@ async function exportToWord() {
 // ══ EXPORT KE JPG ══
 // Export flowchart SVG langsung ke JPG — lebih ringan untuk Google Drive & SOPI
 // Menggunakan Canvas API (built-in browser, tidak perlu library tambahan)
-async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tombol
+async function exportToPDF() {  // Export JPG flowchart
   const f = state.form;
 
-  // Cek apakah ada SVG flowchart yang ter-render
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) {
-    // Coba switch ke flowchart dulu
-    if (typeof switchPreview === 'function') switchPreview('flow');
-    setTimeout(() => exportToPDF(), 500);
-    return;
+  // Render SVG dari state.form langsung — tidak bergantung tab aktif
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || svgStr.includes('<div style=')) {
+    toast('Isi langkah dan pelaksana terlebih dahulu','err'); return;
   }
+
+  // Buat element SVG dari string
+  const tmpDiv = document.createElement('div');
+  tmpDiv.innerHTML = svgStr;
+  const svgEl = tmpDiv.querySelector('svg');
+  if (!svgEl) { toast('Gagal render SVG','err'); return; }
 
   try {
     toast('⏳ Membuat JPG...');
@@ -1324,41 +1327,69 @@ function togglePelaksana(stepIdx, pelIdx, checked) {
 
 
 // ══ EXPORT PDF DARI PREVIEW DOKUMEN ══
-function exportDocPDF() {
-  const element = document.querySelector('.sop-preview-container');
-  if (!element) { toast('Buka tab Preview Dokumen terlebih dahulu','err'); return; }
+// ══ EXPORT PDF PREVIEW DOKUMEN ══
+// Render dari state.form langsung — tidak perlu tab aktif
+async function exportDocPDF() {
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
-  const filename = ((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)+' - '+(f.namaSOP||'SOP').slice(0,30)+'.pdf');
+
+  // Render preview dokumen ke div hidden
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;background:#fff;';
+  wrapper.innerHTML = renderDocPreview(f);
+  document.body.appendChild(wrapper);
+
+  const element = wrapper.querySelector('.sop-preview-container') || wrapper;
+  const filename = ((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)
+    + ' - ' + (f.namaSOP||'SOP').slice(0,30) + '.pdf');
+
   toast('⏳ Membuat PDF dokumen...');
-  html2pdf().set({
-    margin:[5,5,5,5], filename,
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2,useCORS:true,logging:false},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-  }).from(element).save()
-    .then(()=>toast('✅ PDF dokumen berhasil diunduh!'))
-    .catch(e=>toast('❌ Gagal: '+e.message,'err'));
+  try {
+    await html2pdf().set({
+      margin       : [12, 12, 12, 12],
+      filename,
+      image        : { type:'jpeg', quality:0.97 },
+      html2canvas  : { scale:2, useCORS:true, logging:false, width:794, windowWidth:794 },
+      jsPDF        : { unit:'mm', format:'a4', orientation:'portrait' },
+      pagebreak    : { mode:['avoid-all','css','legacy'] }
+    }).from(element).save();
+    toast('✅ PDF dokumen berhasil diunduh!');
+  } catch(e) {
+    toast('❌ Gagal: '+e.message,'err');
+  } finally {
+    document.body.removeChild(wrapper);
+  }
 }
 
-// ══ EXPORT PDF DARI FLOWCHART ══
+// ══ EXPORT PDF FLOWCHART ══
+// Render SVG dari state.form langsung — tidak perlu tab aktif
 function exportFlowPDF() {
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) { toast('Buka tab Flowchart terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
+
+  // Render SVG flowchart dari state.form
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || svgStr.includes('<div style=')) {
+    toast('Isi langkah dan pelaksana terlebih dahulu','err'); return;
+  }
+
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'background:#fff;padding:16px;';
-  wrapper.innerHTML = `<div style="text-align:center;font-family:Arial;font-size:12px;font-weight:700;margin-bottom:8px;">FLOWCHART — ${(f.namaSOP||'SOP').toUpperCase()}</div>`;
-  wrapper.appendChild(svgEl.cloneNode(true));
+  wrapper.style.cssText = 'background:#fff;padding:16px;font-family:Arial,sans-serif;';
+  wrapper.innerHTML = `
+    <div style="text-align:center;font-size:13px;font-weight:700;margin-bottom:12px;letter-spacing:.5px;">
+      FLOWCHART PROSES — ${(f.namaSOP||'SOP').toUpperCase()}
+    </div>
+    <div style="overflow-x:auto;">${svgStr}</div>`;
   document.body.appendChild(wrapper);
+
   const filename = 'Flowchart - '+((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40))+'.pdf';
   toast('⏳ Membuat PDF flowchart...');
   html2pdf().set({
-    margin:[5,5,5,5], filename,
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    margin      : [10, 8, 10, 8],
+    filename,
+    image       : { type:'jpeg', quality:0.97 },
+    html2canvas : { scale:2, useCORS:true, logging:false, allowTaint:true },
+    jsPDF       : { unit:'mm', format:'a4', orientation:'landscape' }
   }).from(wrapper).save()
     .then(()=>{ document.body.removeChild(wrapper); toast('✅ PDF flowchart berhasil diunduh!'); })
     .catch(e=>{ if(wrapper.parentNode) document.body.removeChild(wrapper); toast('❌ Gagal: '+e.message,'err'); });
@@ -1738,20 +1769,22 @@ function renderPreviewDocTab() {
 // ══ TAB 2: FLOWCHART (langsung, tanpa sub-tab) ══
 function renderFlowchartTab() {
   const f = state.form;
+  const svgContent = renderFlowchart(f);  // sekarang return pure SVG string
+  const isEmpty = !svgContent || svgContent.includes('<div style=');  // fallback message
   return `<div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button onclick="exportFlowPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
       <button onclick="exportToPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
     </div>
     <div style="background:rgba(15,28,46,.6);border:1px solid rgba(0,245,212,.12);border-radius:14px;padding:14px;">
-      <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;margin-bottom:6px;">
         🔀 FLOWCHART PROSES — ${f.namaSOP ? f.namaSOP.toUpperCase() : 'SOP'}
       </div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:8px;">
-        ⬭ Oval = Mulai/Selesai &nbsp;|&nbsp; ☐ Persegi = Aktivitas/Proses &nbsp;|&nbsp; Warna = Pelaksana berbeda
+      <div style="font-size:10px;color:var(--mu);margin-bottom:10px;">
+        ⬭ Oval = Mulai/Selesai &nbsp;|&nbsp; ▭ Persegi = Aktivitas/Proses &nbsp;|&nbsp; Warna = Pelaksana berbeda
       </div>
-      <div id="flowWrap" style="overflow-x:auto;background:#f8fafc;border-radius:10px;padding:12px;">
-        ${renderFlowchart(f)}
+      <div id="flowWrap" style="overflow-x:auto;background:#fff;border-radius:10px;padding:14px;">
+        ${svgContent}
       </div>
     </div>
   </div>`;
@@ -2010,13 +2043,8 @@ function renderFlowchart(f) {
     font-size="10" font-weight="700" fill="#fff" font-family="sans-serif" letter-spacing="1">SELESAI</text>`;
 
   svg += '</svg>';
-  return `<div class="card"><div class="card-title amber">🔀 FLOWCHART PROSES — ${f.namaSOP||'SOP'}</div>
-    <div id="flowWrap" style="overflow-x:auto;background:#f8fafc;border-radius:10px;padding:12px;">
-      <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">
-        ⬭ Oval = Mulai/Selesai &nbsp;|&nbsp; ▭ Persegi = Aktivitas/Proses &nbsp;|&nbsp; Warna = Pelaksana berbeda
-      </div>
-      ${svg}
-    </div></div>`;
+  // Return hanya SVG string — UI wrapper diurus oleh caller (renderFlowchartTab)
+  return svg;
 }
 
 // ══ renderFlowchartSVG — return SVG string untuk embed di preview dokumen ══
