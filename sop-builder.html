@@ -2177,8 +2177,6 @@ function renderDocPreview(f) {
   const COL_SYR = 14, COL_WKT = 7, COL_OUT = 13, COL_KET = 8;
 
   // Flowchart SVG inline (kecil)
-  const svgFlow = renderFlowchartSVG(f);
-
   return `<div id="previewDoc" class="sop-preview-container" style="background:#fff;color:#000;font-family:Arial,sans-serif;padding:14px;font-size:10px;line-height:1.4;max-width:100%;box-sizing:border-box;">
 
     <!-- HEADER KEMENTERIAN -->
@@ -2263,12 +2261,6 @@ function renderDocPreview(f) {
         </tr>`;
       }).join('')}
     </table>
-
-    <!-- FLOWCHART INLINE -->
-    <div style="margin-top:6px;">
-      <div style="font-size:9px;font-weight:700;margin-bottom:4px;text-align:center;">FLOWCHART PROSES — ${esc2(f.namaSOP||'SOP')}</div>
-      <div style="overflow-x:auto;">${svgFlow}</div>
-    </div>
 
   </div>`;
 }
