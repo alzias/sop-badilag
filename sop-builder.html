@@ -94,8 +94,13 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
 /* MULTIFIELD */
-.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;}
+.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;border-radius:8px;transition:background .12s,opacity .15s;}
+.mf-row.dragging{opacity:0.35;background:rgba(0,245,212,.07);}
+.mf-row.drag-over-top{box-shadow:0 -2px 0 var(--cyan);}
+.mf-row.drag-over-bot{box-shadow:0 2px 0 var(--cyan);}
 .mf-num{color:var(--mu);font-size:12px;min-width:18px;flex-shrink:0;}
+.drag-handle{color:var(--mu);font-size:13px;cursor:grab;padding:0 2px;user-select:none;flex-shrink:0;line-height:1;}
+.drag-handle:hover{color:var(--cyan);}
 .mf-input{flex:1;padding:8px 11px;background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.09);border-radius:9px;color:var(--tx);
   font-size:13px;outline:none;font-family:inherit;transition:border .2s;}
@@ -1411,6 +1416,56 @@ function viewSignedSOP(draftId) {
 }
 
 
+// ══ DRAG & DROP MULTIFIELD ══
+let _dragKey = null, _dragIdx = null, _dragEl = null;
+
+function mfDragStart(e) {
+  const row = e.currentTarget;
+  _dragKey = row.dataset.mfkey;
+  _dragIdx = +row.dataset.mfidx;
+  _dragEl  = row;
+  syncFormFromDOM();
+  row.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', _dragIdx);
+}
+
+function mfDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget;
+  if (row === _dragEl) return;
+  const rect = row.getBoundingClientRect();
+  document.querySelectorAll('.mf-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bot'));
+  row.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bot');
+}
+
+function mfDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-top','drag-over-bot');
+}
+
+function mfDrop(e, targetIdx) {
+  e.preventDefault();
+  document.querySelectorAll('.mf-row').forEach(r =>
+    r.classList.remove('dragging','drag-over-top','drag-over-bot')
+  );
+  if (_dragKey === null || _dragIdx === null) return;
+  const key      = _dragKey;
+  const fromIdx  = _dragIdx;
+  const rect     = e.currentTarget.getBoundingClientRect();
+  const dropBefore = e.clientY < rect.top + rect.height / 2;
+  let toIdx = dropBefore ? targetIdx : targetIdx + 1;
+  if (toIdx > fromIdx) toIdx--;
+  if (fromIdx === toIdx) return;
+  const arr = [...(state.form[key] || [])];
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  state.form[key] = arr;
+  _dragKey = null; _dragIdx = null; _dragEl = null;
+  render();
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -1648,7 +1703,10 @@ function inp(label, key, val, ph, type) {
 function renderMultiField(key, label, items, ph) {
   let h = `<label class="flabel amber">${label}</label>`;
   items.forEach((item, i) => {
-    h += `<div class="mf-row">
+    h += `<div class="mf-row" draggable="true" data-mfkey="${key}" data-mfidx="${i}"
+      ondragstart="mfDragStart(event)" ondragover="mfDragOver(event)"
+      ondragleave="mfDragLeave(event)" ondrop="mfDrop(event,${i})">
+      <span class="drag-handle" title="Geser untuk urutkan">⠿</span>
       <span class="mf-num">${i+1}.</span>
       <input class="mf-input mf-item-${key}" value="${esc(item)}" placeholder="${ph}">
       ${items.length>1?`<button class="mf-del" onclick="delMF('${key}',${i})">✕</button>`:''}
