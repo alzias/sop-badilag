@@ -94,13 +94,8 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
 /* MULTIFIELD */
-.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;border-radius:8px;transition:background .12s,opacity .15s;}
-.mf-row.dragging{opacity:0.35;background:rgba(0,245,212,.07);}
-.mf-row.drag-over-top{box-shadow:0 -2px 0 var(--cyan);}
-.mf-row.drag-over-bot{box-shadow:0 2px 0 var(--cyan);}
+.mf-row{display:flex;gap:7px;margin-bottom:6px;align-items:center;}
 .mf-num{color:var(--mu);font-size:12px;min-width:18px;flex-shrink:0;}
-.drag-handle{color:var(--mu);font-size:13px;cursor:grab;padding:0 2px;user-select:none;flex-shrink:0;line-height:1;}
-.drag-handle:hover{color:var(--cyan);}
 .mf-input{flex:1;padding:8px 11px;background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.09);border-radius:9px;color:var(--tx);
   font-size:13px;outline:none;font-family:inherit;transition:border .2s;}
@@ -281,7 +276,7 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 
 <!-- HEADER -->
 <div class="hd">
-  <img class="hd-logo" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>" alt="MA">
+  <img class="hd-logo" id="navLogo" alt="MA" style="border-radius:50%;">
   <div>
     <div class="hd-title">SOP Builder</div>
     <div class="hd-sub">Ditjen Badilag MA RI · v3.0</div>
@@ -1093,12 +1088,55 @@ async function exportToWord() {
   });
 
   // ── Susun konten dokumen ──
+  // Header tabel MA: logo kiri + nama lembaga kanan
+  const { ImageRun } = D;
+  const HALF2 = Math.floor(PAGE_W / 4);
+  const HALF3 = PAGE_W - HALF2;
+
+  // Fetch logo MA sebagai array buffer untuk ImageRun
+  let logoCell;
+  try {
+    const resp = await fetch(LOGO_MA);
+    const logoBlob = await resp.blob();
+    const logoAB = await logoBlob.arrayBuffer();
+    logoCell = new TableCell({
+      ...cellOpts(HALF2),
+      children:[new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children:[new ImageRun({
+          data: logoAB,
+          transformation:{ width:60, height:60 },
+          type:'jpg'
+        })]
+      })]
+    });
+  } catch(e) {
+    // Fallback kalau fetch gagal
+    logoCell = cell('', HALF2);
+  }
+
+  const tblHeader = new Table({
+    width:{size:PAGE_W, type:WidthType.DXA},
+    columnWidths:[HALF2, HALF3],
+    rows:[new TableRow({ children:[
+      logoCell,
+      new TableCell({
+        ...cellOpts(HALF3),
+        children:[
+          new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text:'DIREKTORAT JENDERAL', font:'Arial', size:24, bold:true})]}),
+          new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text:'BADAN PERADILAN AGAMA', font:'Arial', size:24, bold:true})]}),
+          new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text:'MAHKAMAH AGUNG RI', font:'Arial', size:24, bold:true})]}),
+          new Paragraph({children:[]}),
+          new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text:esc(f.eselon3||''), font:'Arial', size:20})]}),
+          new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text:esc(f.alamat||''), font:'Arial', size:18})]}),
+        ]
+      })
+    ]})]
+  });
+
   const children = [
-    new Paragraph({ alignment:AlignmentType.CENTER,
-      children:[new TextRun({text:esc(f.instansi), font:'Arial', size:22, bold:true})] }),
-    new Paragraph({ alignment:AlignmentType.CENTER,
-      children:[new TextRun({text:esc(f.alamat), font:'Arial', size:18})] }),
-    new Paragraph({ children:[] }), // spacer
+    tblHeader,
+    new Paragraph({ children:[] }),
     tblIdentitas,
     new Paragraph({ children:[] }),
   ];
@@ -1121,6 +1159,53 @@ async function exportToWord() {
     children:[new TextRun({text:'Prosedur', font:'Arial', size:20, bold:true})]
   }));
   children.push(tblProsedur);
+
+  // ── Flowchart sebagai gambar di Word ──
+  try {
+    // Render SVG ke canvas lalu ambil sebagai PNG blob
+    const svgStr = renderFlowchartSVG(f);
+    const svgBlob = new Blob([svgStr], {type:'image/svg+xml'});
+    const svgUrl  = URL.createObjectURL(svgBlob);
+    const flowImg = await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = 1.5;
+        const cv = document.createElement('canvas');
+        cv.width  = img.width  * scale;
+        cv.height = img.height * scale;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(svgUrl);
+        cv.toBlob(blob => blob ? res(blob) : rej('canvas fail'), 'image/png', 0.95);
+      };
+      img.onerror = () => { URL.revokeObjectURL(svgUrl); rej('img load fail'); };
+      img.src = svgUrl;
+    });
+    const flowAB = await flowImg.arrayBuffer();
+    // Hitung ukuran proporsional agar muat di halaman
+    const tempImg = new Image();
+    tempImg.src = svgUrl;
+    // Ukuran dalam EMU: 1 cm = 360000 EMU, A4 landscape usable ~24cm
+    const maxW = 21600000;  // ~24cm dalam EMU tapi pakai DXA
+    children.push(new Paragraph({children:[]}));
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children:[new TextRun({text:'FLOWCHART PROSES — '+esc(f.namaSOP||'SOP'), font:'Arial', size:20, bold:true})]
+    }));
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children:[new ImageRun({
+        data: flowAB,
+        transformation:{ width: Math.min(600, Math.floor(PAGE_W * 0.05)), height: Math.min(800, Math.floor(PAGE_W * 0.07)) },
+        type:'png'
+      })]
+    }));
+  } catch(e) {
+    console.log('Flowchart export skip:', e);
+  }
 
   // ── Buat dokumen landscape A4 ──
   const doc = new Document({
@@ -1232,75 +1317,21 @@ function togglePelaksana(stepIdx, pelIdx, checked) {
 
 
 // ══ EXPORT PDF DARI PREVIEW DOKUMEN ══
-async function exportDocPDF() {
+function exportDocPDF() {
   const element = document.querySelector('.sop-preview-container');
   if (!element) { toast('Buka tab Preview Dokumen terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
   const filename = ((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)+' - '+(f.namaSOP||'SOP').slice(0,30)+'.pdf');
-
-  // Buat clone element agar bisa diatur ukuran tanpa ganggu tampilan
-  const clone = element.cloneNode(true);
-  // A4 portrait usable width: 210mm - 2*15mm = 180mm ≈ 680px at 96dpi
-  clone.style.cssText = [
-    'width:794px',          // A4 portrait width at 96dpi
-    'max-width:794px',
-    'padding:20px',
-    'background:#fff',
-    'color:#000',
-    'font-family:Arial,sans-serif',
-    'font-size:9px',
-    'line-height:1.4',
-    'box-sizing:border-box',
-  ].join(';');
-
-  // Tambah CSS pagebreak ke clone — cegah tabel terpotong
-  const styleEl = document.createElement('style');
-  styleEl.textContent = [
-    'table { page-break-inside: auto; border-collapse:collapse; }',
-    'tr { page-break-inside: avoid; page-break-after: auto; }',
-    'thead { display: table-header-group; }',
-    'tfoot { display: table-footer-group; }',
-    // Jeda halaman sebelum section besar (tabel prosedur & flowchart)
-    '.pdf-pagebreak { page-break-before: always; }',
-    // Jangan potong section header
-    'th { page-break-inside: avoid; }',
-  ].join('\n');
-  clone.prepend(styleEl);
-
-  // Tandai tabel prosedur dan flowchart agar bisa mulai di halaman baru kalau perlu
-  // Cari div flowchart di clone
-  const flowDiv = clone.querySelector('div[style*="margin-top:6px"]');
-  if (flowDiv) flowDiv.style.pageBreakBefore = 'always';
-
-  // Wrapper untuk kontrol ukuran
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;';
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
-
   toast('⏳ Membuat PDF dokumen...');
-  try {
-    await html2pdf().set({
-      margin       : [15, 15, 15, 15],  // atas, kanan, bawah, kiri (mm)
-      filename,
-      image        : { type:'jpeg', quality:0.97 },
-      html2canvas  : {
-        scale       : 2,
-        useCORS     : true,
-        logging     : false,
-        width       : 794,
-        windowWidth : 794,
-      },
-      jsPDF        : { unit:'mm', format:'a4', orientation:'portrait' },
-      pagebreak    : { mode: ['avoid-all', 'css', 'legacy'] }
-    }).from(clone).save();
-    toast('✅ PDF dokumen berhasil diunduh!');
-  } catch(e) {
-    toast('❌ Gagal: '+e.message,'err');
-  } finally {
-    document.body.removeChild(wrapper);
-  }
+  html2pdf().set({
+    margin:[5,5,5,5], filename,
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2,useCORS:true,logging:false},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+  }).from(element).save()
+    .then(()=>toast('✅ PDF dokumen berhasil diunduh!'))
+    .catch(e=>toast('❌ Gagal: '+e.message,'err'));
 }
 
 // ══ EXPORT PDF DARI FLOWCHART ══
@@ -1316,87 +1347,17 @@ function exportFlowPDF() {
   document.body.appendChild(wrapper);
   const filename = 'Flowchart - '+((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40))+'.pdf';
   toast('⏳ Membuat PDF flowchart...');
-  // Flowchart landscape karena biasanya lebih lebar dari tinggi
   html2pdf().set({
-    margin      : [15, 10, 15, 10],
-    filename,
-    image       : { type:'jpeg', quality:0.97 },
-    html2canvas : { scale:2, useCORS:true, logging:false, allowTaint:true },
-    jsPDF       : { unit:'mm', format:'a4', orientation:'landscape' }
+    margin:[5,5,5,5], filename,
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
   }).from(wrapper).save()
     .then(()=>{ document.body.removeChild(wrapper); toast('✅ PDF flowchart berhasil diunduh!'); })
     .catch(e=>{ if(wrapper.parentNode) document.body.removeChild(wrapper); toast('❌ Gagal: '+e.message,'err'); });
 }
 
 // ══ Fix switchPreview — sync state.previewMode ══
-
-// ══ DRAG & DROP UNTUK MULTIFIELD ══
-// Memungkinkan user reorder item di Dasar Hukum, Peralatan, Pelaksana, dll
-// dengan drag & drop — smooth, tanpa library tambahan
-
-let _dragKey   = null;  // key field yang sedang di-drag (misalnya 'peralatan')
-let _dragIdx   = null;  // index item yang sedang di-drag
-let _dragEl    = null;  // element yang sedang di-drag
-
-function mfDragStart(e) {
-  const row = e.currentTarget;
-  _dragKey = row.dataset.mfkey;
-  _dragIdx = +row.dataset.mfidx;
-  _dragEl  = row;
-  // Sync state dulu agar urutan terkini masuk state
-  syncFormFromDOM();
-  row.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', _dragIdx);
-}
-
-function mfDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  const row = e.currentTarget;
-  if (row === _dragEl) return;
-  // Tentukan posisi: atas atau bawah tengah row
-  const rect = row.getBoundingClientRect();
-  const mid  = rect.top + rect.height / 2;
-  document.querySelectorAll('.mf-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bot'));
-  row.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bot');
-}
-
-function mfDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over-top','drag-over-bot');
-}
-
-function mfDrop(e, targetIdx) {
-  e.preventDefault();
-  document.querySelectorAll('.mf-row').forEach(r => {
-    r.classList.remove('dragging','drag-over-top','drag-over-bot');
-  });
-  if (_dragKey === null || _dragIdx === null) return;
-
-  const key = _dragKey;
-  const fromIdx = _dragIdx;
-  // Hitung posisi akhir: apakah drop di atas atau bawah target
-  const row  = e.currentTarget;
-  const rect = row.getBoundingClientRect();
-  const dropBefore = e.clientY < rect.top + rect.height / 2;
-  let toIdx = dropBefore ? targetIdx : targetIdx + 1;
-  if (toIdx > fromIdx) toIdx--;  // kompensasi karena elemen sudah dipindah
-
-  if (fromIdx === toIdx) return;
-
-  // Reorder array di state
-  const arr = [...(state.form[key] || [])];
-  const [moved] = arr.splice(fromIdx, 1);
-  arr.splice(toIdx, 0, moved);
-  state.form[key] = arr;
-
-  // Kalau yang di-drag adalah 'langkah', update index pelaksana tidak berubah
-  // Kalau 'pelaksana', flowchart kolom otomatis ikut urutan baru
-
-  _dragKey = null; _dragIdx = null; _dragEl = null;
-  render();  // re-render form dengan urutan baru
-}
-
 
 // ══ TOAST ══
 function toast(msg, type) {
@@ -1623,9 +1584,7 @@ function inp(label, key, val, ph, type) {
 function renderMultiField(key, label, items, ph) {
   let h = `<label class="flabel amber">${label}</label>`;
   items.forEach((item, i) => {
-    h += `<div class="mf-row" draggable="true" data-mfkey="${key}" data-mfidx="${i}"
-      ondragstart="mfDragStart(event)" ondragover="mfDragOver(event)" ondragleave="mfDragLeave(event)" ondrop="mfDrop(event,${i})">
-      <span class="drag-handle" title="Geser untuk urutkan">⠿</span>
+    h += `<div class="mf-row">
       <span class="mf-num">${i+1}.</span>
       <input class="mf-input mf-item-${key}" value="${esc(item)}" placeholder="${ph}">
       ${items.length>1?`<button class="mf-del" onclick="delMF('${key}',${i})">✕</button>`:''}
@@ -1654,8 +1613,8 @@ function renderPreviewView() {
       <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
     </div>` : `
     <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
       <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
+      <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
     </div>`}
     <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
   </div>`;
@@ -1734,7 +1693,7 @@ function renderFlowchart(f) {
     return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
 
   // ── Layout constants ──
-  const COL_W  = 130, HDR_H = 44, PAD_X = 20, PAD_Y = 48;  // PAD_Y besar = ruang MULAI tidak terpotong
+  const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
   const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
   const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
   const ROW_H  = 90;                 // jarak antar baris
@@ -1929,7 +1888,7 @@ function renderFlowchartSVG(f) {
   // Dimensi — lebih kecil untuk embed di preview
   const nPel    = pelaksana.length;
   const COL_W   = 130, BOX_W = 100, BOX_H = 54;
-  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 50;  // ruang atas untuk MULAI
+  const ROW_H   = 90,  PAD_X = 20,  PAD_Y = 30;
   const totalW  = PAD_X*2 + nPel*COL_W;
   const totalH  = PAD_Y + 50 + langkah.length * ROW_H + 80;
 
@@ -2079,10 +2038,10 @@ function renderDocPreview(f) {
     <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;">
       <tr>
         <td style="width:20%;border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;">
-          <img src="${LOGO_MA}" style="width:70px;height:70px;object-fit:contain;">
+          <img src="${LOGO_MA}" style="width:72px;height:72px;object-fit:contain;mix-blend-mode:multiply;border-radius:50%;">
         </td>
         <td style="border:1px solid #000;padding:8px;text-align:center;vertical-align:middle;">
-          <div style="font-size:14px;font-weight:900;letter-spacing:.5px;line-height:1.6;">
+          <div style="font-size:13px;font-weight:900;letter-spacing:.5px;line-height:1.5;">
             DIREKTORAT JENDERAL<br>BADAN PERADILAN AGAMA<br>MAHKAMAH AGUNG RI
           </div>
           ${f.eselon3?`<div style="font-size:10px;margin-top:4px;">${esc2(f.eselon3)}</div>`:''}
@@ -2092,7 +2051,7 @@ function renderDocPreview(f) {
     </table>
 
     <!-- IDENTITAS SOP -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;page-break-inside:avoid;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;">
       <tr>
         <td style="border:1px solid #000;padding:3px 6px;width:50%;vertical-align:top;">
           <div><b>Nomor SOP</b> : ${esc2(f.nomorSOP||'—')}</div>
@@ -2110,7 +2069,7 @@ function renderDocPreview(f) {
     </table>
 
     <!-- SECTION INFO: 3 kolom sejajar seperti format asli Badilag -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;page-break-inside:avoid;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;">
       <tr>
         <td style="border:1px solid #000;padding:2px 5px;width:33%;vertical-align:top;">
           ${secTbl('Dasar Hukum', f.dasarHukum)}
@@ -2128,8 +2087,7 @@ function renderDocPreview(f) {
     </table>
 
     <!-- TABEL PROSEDUR -->
-    <div style="page-break-inside:avoid;">
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:4px;font-size:8px;page-break-inside:auto;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:4px;font-size:8.5px;">
       <!-- Header baris 1 -->
       <tr style="background:#f0f0f0;">
         <th style="border:1px solid #000;padding:3px;width:${COL_NO}%;text-align:center;" rowspan="2">No</th>
@@ -2147,7 +2105,7 @@ function renderDocPreview(f) {
       <!-- Baris data -->
       ${(f.langkah||[]).filter(l=>l.aktivitas).map((l,i)=>{
         const pelArr = Array.isArray(l.pelaksana)?l.pelaksana:[l.pelaksana||0];
-        return `<tr style="page-break-inside:avoid;">
+        return `<tr>
           <td style="border:1px solid #000;padding:3px;text-align:center;vertical-align:top;">${i+1}.</td>
           <td style="border:1px solid #000;padding:3px;vertical-align:top;">${esc2(l.aktivitas)}</td>
           ${Array.from({length:nPel},(_,pi)=>`<td style="border:1px solid #000;padding:3px;text-align:center;vertical-align:middle;">${pelArr.includes(pi)?'✓':''}</td>`).join('')}
@@ -2159,10 +2117,8 @@ function renderDocPreview(f) {
       }).join('')}
     </table>
 
-    </div><!-- end page-break-inside:avoid tabel prosedur -->
-
     <!-- FLOWCHART INLINE -->
-    <div style="margin-top:6px;page-break-before:always;">
+    <div style="margin-top:6px;">
       <div style="font-size:9px;font-weight:700;margin-bottom:4px;text-align:center;">FLOWCHART PROSES — ${esc2(f.namaSOP||'SOP')}</div>
       <div style="overflow-x:auto;">${svgFlow}</div>
     </div>
@@ -2306,6 +2262,9 @@ function editDraftFromList(draftId) {
     });
     state._editingDraftId = draftId;
   } catch(e) { state.form = Object.assign({}, state.form); }
+  // Set logo MA di navbar
+  const navLogoEl = document.getElementById('navLogo');
+  if (navLogoEl) navLogoEl.src = LOGO_MA;
   setTab(0);
   toast('✏️ Data SOP dimuat ke form untuk diedit');
 }
