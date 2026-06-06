@@ -1359,6 +1359,58 @@ function exportFlowPDF() {
 
 // ══ Fix switchPreview — sync state.previewMode ══
 
+// ══ HAPUS DRAFT ══
+function deleteDraft(draftId) {
+  if (!confirm('Yakin ingin menghapus SOP ini? Tindakan ini tidak dapat dibatalkan.')) return;
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  const nama = d ? (d.namaSOP||'SOP ini') : 'SOP ini';
+  // Hapus dari Firestore via Worker
+  fetch(WORKER_URL, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'deleteDraft', draftId })
+  })
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(data => {
+    if (data.success || data.deleted) {
+      // Hapus dari local state
+      state.draftList = state.draftList.filter(x => (x.draftId||x.id) !== draftId);
+      toast('🗑️ '+nama+' berhasil dihapus');
+      render();
+    } else {
+      // Jika Worker belum support delete, hapus dari local state saja
+      state.draftList = state.draftList.filter(x => (x.draftId||x.id) !== draftId);
+      toast('🗑️ Dihapus dari daftar lokal');
+      render();
+    }
+  })
+  .catch(() => {
+    // Tetap hapus dari local state meski request gagal
+    state.draftList = state.draftList.filter(x => (x.draftId||x.id) !== draftId);
+    toast('🗑️ Dihapus dari daftar lokal');
+    render();
+  });
+}
+
+// ══ LIHAT SOP DISAHKAN ══
+function viewSignedSOP(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan','err'); return; }
+  // Load ke form lalu buka preview
+  try {
+    const sopData = d.sopData ? JSON.parse(d.sopData) : d;
+    state.form = Object.assign({}, sopData, {
+      nomorSOP   : d.nomorSOP    || sopData.nomorSOP    || '',
+      namaSOP    : d.namaSOP     || sopData.namaSOP     || '',
+    });
+    state.previewMode = 'doc';
+    setTab(1);
+    toast('👁️ Membuka preview SOP');
+  } catch(e) {
+    toast('Gagal membuka SOP: '+e.message, 'err');
+  }
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -1374,6 +1426,8 @@ function closeModal(id) { document.getElementById(id).classList.remove('on'); }
 
 // ══ TAB ══
 function setTab(i) {
+  // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
+  if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
   [0,1,2].forEach(j => {
     const b = document.getElementById('tab'+j);
@@ -1386,7 +1440,11 @@ function setTab(i) {
 }
 
 // ══ FORM HELPERS ══
-function getFormVal(id) { const el=document.getElementById(id); return el?el.value:''; }
+function getFormVal(id) {
+  const el = document.getElementById(id);
+  // Return undefined kalau element tidak ada — biarkan state yang lama
+  return el ? el.value : undefined;
+}
 function setFormVal(id, v) { const el=document.getElementById(id); if(el) el.value=v; }
 
 function syncFormFromDOM() {
@@ -1397,13 +1455,18 @@ function syncFormFromDOM() {
   // Sync multifields
   const mfKeys = ['dasarHukum','kualifikasiPelaksana','keterkaitan','peralatan','peringatan','pencatatan','pelaksana'];
   mfKeys.forEach(k => {
-    const items=[];
-    document.querySelectorAll('.mf-item-'+k).forEach(el=>items.push(el.value));
-    if (items.length) state.form[k]=items;
+    const els = document.querySelectorAll('.mf-item-'+k);
+    if (els.length > 0) {  // only sync when elements exist in DOM
+      const items = [];
+      els.forEach(el => items.push(el.value));
+      state.form[k] = items;
+    }
   });
-  // Sync langkah
+  // Sync langkah — hanya kalau elements ada di DOM
+  const _stepBlocks = document.querySelectorAll('.step-block');
+  if (_stepBlocks.length > 0) {
   const langkah=[];
-  document.querySelectorAll('.step-block').forEach((blk,i)=>{
+  _stepBlocks.forEach((blk,i)=>{
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
       // Multi-pelaksana: baca semua checkbox yang checked
@@ -1419,6 +1482,7 @@ function syncFormFromDOM() {
     });
   });
   if (langkah.length) state.form.langkah=langkah;
+  } // end if _stepBlocks
 }
 
 // ══ RENDER ══
@@ -1607,29 +1671,41 @@ function renderPreviewView() {
       <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
         style="flex:1;padding:9px;font-size:13px;background:${!isDoc?'var(--amber)':'rgba(255,255,255,.06)'};color:${!isDoc?'#000':'var(--mu2)'};">🔀 Flowchart</button>
     </div>
-    ${isDoc ? `
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
-      <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-    </div>` : `
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
-      <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-    </div>`}
+    <div id="previewToolbar" style="display:flex;gap:8px;margin-bottom:10px;">
+      ${isDoc
+        ? '<button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button><button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>'
+        : '<button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button><button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>'
+      }
+    </div>
     <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
   </div>`;
 }
 
 function switchPreview(mode) {
   syncFormFromDOM();
-  state.previewMode = mode;  // simpan mode untuk renderPreviewView
+  state.previewMode = mode;
   const f = state.form;
+  // Update tab buttons
   document.getElementById('btnDoc').style.cssText = mode==='doc'
     ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
     : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
   document.getElementById('btnFlow').style.cssText = mode==='flow'
     ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
     : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
+  // Update toolbar export buttons sesuai mode
+  const toolbarEl = document.getElementById('previewToolbar');
+  if (toolbarEl) {
+    if (mode === 'doc') {
+      toolbarEl.innerHTML = `
+        <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
+        <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>`;
+    } else {
+      toolbarEl.innerHTML = `
+        <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
+        <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>`;
+    }
+  }
+  // Update panel
   document.getElementById('previewPanel').innerHTML = mode==='flow'
     ? renderFlowchart(f) : renderDocPreview(f);
 }
@@ -1798,19 +1874,25 @@ function renderFlowchart(f) {
     // Nomor langkah (circle di sudut kiri atas)
     svg += `<circle cx="${bx + 12}" cy="${by + 12}" r="9" fill="${col.stroke}"/>`;
 
-    // Multi-pelaksana: gambar dot kecil di kolom lain yang terlibat
+    // Multi-pelaksana: kotak penuh "koordinasi" di setiap kolom yang terlibat
     if (pelArr.length > 1) {
       pelArr.slice(1).forEach(extraPi => {
         const epi  = Math.min(extraPi, pelaksana.length - 1);
-        const ecx  = colCX(epi);
         const ecol = COLORS[epi % COLORS.length];
-        // Garis putus-putus dari kotak utama ke kolom tambahan
-        svg += `<line x1="${cx}" y1="${cy}" x2="${ecx}" y2="${cy}"
-          stroke="${ecol.stroke}" stroke-width="1" stroke-dasharray="3 2" opacity="0.6"/>`;
-        // Dot di kolom tambahan
-        svg += `<circle cx="${ecx}" cy="${cy}" r="10" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.5" opacity="0.85"/>`;
-        svg += `<text x="${ecx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle"
-          font-size="7" fill="${ecol.text}" font-family="sans-serif">↔</text>`;
+        const ecx  = colCX(epi);
+        const ebx  = ecx - BOX_W/2;
+        // Kotak koordinasi penuh (dashed border)
+        svg += `<rect x="${ebx}" y="${by}" width="${BOX_W}" height="${BOX_H}"
+          rx="6" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.5"
+          stroke-dasharray="5,3" filter="url(#fsh)"/>`;
+        svg += `<text x="${ecx}" y="${cy - 4}" text-anchor="middle"
+          font-size="7" fill="${ecol.text}" font-style="italic" font-family="sans-serif">koordinasi</text>`;
+        // Garis penghubung horizontal dari kotak utama ke kotak koordinasi
+        const lx1 = pi0 < epi ? cx + BOX_W/2 : cx - BOX_W/2;
+        const lx2 = pi0 < epi ? ecx - BOX_W/2 : ecx + BOX_W/2;
+        svg += `<line x1="${lx1}" y1="${cy}" x2="${lx2}" y2="${cy}"
+          stroke="${ecol.stroke}" stroke-width="1.5" stroke-dasharray="6,3"
+          marker-end="url(#arr)"/>`;
       });
     }
     svg += `<text x="${bx + 12}" y="${by + 12}" text-anchor="middle" dominant-baseline="middle"
@@ -1963,20 +2045,25 @@ function renderFlowchartSVG(f) {
     // Waktu
     if(l.waktu) svg += `<text x="${cx0}" y="${by+BOX_H-4}" text-anchor="middle" font-size="6.5" fill="#94a3b8">⏱ ${l.waktu}</text>`;
 
-    // Kotak tambahan untuk pelaksana lain (multi-pelaksana)
+    // Kotak penuh koordinasi untuk pelaksana tambahan (multi-pelaksana)
     pelArr.slice(1).forEach(extraPi => {
       const epi = Math.min(extraPi, nPel-1);
       if(epi === pi0) return;
       const col = COLORS[epi % COLORS.length];
       const ecx = colCX(epi);
       const ebx = ecx - BOX_W/2;
-      // Kotak di kolom ekstra
-      svg += `<rect x="${ebx}" y="${by}" width="${BOX_W}" height="${BOX_H}" rx="6" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" stroke-dasharray="4,2" filter="url(#svgfsh)"/>`;
-      svg += `<text x="${ecx}" y="${cy+4}" text-anchor="middle" font-size="7" fill="${col.text}" font-style="italic">koordinasi</text>`;
-      // Garis penghubung horizontal
+      // Kotak koordinasi penuh dengan border dashed
+      svg += `<rect x="${ebx}" y="${by}" width="${BOX_W}" height="${BOX_H}"
+        rx="6" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5"
+        stroke-dasharray="5,3" filter="url(#svgfsh)"/>`;
+      svg += `<text x="${ecx}" y="${cy - 3}" text-anchor="middle"
+        font-size="7" fill="${col.text}" font-style="italic">koordinasi</text>`;
+      // Garis penghubung horizontal dengan panah
       const lx1 = pi0 < epi ? cx0+BOX_W/2 : cx0-BOX_W/2;
       const lx2 = pi0 < epi ? ecx-BOX_W/2 : ecx+BOX_W/2;
-      svg += `<line x1="${lx1}" y1="${cy}" x2="${lx2}" y2="${cy}" stroke="${col.stroke}" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#svgarrow)"/>`;
+      svg += `<line x1="${lx1}" y1="${cy}" x2="${lx2}" y2="${cy}"
+        stroke="${col.stroke}" stroke-width="1.5" stroke-dasharray="6,3"
+        marker-end="url(#svgarrow)"/>`;
     });
 
     // Panah ke langkah berikutnya
@@ -2244,6 +2331,21 @@ function renderMakerCard(d) {
       <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(255,183,3,.1);
         border:1px solid rgba(255,183,3,.2);color:var(--amber);"
         onclick="resubmitDraft('${d.draftId||d.id}')">📤 Kirim Ulang</button>
+      <button class="btn" style="padding:8px 10px;font-size:12px;background:rgba(255,77,109,.1);
+        border:1px solid rgba(255,77,109,.2);color:var(--red);"
+        onclick="deleteDraft('${d.draftId||d.id}')" title="Hapus SOP">🗑️</button>
+    </div>` : ''}
+    ${d.status==='signed' ? `
+    <div style="display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(0,245,212,.1);
+        border:1px solid rgba(0,245,212,.2);color:var(--cyan);"
+        onclick="viewSignedSOP('${d.draftId||d.id}')">👁️ Lihat</button>
+      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(67,97,238,.1);
+        border:1px solid rgba(67,97,238,.2);color:#7b9fff;"
+        onclick="editDraftFromList('${d.draftId||d.id}')">✏️ Edit</button>
+      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(255,77,109,.1);
+        border:1px solid rgba(255,77,109,.2);color:var(--red);"
+        onclick="deleteDraft('${d.draftId||d.id}')">🗑️ Hapus</button>
     </div>` : ''}
   </div>`;
 }
