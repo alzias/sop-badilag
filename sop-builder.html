@@ -1302,24 +1302,34 @@ async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tomb
 // Dipanggil saat checkbox pelaksana dicentang/dilepas
 // Tidak re-render penuh agar tidak reset posisi scroll
 function togglePelaksana(stepIdx, pelIdx, checked) {
-  syncFormFromDOM();  // ambil state terkini dulu
+  // Sync semua field form ke state dulu agar tidak ada data yang hilang
+  syncFormFromDOM();
+
   const l = state.form.langkah[stepIdx];
   if (!l) return;
+
   // Pastikan pelaksana adalah array
   if (!Array.isArray(l.pelaksana)) l.pelaksana = [l.pelaksana || 0];
+
   if (checked) {
     if (!l.pelaksana.includes(pelIdx)) l.pelaksana.push(pelIdx);
   } else {
     l.pelaksana = l.pelaksana.filter(p => p !== pelIdx);
-    if (!l.pelaksana.length) l.pelaksana = [0]; // minimal 1 pelaksana
+    if (!l.pelaksana.length) l.pelaksana = [0]; // minimal 1
   }
-  // Update tampilan pill tanpa re-render
+
+  // Update visual pill di DOM (tanpa re-render penuh agar scroll tidak reset)
   const block = document.querySelector('.step-block[data-idx="'+stepIdx+'"]');
   if (block) {
     block.querySelectorAll('.pel-pill').forEach((pill, pi) => {
       pill.classList.toggle('pel-pill-on', l.pelaksana.includes(pi));
     });
   }
+
+  // KUNCI: state.form sudah diupdate di atas.
+  // Tidak perlu re-render — saat user pindah tab, setTab() akan
+  // memanggil renderFlowchartTab() yang baca state.form terbaru.
+  // Tidak perlu syncFormFromDOM() lagi saat setTab karena state sudah benar.
 }
 
 
@@ -1524,14 +1534,20 @@ function syncFormFromDOM() {
   if (_stepBlocks.length > 0) {
   const langkah=[];
   _stepBlocks.forEach((blk,i)=>{
+    // Baca pelaksana dari state.form langsung (bukan dari DOM checkbox)
+    // karena togglePelaksana update state.form tapi tidak update DOM checked attribute
+    const existingPel = (state.form.langkah && state.form.langkah[i])
+      ? state.form.langkah[i].pelaksana : null;
+    // Fallback ke DOM checkbox kalau state belum ada
+    const domPel = (()=>{
+      const cbs = blk.querySelectorAll('.pel-cb:checked');
+      const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
+      return arr.length ? arr : null;
+    })();
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
-      // Multi-pelaksana: baca semua checkbox yang checked
-      pelaksana: (()=>{
-        const cbs = blk.querySelectorAll('.pel-cb:checked');
-        const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
-        return arr.length ? arr : [0];
-      })(),
+      // Prioritas: state.form > DOM checkbox (state lebih akurat setelah togglePelaksana)
+      pelaksana: existingPel || domPel || [0],
       persyaratan: (blk.querySelector('.step-persyaratan')||{value:''}).value,
       waktu: (blk.querySelector('.step-waktu')||{value:''}).value,
       output: (blk.querySelector('.step-output')||{value:''}).value,
