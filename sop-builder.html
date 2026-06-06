@@ -64,6 +64,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 .tab-btn:hover{background:rgba(255,255,255,.08);color:var(--tx);}
 .tab-btn.on{background:var(--cyan);color:#000;}
 .tab-btn.on.amber{background:var(--amber);}
+.tab-btn.on.teal{background:#00c9a7;color:#000;}
 .tab-btn.on.purple{background:var(--purple);}
 
 /* MAIN CONTENT */
@@ -305,9 +306,10 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 
 <!-- TABS -->
 <div class="tabs">
-  <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
-  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
-  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">📋 SOP Saya</button>
+  <button class="tab-btn on"     id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
+  <button class="tab-btn amber"  id="tab1" onclick="setTab(1)">📄 Preview Dokumen</button>
+  <button class="tab-btn teal"   id="tab2" onclick="setTab(2)">🔀 Flowchart</button>
+  <button class="tab-btn purple" id="tab3" onclick="setTab(3)">📋 SOP Saya</button>
 </div>
 
 <!-- MAIN -->
@@ -1436,7 +1438,7 @@ function viewSignedSOP(draftId) {
     });
     state.previewMode = 'doc';
     setTab(1);
-    toast('👁️ Membuka preview SOP');
+    toast('👁️ Membuka preview SOP');  // tab 1 = Preview Dokumen
   } catch(e) {
     toast('Gagal membuka SOP: '+e.message, 'err');
   }
@@ -1511,14 +1513,16 @@ function setTab(i) {
   // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
   if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
-  [0,1,2].forEach(j => {
+  [0,1,2,3].forEach(j => {
     const b = document.getElementById('tab'+j);
-    const classes = ['on','on amber','on purple'];
-    if (j===i) b.className = 'tab-btn '+classes[j];
-    else b.className = 'tab-btn ' + (['','amber','purple'][j]);
+    if (!b) return;
+    const active   = ['on','on amber','on teal','on purple'];
+    const inactive = ['','amber','teal','purple'];
+    if (j===i) b.className = 'tab-btn ' + active[j];
+    else b.className = 'tab-btn ' + inactive[j];
   });
   render();
-  if (i===2) loadDrafts();
+  if (i===3) loadDrafts();
 }
 
 // ══ FORM HELPERS ══
@@ -1804,6 +1808,9 @@ function renderPreviewView() {
 }
 
 function switchPreview(mode) {
+  // Redirect ke tab yang benar — tidak ada lagi sub-tab
+  if (mode === 'flow') { setTab(2); return; }
+  else if (mode === 'doc') { setTab(1); return; }
   syncFormFromDOM();
   state.previewMode = mode;
   const f = state.form;
@@ -2830,7 +2837,7 @@ async function doKirim() {
     }
     state.fileState = 'idle';
 
-    setTimeout(() => setTab(2), 800);
+    setTimeout(() => setTab(3), 800);  // SOP Saya = tab 3
   } else {
     toast('❌ Gagal menyimpan. Cek koneksi.','err');
   }
