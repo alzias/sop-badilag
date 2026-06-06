@@ -1356,14 +1356,16 @@ function exportDocPDF() {
 
 // ══ EXPORT PDF DARI FLOWCHART ══
 function exportFlowPDF() {
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) { toast('Buka tab Flowchart terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
+  // Render SVG dari state.form langsung — tidak bergantung tab aktif atau DOM
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || !svgStr.startsWith('<svg')) {
+    toast('Isi data SOP terlebih dahulu','err'); return;
+  }
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'background:#fff;padding:16px;';
-  wrapper.innerHTML = `<div style="text-align:center;font-family:Arial;font-size:12px;font-weight:700;margin-bottom:8px;">FLOWCHART — ${(f.namaSOP||'SOP').toUpperCase()}</div>`;
-  wrapper.appendChild(svgEl.cloneNode(true));
+  wrapper.style.cssText = 'background:#fff;padding:20px;font-family:Arial,sans-serif;';
+  wrapper.innerHTML = `<div style="text-align:center;font-size:12px;font-weight:700;margin-bottom:12px;">FLOWCHART PROSES — ${(f.namaSOP||'SOP').toUpperCase()}</div><div style="overflow-x:auto;">${svgStr}</div>`;
   document.body.appendChild(wrapper);
   const filename = 'Flowchart - '+((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40))+'.pdf';
   toast('⏳ Membuat PDF flowchart...');
@@ -1780,35 +1782,11 @@ function renderFlowchartTab() {
 // Alias untuk kompatibilitas
 function renderPreviewView() { return renderPreviewDocTab(); }
 
-
+// switchPreview — dipertahankan untuk kompatibilitas saja, tidak redirect tab
 function switchPreview(mode) {
-  // Tidak redirect tab — hanya update state.previewMode untuk kompatibilitas
-  // Tab sudah terpisah: setTab(1)=Preview, setTab(2)=Flowchart
   state.previewMode = mode;
-  const f = state.form;
-  // Update tab buttons
-  document.getElementById('btnDoc').style.cssText = mode==='doc'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  document.getElementById('btnFlow').style.cssText = mode==='flow'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  // Update toolbar export buttons sesuai mode
-  const toolbarEl = document.getElementById('previewToolbar');
-  if (toolbarEl) {
-    if (mode === 'doc') {
-      toolbarEl.innerHTML = `
-        <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
-        <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>`;
-    } else {
-      toolbarEl.innerHTML = `
-        <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-        <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>`;
-    }
-  }
-  // Update panel
-  document.getElementById('previewPanel').innerHTML = mode==='flow'
-    ? renderFlowchart(f) : renderDocPreview(f);
+  // Tab sudah pisah: setTab(1)=Preview Dokumen, setTab(2)=Flowchart
+  // Tidak ada sub-tab, tidak ada #previewPanel, tidak ada #btnDoc/#btnFlow
 }
 
 // ══ FLOWCHART SYMBOL HELPER ══
