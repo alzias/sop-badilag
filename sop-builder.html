@@ -1245,18 +1245,21 @@ async function exportToWord() {
 
 // ══ EXPORT KE JPG ══
 // Export flowchart SVG langsung ke JPG — lebih ringan untuk Google Drive & SOPI
-// Menggunakan Canvas API (built-in browser, tidak perlu library tambahan)
-async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tombol
+// Export Flowchart sebagai JPG — render dari state.form, tidak bergantung tab aktif
+async function exportToPDF() {
   const f = state.form;
 
-  // Cek apakah ada SVG flowchart yang ter-render
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) {
-    // Coba switch ke flowchart dulu
-    if (typeof switchPreview === 'function') switchPreview('flow');
-    setTimeout(() => exportToPDF(), 500);
-    return;
+  // Render SVG dari state.form langsung (tidak perlu switch tab)
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || !svgStr.startsWith('<svg')) {
+    toast('Isi data SOP terlebih dahulu', 'err'); return;
   }
+
+  // Buat elemen SVG dari string
+  const tmpDiv = document.createElement('div');
+  tmpDiv.innerHTML = svgStr;
+  const svgEl = tmpDiv.querySelector('svg');
+  if (!svgEl) { toast('Gagal render SVG', 'err'); return; }
 
   try {
     toast('⏳ Membuat JPG...');
@@ -1779,9 +1782,8 @@ function renderPreviewView() { return renderPreviewDocTab(); }
 
 
 function switchPreview(mode) {
-  if (mode === 'flow') { setTab(2); return; }
-  if (mode === 'doc')  { setTab(1); return; }
-  syncFormFromDOM();
+  // Tidak redirect tab — hanya update state.previewMode untuk kompatibilitas
+  // Tab sudah terpisah: setTab(1)=Preview, setTab(2)=Flowchart
   state.previewMode = mode;
   const f = state.form;
   // Update tab buttons
