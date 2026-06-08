@@ -4492,10 +4492,77 @@ S.emps_cache_me = function() {
 };
 
 // ── Review Panel ──
+// ── normalizeBuilderFields ──
+// Dokumen dari Builder menyimpan array untuk beberapa field.
+// Review panel SOPI expects string. Fungsi ini membuat salinan ternormalisasi
+// tanpa mengubah dokumen asli di _sopDrafts.
+function normalizeBuilderFields(sop) {
+  var s = Object.assign({}, sop);
+
+  // Array of strings → numbered list string
+  function arrToStr(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) {
+      var filtered = val.filter(function(x){ return String(x).trim(); });
+      return filtered.length > 1
+        ? filtered.map(function(x, i){ return (i+1)+'. '+x; }).join('\n')
+        : filtered[0] || '';
+    }
+    return String(val);
+  }
+
+  // Array of langkah objects → numbered prose string
+  function langkahToStr(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) {
+      return val
+        .filter(function(l){ return l && String(l.aktivitas||'').trim(); })
+        .map(function(l, i) {
+          var pelaksana = Array.isArray(l.pelaksana)
+            ? l.pelaksana.join(', ')
+            : (typeof l.pelaksana === 'number' && sop.pelaksana
+                ? (sop.pelaksana[l.pelaksana] || 'Pelaksana '+(l.pelaksana+1))
+                : (l.pelaksana || ''));
+          var parts = [(i+1)+'. '+l.aktivitas];
+          if (pelaksana) parts.push('   Pelaksana: '+pelaksana);
+          if (l.waktu)   parts.push('   Waktu: '+l.waktu);
+          if (l.output)  parts.push('   Output: '+l.output);
+          return parts.join('\n');
+        })
+        .join('\n\n');
+    }
+    return String(val);
+  }
+
+  // Normalisasi field array
+  s.dasarHukum   = arrToStr(sop.dasarHukum);
+  s.kualifikasi  = arrToStr(sop.kualifikasiPelaksana || sop.kualifikasi);
+  s.keterkaitan  = arrToStr(sop.keterkaitan);
+  s.peralatan    = arrToStr(sop.peralatan);
+  s.peringatan   = arrToStr(sop.peringatan);
+  s.pencatatan   = arrToStr(sop.pencatatan);
+  s.langkah      = langkahToStr(sop.langkah);
+
+  // Alias field name agar review panel tidak tampil kosong
+  s.judul        = sop.judul   || sop.namaSOP   || sop.title || '';
+  s.unitEselon4  = sop.unitEselon4 || sop.eselon4 || '';
+  s.createdBy    = sop.createdBy   || sop.namaPembuat || '';
+  s.createdByNIP = sop.createdByNIP || sop.dibuatOleh || '';
+
+  return s;
+}
+
 async function openReviewPanel(sopId) {
   if (!_sopLoaded) await fbLoadSOPs();
   var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
   if (!sop) { toast('SOP tidak ditemukan'); return; }
+
+  // ── Normalisasi field dari Builder (array→string) ──
+  // Builder menyimpan array (dasarHukum:['...','...'], langkah:[{aktivitas,...}])
+  // Review panel SOPI expects plain string per field
+  sop = normalizeBuilderFields(sop);
 
   var userEmp = S.emps_cache_me();
   var myRole    = userEmp ? (userEmp.role || 'maker') : 'maker';
@@ -4580,9 +4647,10 @@ async function reviewSOP(sopId, action) {
   // ── REJECT (dari E3 atau Admin) ──
   if (action === 'reject') {
     if (!catatan) { toast('⚠ Catatan revisi wajib diisi','err'); return; }
-    var newStatus = sop.status === 'pending_e3' ? 'rejected_e3' : 'rejected_admin';
+    var isRejectByE3 = (sop.status === 'pending_e3');
+    var newStatus = isRejectByE3 ? 'rejected_e3' : 'rejected_admin';
     sop.status = newStatus;
-    if (sop.status === 'rejected_e3') {
+    if (isRejectByE3) {
       sop.reviewerE3Nip  = userEmp ? userEmp.nip  : '';
       sop.reviewerE3Nama = userEmp ? userEmp.name : S.user.name;
       sop.tglReviewE3    = now;
@@ -4595,16 +4663,17 @@ async function reviewSOP(sopId, action) {
     }
     await fbSaveSOP(sop);
     try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action       : 'reviewE3',
-          draftId      : sop.id,
-          reviewerNip  : userEmp ? userEmp.nip  : '',
-          reviewerNama : userEmp ? userEmp.name : S.user.name,
-          action_type  : 'reject',
-          catatan,
-          emailPembuat : makerEmp ? makerEmp.email : ''
-        })
+      // Reject dari E3 → Worker reviewE3 / Reject dari Admin → Worker reviewAdmin
+      var rejectPayload = isRejectByE3
+        ? { action:'reviewE3',    draftId:sop.id,
+            reviewerNip:userEmp?userEmp.nip:'', reviewerNama:userEmp?userEmp.name:S.user.name,
+            action_type:'reject', catatan, emailPembuat:makerEmp?makerEmp.email:'' }
+        : { action:'reviewAdmin', draftId:sop.id,
+            adminNip:userEmp?userEmp.nip:'',    adminNama:userEmp?userEmp.name:S.user.name,
+            action_type:'reject', catatan, emailPembuat:makerEmp?makerEmp.email:'' };
+      await fetch(WORKER_URL, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(rejectPayload)
       });
     } catch(e) {}
     closeModal('mSOPReview'); closeModal('mSOPInbox');
