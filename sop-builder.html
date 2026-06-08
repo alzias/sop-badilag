@@ -406,6 +406,33 @@ async function fbDeleteSOP(id) {
   try { await db.collection('sop_drafts').doc(id).delete(); } catch(e) { console.error(e); }
 }
 
+// ── REVIEWER LOOKUP — untuk mode standalone (tanpa window.opener) ──
+// Query Firestore emps langsung, cari reviewer_e3 yang reviewScope mencakup deptId
+async function fbFetchReviewerE3(deptId) {
+  if (!db || !deptId) return null;
+  try {
+    var snap = await db.collection('emps')
+      .where('role', '==', 'reviewer_e3')
+      .get();
+    if (snap.empty) return null;
+    var match = null;
+    snap.forEach(function(doc) {
+      if (match) return;
+      var emp = doc.data();
+      var scope = Array.isArray(emp.reviewScope) ? emp.reviewScope : [];
+      if (scope.includes(deptId)) match = Object.assign({ id: doc.id }, emp);
+    });
+    if (!match) {
+      var first = snap.docs[0];
+      if (first) match = Object.assign({ id: first.id }, first.data());
+    }
+    return match;
+  } catch(e) {
+    console.warn('fbFetchReviewerE3 error:', e);
+    return null;
+  }
+}
+
 // ══ URL PARAMS — baca context dari SOPI ══
 function readURLContext() {
   const p = new URLSearchParams(window.location.search);
@@ -2762,6 +2789,50 @@ async function doKirim() {
         eselon4    : f.eselon4
       }, '*');
     } catch(e) { console.warn('postMessage ke SOPI gagal:', e); }
+  } else {
+    // ── Fallback standalone: Builder query Firestore emps sendiri ──
+    // Dipakai jika Builder dibuka langsung (bukan popup dari SOPI)
+    (async function() {
+      var reviewer = await fbFetchReviewerE3(draftData.deptId);
+      if (!reviewer) {
+        toast('⚠ Reviewer E3 belum dikonfigurasi untuk unit ini.', 'err');
+        return;
+      }
+      // Update dokumen di Firestore dengan data reviewer
+      var draftWithReviewer = Object.assign({}, draftData, {
+        reviewerE3Nama  : reviewer.name  || '',
+        reviewerE3Email : reviewer.email || '',
+        reviewerE3Id    : reviewer.id    || ''
+      });
+      await fbSaveSOP(draftWithReviewer);
+      // Update list lokal juga
+      if (state.draftList[0] && state.draftList[0].draftId === draftId) {
+        Object.assign(state.draftList[0], {
+          reviewerE3Nama  : reviewer.name  || '',
+          reviewerE3Email : reviewer.email || '',
+          reviewerE3Id    : reviewer.id    || ''
+        });
+      }
+      // Kirim email ke reviewer via Worker
+      if (reviewer.email) {
+        fetch(WORKER_URL + '/send-email', {
+          method : 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body   : JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : reviewer.email,
+            subject : '\uD83D\uDD0D Review SOP: ' + f.namaSOP,
+            userName: reviewer.name || 'Bapak/Ibu',
+            tanggal : new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'}),
+            topics  : ['SOP baru dari ' + nama + ' menunggu review Anda'],
+            sopList : [{title: f.namaSOP, unit: f.eselon4 || f.eselon3 || '', linkFinal: ''}]
+          })
+        }).catch(function(){});
+        toast('📧 Email notifikasi dikirim ke ' + reviewer.name);
+      } else {
+        toast('⚠ Reviewer ditemukan tapi email belum diset — notifikasi tidak terkirim.', 'err');
+      }
+    })();
   }
 
   // ── LANGKAH 3: Update list lokal Builder ──
