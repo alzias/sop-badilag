@@ -64,7 +64,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 .tab-btn:hover{background:rgba(255,255,255,.08);color:var(--tx);}
 .tab-btn.on{background:var(--cyan);color:#000;}
 .tab-btn.on.amber{background:var(--amber);}
-.tab-btn.on.teal{background:#00c9a7;color:#000;}
 .tab-btn.on.purple{background:var(--purple);}
 
 /* MAIN CONTENT */
@@ -285,10 +284,10 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
   <img class="hd-logo" id="navLogo" alt="MA" style="border-radius:50%;">
   <div>
     <div class="hd-title">SOP Builder</div>
-    <div class="hd-sub">Ditjen Badilag MA RI · v3.0</div>
+    <div class="hd-sub">Ditjen Badilag MA RI · v3.1</div>
   </div>
   <div class="hd-badges">
-    <span class="badge" id="badgeVer">Builder v3</span>
+    <span class="badge" id="badgeVer">Builder v3.1</span>
     <span class="badge green" id="badgeConn">● Firebase</span>
     <span class="badge amber" id="badgeUser" style="display:none;"></span>
   </div>
@@ -306,10 +305,9 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 
 <!-- TABS -->
 <div class="tabs">
-  <button class="tab-btn on"     id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
-  <button class="tab-btn amber"  id="tab1" onclick="setTab(1)">📄 Preview Dokumen</button>
-  <button class="tab-btn teal"   id="tab2" onclick="setTab(2)">🔀 Flowchart</button>
-  <button class="tab-btn purple" id="tab3" onclick="setTab(3)">📋 SOP Saya</button>
+  <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
+  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
+  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">📋 SOP Saya</button>
 </div>
 
 <!-- MAIN -->
@@ -1245,19 +1243,18 @@ async function exportToWord() {
 
 // ══ EXPORT KE JPG ══
 // Export flowchart SVG langsung ke JPG — lebih ringan untuk Google Drive & SOPI
-// Export Flowchart sebagai JPG — render dari state.form, tidak bergantung tab aktif
-async function exportToPDF() {
+// Menggunakan Canvas API (built-in browser, tidak perlu library tambahan)
+async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tombol
   const f = state.form;
 
-  // Render SVG dari state.form langsung (tidak perlu switch tab)
-  const svgStr = renderFlowchart(f);
-  // renderFlowchart selalu return <svg>, skip check agresif
-
-  // Buat elemen SVG dari string
-  const tmpDiv = document.createElement('div');
-  tmpDiv.innerHTML = svgStr;
-  const svgEl = tmpDiv.querySelector('svg');
-  if (!svgEl) { toast('Gagal render SVG', 'err'); return; }
+  // Cek apakah ada SVG flowchart yang ter-render
+  const svgEl = document.querySelector('#previewPanel svg');
+  if (!svgEl) {
+    // Coba switch ke flowchart dulu
+    if (typeof switchPreview === 'function') switchPreview('flow');
+    setTimeout(() => exportToPDF(), 500);
+    return;
+  }
 
   try {
     toast('⏳ Membuat JPG...');
@@ -1303,34 +1300,24 @@ async function exportToPDF() {
 // Dipanggil saat checkbox pelaksana dicentang/dilepas
 // Tidak re-render penuh agar tidak reset posisi scroll
 function togglePelaksana(stepIdx, pelIdx, checked) {
-  // Sync semua field form ke state dulu agar tidak ada data yang hilang
-  syncFormFromDOM();
-
+  syncFormFromDOM();  // ambil state terkini dulu
   const l = state.form.langkah[stepIdx];
   if (!l) return;
-
   // Pastikan pelaksana adalah array
   if (!Array.isArray(l.pelaksana)) l.pelaksana = [l.pelaksana || 0];
-
   if (checked) {
     if (!l.pelaksana.includes(pelIdx)) l.pelaksana.push(pelIdx);
   } else {
     l.pelaksana = l.pelaksana.filter(p => p !== pelIdx);
-    if (!l.pelaksana.length) l.pelaksana = [0]; // minimal 1
+    if (!l.pelaksana.length) l.pelaksana = [0]; // minimal 1 pelaksana
   }
-
-  // Update visual pill di DOM (tanpa re-render penuh agar scroll tidak reset)
+  // Update tampilan pill tanpa re-render
   const block = document.querySelector('.step-block[data-idx="'+stepIdx+'"]');
   if (block) {
     block.querySelectorAll('.pel-pill').forEach((pill, pi) => {
       pill.classList.toggle('pel-pill-on', l.pelaksana.includes(pi));
     });
   }
-
-  // KUNCI: state.form sudah diupdate di atas.
-  // Tidak perlu re-render — saat user pindah tab, setTab() akan
-  // memanggil renderFlowchartTab() yang baca state.form terbaru.
-  // Tidak perlu syncFormFromDOM() lagi saat setTab karena state sudah benar.
 }
 
 
@@ -1354,14 +1341,14 @@ function exportDocPDF() {
 
 // ══ EXPORT PDF DARI FLOWCHART ══
 function exportFlowPDF() {
+  const svgEl = document.querySelector('#previewPanel svg');
+  if (!svgEl) { toast('Buka tab Flowchart terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
-  // Render SVG dari state.form langsung — tidak bergantung tab aktif atau DOM
-  const svgStr = renderFlowchart(f);
-  // renderFlowchart selalu return <svg>, skip check agresif
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'background:#fff;padding:20px;font-family:Arial,sans-serif;';
-  wrapper.innerHTML = `<div style="text-align:center;font-size:12px;font-weight:700;margin-bottom:12px;">FLOWCHART PROSES — ${(f.namaSOP||'SOP').toUpperCase()}</div><div style="overflow-x:auto;">${svgStr}</div>`;
+  wrapper.style.cssText = 'background:#fff;padding:16px;';
+  wrapper.innerHTML = `<div style="text-align:center;font-family:Arial;font-size:12px;font-weight:700;margin-bottom:8px;">FLOWCHART — ${(f.namaSOP||'SOP').toUpperCase()}</div>`;
+  wrapper.appendChild(svgEl.cloneNode(true));
   document.body.appendChild(wrapper);
   const filename = 'Flowchart - '+((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40))+'.pdf';
   toast('⏳ Membuat PDF flowchart...');
@@ -1497,14 +1484,14 @@ function setTab(i) {
   // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
   if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
-  [0,1,2,3].forEach(j => {
+  [0,1,2].forEach(j => {
     const b = document.getElementById('tab'+j);
-    const classes = ['on','on amber','on teal','on purple'];
+    const classes = ['on','on amber','on purple'];
     if (j===i) b.className = 'tab-btn '+classes[j];
-    else b.className = 'tab-btn ' + (['','amber','teal','purple'][j]);
+    else b.className = 'tab-btn ' + (['','amber','purple'][j]);
   });
   render();
-  if (i===3) loadDrafts();
+  if (i===2) loadDrafts();
 }
 
 // ══ FORM HELPERS ══
@@ -1535,20 +1522,14 @@ function syncFormFromDOM() {
   if (_stepBlocks.length > 0) {
   const langkah=[];
   _stepBlocks.forEach((blk,i)=>{
-    // Baca pelaksana dari state.form langsung (bukan dari DOM checkbox)
-    // karena togglePelaksana update state.form tapi tidak update DOM checked attribute
-    const existingPel = (state.form.langkah && state.form.langkah[i])
-      ? state.form.langkah[i].pelaksana : null;
-    // Fallback ke DOM checkbox kalau state belum ada
-    const domPel = (()=>{
-      const cbs = blk.querySelectorAll('.pel-cb:checked');
-      const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
-      return arr.length ? arr : null;
-    })();
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
-      // Prioritas: state.form > DOM checkbox (state lebih akurat setelah togglePelaksana)
-      pelaksana: existingPel || domPel || [0],
+      // Multi-pelaksana: baca semua checkbox yang checked
+      pelaksana: (()=>{
+        const cbs = blk.querySelectorAll('.pel-cb:checked');
+        const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
+        return arr.length ? arr : [0];
+      })(),
       persyaratan: (blk.querySelector('.step-persyaratan')||{value:''}).value,
       waktu: (blk.querySelector('.step-waktu')||{value:''}).value,
       output: (blk.querySelector('.step-output')||{value:''}).value,
@@ -1562,10 +1543,9 @@ function syncFormFromDOM() {
 // ══ RENDER ══
 function render() {
   const cont = document.getElementById('mainContent');
-  if      (state.tab===0) cont.innerHTML = renderFormView();
-  else if (state.tab===1) cont.innerHTML = renderPreviewDocTab();
-  else if (state.tab===2) cont.innerHTML = renderFlowchartTab();
-  else                    cont.innerHTML = renderAdminView();
+  if (state.tab===0) cont.innerHTML = renderFormView();
+  else if (state.tab===1) cont.innerHTML = renderPreviewView();
+  else cont.innerHTML = renderAdminView();
   bindEvents();
 }
 
@@ -1739,50 +1719,53 @@ function renderMultiField(key, label, items, ph) {
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ══ TAB 1: PREVIEW + FLOWCHART ══
-// ══ TAB 1: PREVIEW DOKUMEN — langsung tanpa sub-tab ══
-function renderPreviewDocTab() {
+function renderPreviewView() {
   const f = state.form;
+  const isDoc = (state.previewMode !== 'flow');
   return `<div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button onclick="exportToWord()" style="flex:1;padding:10px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
-      <button onclick="exportDocPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn" id="btnDoc" onclick="switchPreview('doc')"
+        style="flex:1;padding:9px;font-size:13px;background:${isDoc?'var(--cyan)':'rgba(255,255,255,.06)'};color:${isDoc?'#000':'var(--mu2)'};">📄 Preview Dokumen</button>
+      <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
+        style="flex:1;padding:9px;font-size:13px;background:${!isDoc?'var(--amber)':'rgba(255,255,255,.06)'};color:${!isDoc?'#000':'var(--mu2)'};">🔀 Flowchart</button>
     </div>
-    ${renderDocPreview(f)}
+    <div id="previewToolbar" style="display:flex;gap:8px;margin-bottom:10px;">
+      ${isDoc
+        ? '<button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button><button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>'
+        : '<button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button><button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>'
+      }
+    </div>
+    <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
   </div>`;
 }
 
-// ══ TAB 2: FLOWCHART — SVG saja, tanpa campuran dokumen ══
-function renderFlowchartTab() {
-  const f = state.form;
-  // Render SVG dari state.form — selalu fresh, tidak bergantung tab lain
-  const svgContent = renderFlowchart(f);
-  return `<div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button onclick="exportFlowPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-      <button onclick="exportToPDF()" style="flex:1;padding:10px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>
-    </div>
-    <div style="background:rgba(15,28,46,.6);border:1px solid rgba(0,245,212,.12);border-radius:14px;padding:14px;">
-      <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;margin-bottom:6px;">
-        🔀 FLOWCHART PROSES — ${(f.namaSOP||'SOP').toUpperCase()}
-      </div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:10px;">
-        ⬭ Oval = Mulai/Selesai &nbsp;|&nbsp; ▭ Persegi = Aktivitas &nbsp;|&nbsp; Warna = Pelaksana berbeda
-      </div>
-      <div id="flowWrap" style="overflow-x:auto;background:#fff;border-radius:10px;padding:14px;">
-        ${svgContent}
-      </div>
-    </div>
-  </div>`;
-}
-
-// Alias untuk kompatibilitas
-function renderPreviewView() { return renderPreviewDocTab(); }
-
-// switchPreview — dipertahankan untuk kompatibilitas saja, tidak redirect tab
 function switchPreview(mode) {
+  syncFormFromDOM();
   state.previewMode = mode;
-  // Tab sudah pisah: setTab(1)=Preview Dokumen, setTab(2)=Flowchart
-  // Tidak ada sub-tab, tidak ada #previewPanel, tidak ada #btnDoc/#btnFlow
+  const f = state.form;
+  // Update tab buttons
+  document.getElementById('btnDoc').style.cssText = mode==='doc'
+    ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
+    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
+  document.getElementById('btnFlow').style.cssText = mode==='flow'
+    ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
+    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
+  // Update toolbar export buttons sesuai mode
+  const toolbarEl = document.getElementById('previewToolbar');
+  if (toolbarEl) {
+    if (mode === 'doc') {
+      toolbarEl.innerHTML = `
+        <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
+        <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>`;
+    } else {
+      toolbarEl.innerHTML = `
+        <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
+        <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>`;
+    }
+  }
+  // Update panel
+  document.getElementById('previewPanel').innerHTML = mode==='flow'
+    ? renderFlowchart(f) : renderDocPreview(f);
 }
 
 // ══ FLOWCHART SYMBOL HELPER ══
@@ -1838,28 +1821,24 @@ function getSymbol(tipe, text, cx, cy, col, boxW, boxH) {
 }
 
 function renderFlowchart(f) {
-  const langkah   = (f.langkah  || []).filter(l => l.aktivitas);
-  const pelaksana = (f.pelaksana || []).filter(p => p);
-  // Return SVG kosong kecil jika belum ada data — BUKAN div, agar export tidak crash
+  const langkah  = f.langkah  || [];
+  const pelaksana = f.pelaksana || [];
   if (!langkah.length || !pelaksana.length)
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="80">
-      <text x="200" y="44" text-anchor="middle" font-size="13" fill="#94a3b8" font-family="sans-serif">
-        Isi langkah dan pelaksana terlebih dahulu
-      </text></svg>`;
+    return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
 
   // ── Layout constants ──
-  const COL_W  = 140, HDR_H = 48, PAD_X = 20, PAD_Y = 52;  // PAD_Y besar = MULAI tidak terpotong
-  const BOX_W  = 110, BOX_H = 56;
-  const OVAL_H = 30, OVAL_W = 84;
-  const ROW_H  = 95;
+  const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
+  const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
+  const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
+  const ROW_H  = 90;                 // jarak antar baris
 
-  const totalCols = Math.max(pelaksana.length, 1);
+  const totalCols = pelaksana.length;
   const totalRows = langkah.length;
   const svgW = PAD_X*2 + totalCols * COL_W;
-  const svgH = PAD_Y + HDR_H + 20 + OVAL_H + 10 + (totalRows * ROW_H) + ROW_H + 40;
+  const svgH = PAD_Y + HDR_H + 30 + OVAL_H + (totalRows * ROW_H) + ROW_H + 20;
 
-  const colCX = pi => PAD_X + pi * COL_W + COL_W / 2;
-  const rowCY = i  => PAD_Y + HDR_H + 20 + OVAL_H + 10 + i * ROW_H + BOX_H / 2;
+  const colCX = pi => PAD_X + pi * COL_W + COL_W / 2;  // center-x per kolom
+  const rowCY = i  => PAD_Y + HDR_H + 30 + OVAL_H + 10 + i * ROW_H + BOX_H / 2;
 
   // ── Warna per pelaksana ──
   const COLORS = [
@@ -1921,7 +1900,7 @@ function renderFlowchart(f) {
     ? (Array.isArray(langkah[0].pelaksana) ? langkah[0].pelaksana[0] : langkah[0].pelaksana) || 0
     : 0;
   const startCX   = colCX(startCol);
-  const startCY   = PAD_Y + HDR_H + 10 + OVAL_H/2;  // tepat di bawah header, tidak terpotong
+  const startCY   = PAD_Y + HDR_H + 18;
   svg += `<ellipse cx="${startCX}" cy="${startCY}" rx="${OVAL_W/2}" ry="${OVAL_H/2}"
     fill="#1e293b" filter="url(#fsh)"/>`;
   svg += `<text x="${startCX}" y="${startCY + 1}" text-anchor="middle" dominant-baseline="middle"
@@ -1957,7 +1936,6 @@ function renderFlowchart(f) {
     if (pelArr.length > 1) {
       pelArr.slice(1).forEach(extraPi => {
         const epi  = Math.min(extraPi, pelaksana.length - 1);
-        if (epi === pi) return;  // skip kalau sama dengan kolom utama
         const ecol = COLORS[epi % COLORS.length];
         const ecx  = colCX(epi);
         const ebx  = ecx - BOX_W/2;
@@ -1968,8 +1946,8 @@ function renderFlowchart(f) {
         svg += `<text x="${ecx}" y="${cy - 4}" text-anchor="middle"
           font-size="7" fill="${ecol.text}" font-style="italic" font-family="sans-serif">koordinasi</text>`;
         // Garis penghubung horizontal dari kotak utama ke kotak koordinasi
-        const lx1 = pi < epi ? cx + BOX_W/2 : cx - BOX_W/2;  // pi bukan pi0
-        const lx2 = pi < epi ? ecx - BOX_W/2 : ecx + BOX_W/2;
+        const lx1 = pi0 < epi ? cx + BOX_W/2 : cx - BOX_W/2;
+        const lx2 = pi0 < epi ? ecx - BOX_W/2 : ecx + BOX_W/2;
         svg += `<line x1="${lx1}" y1="${cy}" x2="${lx2}" y2="${cy}"
           stroke="${ecol.stroke}" stroke-width="1.5" stroke-dasharray="6,3"
           marker-end="url(#arr)"/>`;
@@ -2217,34 +2195,25 @@ function renderDocPreview(f) {
       </tr>
     </table>
 
-    <!-- IDENTITAS SOP — format asli Badilag: 4 baris, kiri Nomor/Nama/Unit, kanan Tgl -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9.5px;page-break-inside:avoid;">
+    <!-- IDENTITAS SOP -->
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;">
       <tr>
-        <td style="border:1px solid #000;padding:4px 8px;width:20%;font-weight:700;">Nomor SOP</td>
-        <td style="border:1px solid #000;padding:4px 8px;width:30%;">${esc2(f.nomorSOP||'—')}</td>
-        <td style="border:1px solid #000;padding:4px 8px;width:20%;font-weight:700;">Tgl Pembuatan</td>
-        <td style="border:1px solid #000;padding:4px 8px;width:30%;">${fmt(f.tglPembuatan)}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Nama SOP</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${esc2(f.namaSOP||'—')}</td>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Tgl Revisi</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${fmt(f.tglRevisi)}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Unit E-III</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${esc2(f.eselon3||'—')}</td>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Tgl Efektif</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${fmt(f.tglEfektif)}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Unit E-IV</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${esc2(f.eselon4||'—')}</td>
-        <td style="border:1px solid #000;padding:4px 8px;font-weight:700;">Disahkan Oleh</td>
-        <td style="border:1px solid #000;padding:4px 8px;">${esc2(f.disahkanOleh||'—')}</td>
+        <td style="border:1px solid #000;padding:3px 6px;width:50%;vertical-align:top;">
+          <div><b>Nomor SOP</b> : ${esc2(f.nomorSOP||'—')}</div>
+          <div><b>Nama SOP</b>  : ${esc2(f.namaSOP||'—')}</div>
+          <div><b>Unit E-III</b>: ${esc2(f.eselon3||'—')}</div>
+          <div><b>Unit E-IV</b> : ${esc2(f.eselon4||'—')}</div>
+        </td>
+        <td style="border:1px solid #000;padding:3px 6px;vertical-align:top;">
+          <div><b>Tgl Pembuatan</b> : ${fmt(f.tglPembuatan)}</div>
+          <div><b>Tgl Revisi</b>    : ${fmt(f.tglRevisi)}</div>
+          <div><b>Tgl Efektif</b>   : ${fmt(f.tglEfektif)}</div>
+          <div><b>Disahkan</b>      : ${esc2(f.disahkanOleh||'—')}</div>
+        </td>
       </tr>
     </table>
-        <!-- SECTION INFO: 3 kolom sejajar seperti format asli Badilag -->
+
+    <!-- SECTION INFO: 3 kolom sejajar seperti format asli Badilag -->
     <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;">
       <tr>
         <td style="border:1px solid #000;padding:2px 5px;width:33%;vertical-align:top;">
@@ -2722,85 +2691,91 @@ async function doKirim() {
   btn.disabled = true;
 
   const f = state.form;
-  const draftId = 'sop_'+Date.now();
+  // ── ID tunggal — satu-satunya sumber kebenaran di Firestore ──
+  const draftId = 'sop_' + Date.now();
+  const now = new Date().toISOString();
+
   const draftData = {
-    draftId, namaSOP:f.namaSOP, nomorSOP:f.nomorSOP,
-    eselon3:f.eselon3, eselon4:f.eselon4,
-    instansi:f.instansi, alamat:f.alamat,
-    tglPembuatan:f.tglPembuatan, tglRevisi:f.tglRevisi, tglEfektif:f.tglEfektif,
-    disahkanOleh:f.disahkanOleh, deskripsi:f.deskripsi||'',
-    dasarHukum:f.dasarHukum, kualifikasiPelaksana:f.kualifikasiPelaksana,
-    keterkaitan:f.keterkaitan, peralatan:f.peralatan,
-    peringatan:f.peringatan, pencatatan:f.pencatatan,
-    pelaksana:f.pelaksana, langkah:f.langkah,
-    dibuatOleh:nip, namaPembuat:nama,
-    deptId: state.ctx ? state.ctx.deptId : '',
-    status:'pending_e3', catatanE3:'', catatanAdmin:'',
-    reviewerE3Nip:'', reviewerE3Nama:'', tglReviewE3:'',
-    adminNip:'', adminNama:'', tglReviewAdmin:'',
-    approverE2Nip:'', approverE2Nama:'', tglSigned:'', urlPDFSigned:'',
-    tglKirim:new Date().toISOString(),
-    createdAt:new Date().toISOString(),
-    updatedAt:new Date().toISOString()
+    draftId,
+    id      : draftId,   // alias agar fbSaveSOP dan SOPI sama-sama bisa baca
+    // field set Builder (namaSOP, eselon4, dibuatOleh, namaPembuat)
+    namaSOP : f.namaSOP, nomorSOP : f.nomorSOP,
+    eselon3 : f.eselon3, eselon4  : f.eselon4,
+    instansi: f.instansi, alamat  : f.alamat,
+    tglPembuatan : f.tglPembuatan, tglRevisi  : f.tglRevisi,
+    tglEfektif   : f.tglEfektif,   disahkanOleh: f.disahkanOleh,
+    deskripsi    : f.deskripsi || '',
+    dasarHukum         : f.dasarHukum,
+    kualifikasiPelaksana: f.kualifikasiPelaksana,
+    keterkaitan: f.keterkaitan, peralatan : f.peralatan,
+    peringatan : f.peringatan,  pencatatan: f.pencatatan,
+    pelaksana  : f.pelaksana,   langkah   : f.langkah,
+    dibuatOleh : nip,  namaPembuat: nama,
+    deptId     : state.ctx ? state.ctx.deptId : '',
+    // ── field alias agar SOPI inbox bisa baca tanpa fallback bermasalah ──
+    judul         : f.namaSOP,   // SOPI inbox baca sop.judul||sop.namaSOP
+    unitEselon4   : f.eselon4,   // SOPI inbox baca sop.unitEselon4||sop.eselon4
+    unitEselon4Id : state.ctx ? state.ctx.deptId : '',
+    createdBy     : nama,        // SOPI review panel baca sop.createdBy
+    createdByNIP  : nip,         // SOPI cari makerEmp via sop.createdByNIP
+    // ── status alur ──
+    status     : 'pending_e3',
+    catatanE3  : '', catatanAdmin: '',
+    reviewerE3Nip: '', reviewerE3Nama: '', reviewerE3Email: '', reviewerE3Id: '',
+    tglReviewE3  : '',
+    adminNip  : '', adminNama  : '', tglReviewAdmin: '',
+    approverE2Nip: '', approverE2Nama: '', tglSigned: '', urlPDFSigned: '',
+    tglKirim  : now,
+    createdAt : now,
+    updatedAt : now,
+    sumber    : 'builder'   // penanda dokumen dari Builder eksternal
   };
 
-  // Simpan ke Firebase Firestore
-  // Simpan ke Firestore sop_drafts dengan field draftId
-  const savedFB = await fbSaveSOP(Object.assign({id:draftId, draftId}, draftData));
-
-  // Kirim ke Worker juga (untuk email notifikasi)
-  let workerOk = false;
-  try {
-    const res = await fetch(WORKER_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-          action          : 'submitDraft',
-          sopData         : f,
-          dibuatOleh      : nip,
-          namaPembuat     : nama,
-          deptId          : draftData.deptId,
-          eselon4         : f.eselon4,
-          reviewerE3Email : '',
-          reviewerE3Nama  : ''
-        })
-    });
-    const data = await res.json();
-    workerOk = data.success;
-  } catch(e) { console.warn('Worker submit error:', e); }
+  // ── LANGKAH 1: Simpan ke Firestore (satu-satunya yang tulis) ──
+  const savedFB = await fbSaveSOP(draftData);
 
   btn.textContent = '📤 Kirim Sekarang';
   btn.disabled = false;
 
-  if (savedFB || workerOk) {
-    closeModal('mKirim');
-    toast('✅ Draft berhasil dikirim! Admin akan mereview segera.');
-
-    // Notify SOPI via postMessage (jika dibuka dari SOPI)
-    if (window.opener) {
-      try {
-        window.opener.postMessage({
-          type:'SOP_SUBMITTED',
-          draftId, namaSOP:f.namaSOP, status:'pending_e3',
-          namaPembuat:nama, nip
-        }, '*');
-      } catch(e) {}
-    }
-
-    // Tambah ke list lokal
-    state.draftList.unshift(Object.assign({}, draftData));
-
-    // Reset form
-    state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
-    if (state.ctx) {
-      if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
-      if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
-    }
-    state.fileState = 'idle';
-
-    setTimeout(() => setTab(3), 800);
-  } else {
-    toast('❌ Gagal menyimpan. Cek koneksi.','err');
+  if (!savedFB) {
+    toast('❌ Gagal menyimpan ke Firestore. Cek koneksi.', 'err');
+    return;
   }
+
+  closeModal('mKirim');
+  toast('✅ Draft tersimpan! Mengirim notifikasi...');
+
+  // ── LANGKAH 2: Beritahu SOPI via postMessage ──
+  // SOPI yang akan: (a) cari reviewer E3 dari S.emps,
+  // (b) update Firestore dengan reviewerE3Email/Nama,
+  // (c) call Worker hanya untuk kirim email (bukan tulis Firestore lagi)
+  if (window.opener) {
+    try {
+      window.opener.postMessage({
+        type       : 'SOP_SUBMITTED',
+        draftId,
+        namaSOP    : f.namaSOP,
+        status     : 'pending_e3',
+        namaPembuat: nama,
+        nip,
+        deptId     : draftData.deptId,
+        eselon4    : f.eselon4
+      }, '*');
+    } catch(e) { console.warn('postMessage ke SOPI gagal:', e); }
+  }
+
+  // ── LANGKAH 3: Update list lokal Builder ──
+  state.draftList.unshift(Object.assign({}, draftData));
+
+  // ── LANGKAH 4: Reset form ──
+  state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
+  if (state.ctx) {
+    if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
+    if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
+  }
+  state.fileState = 'idle';
+
+  setTimeout(() => setTab(2), 800);
 }
 
 // ══ ADMIN ACTIONS ══
