@@ -64,6 +64,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 .tab-btn:hover{background:rgba(255,255,255,.08);color:var(--tx);}
 .tab-btn.on{background:var(--cyan);color:#000;}
 .tab-btn.on.amber{background:var(--amber);}
+.tab-btn.on.green{background:var(--green);color:#000;}
 .tab-btn.on.purple{background:var(--purple);}
 
 /* MAIN CONTENT */
@@ -281,7 +282,15 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 
 <!-- HEADER -->
 <div class="hd">
-  <img class="hd-logo" id="navLogo" alt="MA" style="border-radius:50%;">
+  <div id="navLogo" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(67,97,238,.15));border:1px solid rgba(0,245,212,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f5d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  </div>
   <div>
     <div class="hd-title">SOP Builder</div>
     <div class="hd-sub">Ditjen Badilag MA RI · v3.1</div>
@@ -306,8 +315,9 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 <!-- TABS -->
 <div class="tabs">
   <button class="tab-btn on" id="tab0" onclick="setTab(0)">📝 Buat SOP</button>
-  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview + Flowchart</button>
-  <button class="tab-btn purple" id="tab2" onclick="setTab(2)">📋 SOP Saya</button>
+  <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview Dokumen</button>
+  <button class="tab-btn green" id="tab2" onclick="setTab(2)">🔀 Flowchart</button>
+  <button class="tab-btn purple" id="tab3" onclick="setTab(3)">📋 SOP Saya</button>
 </div>
 
 <!-- MAIN -->
@@ -404,33 +414,6 @@ async function fbLoadSOPs() {
 async function fbDeleteSOP(id) {
   if (!db) return;
   try { await db.collection('sop_drafts').doc(id).delete(); } catch(e) { console.error(e); }
-}
-
-// ── REVIEWER LOOKUP — untuk mode standalone (tanpa window.opener) ──
-// Query Firestore emps langsung, cari reviewer_e3 yang reviewScope mencakup deptId
-async function fbFetchReviewerE3(deptId) {
-  if (!db || !deptId) return null;
-  try {
-    var snap = await db.collection('emps')
-      .where('role', '==', 'reviewer_e3')
-      .get();
-    if (snap.empty) return null;
-    var match = null;
-    snap.forEach(function(doc) {
-      if (match) return;
-      var emp = doc.data();
-      var scope = Array.isArray(emp.reviewScope) ? emp.reviewScope : [];
-      if (scope.includes(deptId)) match = Object.assign({ id: doc.id }, emp);
-    });
-    if (!match) {
-      var first = snap.docs[0];
-      if (first) match = Object.assign({ id: first.id }, first.data());
-    }
-    return match;
-  } catch(e) {
-    console.warn('fbFetchReviewerE3 error:', e);
-    return null;
-  }
 }
 
 // ══ URL PARAMS — baca context dari SOPI ══
@@ -1511,14 +1494,16 @@ function setTab(i) {
   // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
   if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
-  [0,1,2].forEach(j => {
+  const classes  = ['on', 'on amber', 'on green', 'on purple'];
+  const defaults = ['', 'amber', 'green', 'purple'];
+  [0,1,2,3].forEach(j => {
     const b = document.getElementById('tab'+j);
-    const classes = ['on','on amber','on purple'];
-    if (j===i) b.className = 'tab-btn '+classes[j];
-    else b.className = 'tab-btn ' + (['','amber','purple'][j]);
+    if (!b) return;
+    if (j===i) b.className = 'tab-btn ' + classes[j];
+    else       b.className = 'tab-btn ' + defaults[j];
   });
   render();
-  if (i===2) loadDrafts();
+  if (i===3) loadDrafts();
 }
 
 // ══ FORM HELPERS ══
@@ -1570,9 +1555,10 @@ function syncFormFromDOM() {
 // ══ RENDER ══
 function render() {
   const cont = document.getElementById('mainContent');
-  if (state.tab===0) cont.innerHTML = renderFormView();
-  else if (state.tab===1) cont.innerHTML = renderPreviewView();
-  else cont.innerHTML = renderAdminView();
+  if (state.tab===0)      cont.innerHTML = renderFormView();
+  else if (state.tab===1) cont.innerHTML = renderPreviewView('doc');
+  else if (state.tab===2) cont.innerHTML = renderPreviewView('flow');
+  else                    cont.innerHTML = renderAdminView();
   bindEvents();
 }
 
@@ -1745,21 +1731,17 @@ function renderMultiField(key, label, items, ph) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ══ TAB 1: PREVIEW + FLOWCHART ══
-function renderPreviewView() {
+// ══ TAB 1 & 2: PREVIEW DOKUMEN / FLOWCHART (dipisah jadi 2 tab) ══
+function renderPreviewView(mode) {
   const f = state.form;
-  const isDoc = (state.previewMode !== 'flow');
+  const isDoc = (mode !== 'flow');
+  // Sync state.previewMode agar switchPreview tetap kompatibel
+  state.previewMode = mode || 'doc';
   return `<div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button class="btn" id="btnDoc" onclick="switchPreview('doc')"
-        style="flex:1;padding:9px;font-size:13px;background:${isDoc?'var(--cyan)':'rgba(255,255,255,.06)'};color:${isDoc?'#000':'var(--mu2)'};">📄 Preview Dokumen</button>
-      <button class="btn" id="btnFlow" onclick="switchPreview('flow')"
-        style="flex:1;padding:9px;font-size:13px;background:${!isDoc?'var(--amber)':'rgba(255,255,255,.06)'};color:${!isDoc?'#000':'var(--mu2)'};">🔀 Flowchart</button>
-    </div>
     <div id="previewToolbar" style="display:flex;gap:8px;margin-bottom:10px;">
       ${isDoc
         ? '<button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button><button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>'
-        : '<button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button><button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>'
+        : '<button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF Flowchart</button><button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>'
       }
     </div>
     <div id="previewPanel">${isDoc ? renderDocPreview(f) : renderFlowchart(f)}</div>
@@ -2449,9 +2431,6 @@ function editDraftFromList(draftId) {
     });
     state._editingDraftId = draftId;
   } catch(e) { state.form = Object.assign({}, state.form); }
-  // Set logo MA di navbar
-  const navLogoEl = document.getElementById('navLogo');
-  if (navLogoEl) navLogoEl.src = LOGO_MA;
   setTab(0);
   toast('✏️ Data SOP dimuat ke form untuk diedit');
 }
@@ -2718,135 +2697,85 @@ async function doKirim() {
   btn.disabled = true;
 
   const f = state.form;
-  // ── ID tunggal — satu-satunya sumber kebenaran di Firestore ──
-  const draftId = 'sop_' + Date.now();
-  const now = new Date().toISOString();
-
+  const draftId = 'sop_'+Date.now();
   const draftData = {
-    draftId,
-    id      : draftId,   // alias agar fbSaveSOP dan SOPI sama-sama bisa baca
-    // field set Builder (namaSOP, eselon4, dibuatOleh, namaPembuat)
-    namaSOP : f.namaSOP, nomorSOP : f.nomorSOP,
-    eselon3 : f.eselon3, eselon4  : f.eselon4,
-    instansi: f.instansi, alamat  : f.alamat,
-    tglPembuatan : f.tglPembuatan, tglRevisi  : f.tglRevisi,
-    tglEfektif   : f.tglEfektif,   disahkanOleh: f.disahkanOleh,
-    deskripsi    : f.deskripsi || '',
-    dasarHukum         : f.dasarHukum,
-    kualifikasiPelaksana: f.kualifikasiPelaksana,
-    keterkaitan: f.keterkaitan, peralatan : f.peralatan,
-    peringatan : f.peringatan,  pencatatan: f.pencatatan,
-    pelaksana  : f.pelaksana,   langkah   : f.langkah,
-    dibuatOleh : nip,  namaPembuat: nama,
-    deptId     : state.ctx ? state.ctx.deptId : '',
-    // ── field alias agar SOPI inbox bisa baca tanpa fallback bermasalah ──
-    judul         : f.namaSOP,   // SOPI inbox baca sop.judul||sop.namaSOP
-    unitEselon4   : f.eselon4,   // SOPI inbox baca sop.unitEselon4||sop.eselon4
-    unitEselon4Id : state.ctx ? state.ctx.deptId : '',
-    createdBy     : nama,        // SOPI review panel baca sop.createdBy
-    createdByNIP  : nip,         // SOPI cari makerEmp via sop.createdByNIP
-    // ── status alur ──
-    status     : 'pending_e3',
-    catatanE3  : '', catatanAdmin: '',
-    reviewerE3Nip: '', reviewerE3Nama: '', reviewerE3Email: '', reviewerE3Id: '',
-    tglReviewE3  : '',
-    adminNip  : '', adminNama  : '', tglReviewAdmin: '',
-    approverE2Nip: '', approverE2Nama: '', tglSigned: '', urlPDFSigned: '',
-    tglKirim  : now,
-    createdAt : now,
-    updatedAt : now,
-    sumber    : 'builder'   // penanda dokumen dari Builder eksternal
+    draftId, namaSOP:f.namaSOP, nomorSOP:f.nomorSOP,
+    eselon3:f.eselon3, eselon4:f.eselon4,
+    instansi:f.instansi, alamat:f.alamat,
+    tglPembuatan:f.tglPembuatan, tglRevisi:f.tglRevisi, tglEfektif:f.tglEfektif,
+    disahkanOleh:f.disahkanOleh, deskripsi:f.deskripsi||'',
+    dasarHukum:f.dasarHukum, kualifikasiPelaksana:f.kualifikasiPelaksana,
+    keterkaitan:f.keterkaitan, peralatan:f.peralatan,
+    peringatan:f.peringatan, pencatatan:f.pencatatan,
+    pelaksana:f.pelaksana, langkah:f.langkah,
+    dibuatOleh:nip, namaPembuat:nama,
+    deptId: state.ctx ? state.ctx.deptId : '',
+    status:'pending_e3', catatanE3:'', catatanAdmin:'',
+    reviewerE3Nip:'', reviewerE3Nama:'', tglReviewE3:'',
+    adminNip:'', adminNama:'', tglReviewAdmin:'',
+    approverE2Nip:'', approverE2Nama:'', tglSigned:'', urlPDFSigned:'',
+    tglKirim:new Date().toISOString(),
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
   };
 
-  // ── LANGKAH 1: Simpan ke Firestore (satu-satunya yang tulis) ──
-  const savedFB = await fbSaveSOP(draftData);
+  // Simpan ke Firebase Firestore
+  // Simpan ke Firestore sop_drafts dengan field draftId
+  const savedFB = await fbSaveSOP(Object.assign({id:draftId, draftId}, draftData));
+
+  // Kirim ke Worker juga (untuk email notifikasi)
+  let workerOk = false;
+  try {
+    const res = await fetch(WORKER_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+          action          : 'submitDraft',
+          sopData         : f,
+          dibuatOleh      : nip,
+          namaPembuat     : nama,
+          deptId          : draftData.deptId,
+          eselon4         : f.eselon4,
+          reviewerE3Email : '',
+          reviewerE3Nama  : ''
+        })
+    });
+    const data = await res.json();
+    workerOk = data.success;
+  } catch(e) { console.warn('Worker submit error:', e); }
 
   btn.textContent = '📤 Kirim Sekarang';
   btn.disabled = false;
 
-  if (!savedFB) {
-    toast('❌ Gagal menyimpan ke Firestore. Cek koneksi.', 'err');
-    return;
-  }
+  if (savedFB || workerOk) {
+    closeModal('mKirim');
+    toast('✅ Draft berhasil dikirim! Admin akan mereview segera.');
 
-  closeModal('mKirim');
-  toast('✅ Draft tersimpan! Mengirim notifikasi...');
+    // Notify SOPI via postMessage (jika dibuka dari SOPI)
+    if (window.opener) {
+      try {
+        window.opener.postMessage({
+          type:'SOP_SUBMITTED',
+          draftId, namaSOP:f.namaSOP, status:'pending_e3',
+          namaPembuat:nama, nip
+        }, '*');
+      } catch(e) {}
+    }
 
-  // ── LANGKAH 2: Beritahu SOPI via postMessage ──
-  // SOPI yang akan: (a) cari reviewer E3 dari S.emps,
-  // (b) update Firestore dengan reviewerE3Email/Nama,
-  // (c) call Worker hanya untuk kirim email (bukan tulis Firestore lagi)
-  if (window.opener) {
-    try {
-      window.opener.postMessage({
-        type       : 'SOP_SUBMITTED',
-        draftId,
-        namaSOP    : f.namaSOP,
-        status     : 'pending_e3',
-        namaPembuat: nama,
-        nip,
-        deptId     : draftData.deptId,
-        eselon4    : f.eselon4
-      }, '*');
-    } catch(e) { console.warn('postMessage ke SOPI gagal:', e); }
+    // Tambah ke list lokal
+    state.draftList.unshift(Object.assign({}, draftData));
+
+    // Reset form
+    state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
+    if (state.ctx) {
+      if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
+      if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
+    }
+    state.fileState = 'idle';
+
+    setTimeout(() => setTab(3), 800);
   } else {
-    // ── Fallback standalone: Builder query Firestore emps sendiri ──
-    // Dipakai jika Builder dibuka langsung (bukan popup dari SOPI)
-    (async function() {
-      var reviewer = await fbFetchReviewerE3(draftData.deptId);
-      if (!reviewer) {
-        toast('⚠ Reviewer E3 belum dikonfigurasi untuk unit ini.', 'err');
-        return;
-      }
-      // Update dokumen di Firestore dengan data reviewer
-      var draftWithReviewer = Object.assign({}, draftData, {
-        reviewerE3Nama  : reviewer.name  || '',
-        reviewerE3Email : reviewer.email || '',
-        reviewerE3Id    : reviewer.id    || ''
-      });
-      await fbSaveSOP(draftWithReviewer);
-      // Update list lokal juga
-      if (state.draftList[0] && state.draftList[0].draftId === draftId) {
-        Object.assign(state.draftList[0], {
-          reviewerE3Nama  : reviewer.name  || '',
-          reviewerE3Email : reviewer.email || '',
-          reviewerE3Id    : reviewer.id    || ''
-        });
-      }
-      // Kirim email ke reviewer via Worker
-      if (reviewer.email) {
-        fetch(WORKER_URL + '/send-email', {
-          method : 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body   : JSON.stringify({
-            action  : 'sendEmail',
-            toEmail : reviewer.email,
-            subject : '\uD83D\uDD0D Review SOP: ' + f.namaSOP,
-            userName: reviewer.name || 'Bapak/Ibu',
-            tanggal : new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'}),
-            topics  : ['SOP baru dari ' + nama + ' menunggu review Anda'],
-            sopList : [{title: f.namaSOP, unit: f.eselon4 || f.eselon3 || '', linkFinal: ''}]
-          })
-        }).catch(function(){});
-        toast('📧 Email notifikasi dikirim ke ' + reviewer.name);
-      } else {
-        toast('⚠ Reviewer ditemukan tapi email belum diset — notifikasi tidak terkirim.', 'err');
-      }
-    })();
+    toast('❌ Gagal menyimpan. Cek koneksi.','err');
   }
-
-  // ── LANGKAH 3: Update list lokal Builder ──
-  state.draftList.unshift(Object.assign({}, draftData));
-
-  // ── LANGKAH 4: Reset form ──
-  state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
-  if (state.ctx) {
-    if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
-    if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
-  }
-  state.fileState = 'idle';
-
-  setTimeout(() => setTab(2), 800);
 }
 
 // ══ ADMIN ACTIONS ══
