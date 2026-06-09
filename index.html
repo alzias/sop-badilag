@@ -434,7 +434,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 <div id="loginScreen">
   <div class="lglow"></div>
   <div class="llogo">⚖️</div>
-  <div class="ltitle">SOP Center</div>
+  <div class="ltitle">SOP Intelligence</div>
   <div class="lsub">Ditjen Badan Peradilan Agama — MA RI</div>
   <div class="lcard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -466,7 +466,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   <div class="atabs">
     <div class="atab on" id="tabDept" onclick="switchTab('dept')">🏢 Unit</div>
     <div class="atab" id="tabEmp" onclick="switchTab('emp')">👤 Pegawai</div>
-    <div class="atab" id="tabDrive" onclick="switchTab('drive')">📋 SOP</div>
+    <div class="atab" id="tabDrive" onclick="switchTab('drive')">🗂️ Manage SOP</div>
     <div class="atab" id="tabQR" onclick="switchTab('qr')">🔲 QR Code</div>
     <div class="atab" id="tabBackup" onclick="switchTab('backup')">💾 Backup</div>
   <div class="atab" id="tabRole" onclick="switchTab('role')">🔐 Role SOP</div>
@@ -1431,10 +1431,10 @@ async function sendMsg(){
   // Pantun perpisahan — acak, pantun 3 adalah utama (bobot lebih tinggi)
   const pantunList = [
     '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Bunga melati semerbak harum,***\n***Ditata indah di atas meja.***\n***Semoga informasi yang kami sajikan maklum,***\n***Salam hangat dari SOPI untuk Bapak/Ibu semua!\"***',
     '***\"Malam hari keliling Semarang,***\n***Singgah sebentar membeli lumpia.***\n***Jika di sistem masih ada yang kurang,***\n***Jangan sungkan kembali menyapa saya!\"***',
     '***\"Pagi-pagi minum kopi hangat,***\n***Ditemani pisang goreng yang renyah.***\n***Semoga hari Bapak/Ibu penuh semangat,***\n***SOPI selalu siap saat kembali bertugas!\"***',
-    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
-    '***\"Pergi ke pasar membeli ikan,***\n***Ikan segar dibawa pulang.***\n***Terima kasih sudah bertanya dan berdiskusi,***\n***Sampai jumpa di lain kesempatan!\"***',
+    '***\"Naik perahu menuju pesisir,***\n***Ombak tenang di waktu senja.***\n***Semoga SOP yang telah diperoleh bermanfaat,***\n***Ditjen Badilag siap melayani sepenuhnya!\"***',
   ];
   const selectedPantun = pantunList[Math.floor(Math.random() * pantunList.length)];
 
@@ -4014,8 +4014,80 @@ function openSOPBuilder() {
     toast('⚠ Login sebagai pegawai untuk membuat SOP');
     return;
   }
-  var u = S.user;
+
+  var u   = S.user;
   var emp = S.emps.find(function(e){ return e.nip === u.nip; }) || {};
+
+  // ── Tampilkan overlay verifikasi ──
+  var ov = document.getElementById('overlayBuilderVerif');
+  if (ov) {
+    ov.style.display = 'flex';
+
+    // Reset semua step
+    ['ovStep1','ovStep2','ovStep3'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.opacity = '.3'; el.style.animation = ''; }
+      var dot = el ? el.querySelector('.ov-dot') : null;
+      if (dot) dot.textContent = '⏳';
+    });
+    var prog = document.getElementById('ovProgress');
+    var progLbl = document.getElementById('ovProgressLabel');
+    if (prog)    prog.style.width = '0%';
+    if (progLbl) progLbl.textContent = '0%';
+
+    // Fungsi bantu: aktifkan step
+    function activateStep(id, icon, pct) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.opacity = '1';
+      el.style.animation = 'ovStepIn .35s ease forwards';
+      var dot = el.querySelector('.ov-dot');
+      if (dot) dot.textContent = icon;
+      if (prog)    prog.style.width = pct + '%';
+      if (progLbl) progLbl.textContent = pct + '%';
+    }
+
+    // Step 1 — Verifikasi identitas (400ms)
+    setTimeout(function() {
+      activateStep('ovStep1', '✅', 33);
+    }, 400);
+
+    // Step 2 — Cek role & unit (900ms)
+    setTimeout(function() {
+      activateStep('ovStep2', '✅', 66);
+    }, 900);
+
+    // Step 3 — Siapkan konteks (1400ms)
+    setTimeout(function() {
+      activateStep('ovStep3', '✅', 100);
+      // Hentikan spin ring
+      var ring = document.getElementById('ovRing');
+      if (ring) {
+        ring.style.animation = 'none';
+        ring.style.borderTopColor = 'rgba(0,245,212,.9)';
+        ring.style.border = '2px solid rgba(0,245,212,.5)';
+      }
+    }, 1400);
+
+    // Buka Builder & tutup overlay setelah 1900ms
+    setTimeout(function() {
+      if (ov) ov.style.display = 'none';
+      // Reset ring
+      var ring = document.getElementById('ovRing');
+      if (ring) {
+        ring.style.animation = 'ovSpin 1s linear infinite';
+        ring.style.border = '2px solid transparent';
+        ring.style.borderTopColor = 'rgba(0,245,212,.7)';
+      }
+      _doOpenBuilder(u, emp);
+    }, 1900);
+  } else {
+    // Fallback: langsung buka tanpa overlay
+    _doOpenBuilder(u, emp);
+  }
+}
+
+function _doOpenBuilder(u, emp) {
   var params = new URLSearchParams({
     nip   : u.nip      || '',
     nama  : u.name     || '',
@@ -4053,7 +4125,6 @@ function openSOPBuilder() {
         fbLoadSOPs().then(function() {
           updateInboxBadge();
 
-          // Cari reviewer E3 via reviewScope → deptId
           var reviewer = getReviewerE3ForDraft(submittedDept);
           if (!reviewer && submittedDept) {
             reviewer = S.emps.find(function(emp) {
@@ -4068,7 +4139,6 @@ function openSOPBuilder() {
             return;
           }
 
-          // Update dokumen di Firestore dengan data reviewer
           var draft = _sopDrafts.find(function(s) {
             return s.id === submittedId || s.draftId === submittedId;
           });
@@ -4079,8 +4149,6 @@ function openSOPBuilder() {
             fbSaveSOP(draft);
           }
 
-          // Call Worker HANYA untuk kirim email ke reviewer E3
-          // Worker TIDAK menulis Firestore — hanya sendEmail
           if (reviewer.email) {
             fetch(WORKER_URL + '/send-email', {
               method: 'POST',
@@ -4492,77 +4560,10 @@ S.emps_cache_me = function() {
 };
 
 // ── Review Panel ──
-// ── normalizeBuilderFields ──
-// Dokumen dari Builder menyimpan array untuk beberapa field.
-// Review panel SOPI expects string. Fungsi ini membuat salinan ternormalisasi
-// tanpa mengubah dokumen asli di _sopDrafts.
-function normalizeBuilderFields(sop) {
-  var s = Object.assign({}, sop);
-
-  // Array of strings → numbered list string
-  function arrToStr(val) {
-    if (!val) return '';
-    if (typeof val === 'string') return val;
-    if (Array.isArray(val)) {
-      var filtered = val.filter(function(x){ return String(x).trim(); });
-      return filtered.length > 1
-        ? filtered.map(function(x, i){ return (i+1)+'. '+x; }).join('\n')
-        : filtered[0] || '';
-    }
-    return String(val);
-  }
-
-  // Array of langkah objects → numbered prose string
-  function langkahToStr(val) {
-    if (!val) return '';
-    if (typeof val === 'string') return val;
-    if (Array.isArray(val)) {
-      return val
-        .filter(function(l){ return l && String(l.aktivitas||'').trim(); })
-        .map(function(l, i) {
-          var pelaksana = Array.isArray(l.pelaksana)
-            ? l.pelaksana.join(', ')
-            : (typeof l.pelaksana === 'number' && sop.pelaksana
-                ? (sop.pelaksana[l.pelaksana] || 'Pelaksana '+(l.pelaksana+1))
-                : (l.pelaksana || ''));
-          var parts = [(i+1)+'. '+l.aktivitas];
-          if (pelaksana) parts.push('   Pelaksana: '+pelaksana);
-          if (l.waktu)   parts.push('   Waktu: '+l.waktu);
-          if (l.output)  parts.push('   Output: '+l.output);
-          return parts.join('\n');
-        })
-        .join('\n\n');
-    }
-    return String(val);
-  }
-
-  // Normalisasi field array
-  s.dasarHukum   = arrToStr(sop.dasarHukum);
-  s.kualifikasi  = arrToStr(sop.kualifikasiPelaksana || sop.kualifikasi);
-  s.keterkaitan  = arrToStr(sop.keterkaitan);
-  s.peralatan    = arrToStr(sop.peralatan);
-  s.peringatan   = arrToStr(sop.peringatan);
-  s.pencatatan   = arrToStr(sop.pencatatan);
-  s.langkah      = langkahToStr(sop.langkah);
-
-  // Alias field name agar review panel tidak tampil kosong
-  s.judul        = sop.judul   || sop.namaSOP   || sop.title || '';
-  s.unitEselon4  = sop.unitEselon4 || sop.eselon4 || '';
-  s.createdBy    = sop.createdBy   || sop.namaPembuat || '';
-  s.createdByNIP = sop.createdByNIP || sop.dibuatOleh || '';
-
-  return s;
-}
-
 async function openReviewPanel(sopId) {
   if (!_sopLoaded) await fbLoadSOPs();
   var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
   if (!sop) { toast('SOP tidak ditemukan'); return; }
-
-  // ── Normalisasi field dari Builder (array→string) ──
-  // Builder menyimpan array (dasarHukum:['...','...'], langkah:[{aktivitas,...}])
-  // Review panel SOPI expects plain string per field
-  sop = normalizeBuilderFields(sop);
 
   var userEmp = S.emps_cache_me();
   var myRole    = userEmp ? (userEmp.role || 'maker') : 'maker';
@@ -4647,10 +4648,9 @@ async function reviewSOP(sopId, action) {
   // ── REJECT (dari E3 atau Admin) ──
   if (action === 'reject') {
     if (!catatan) { toast('⚠ Catatan revisi wajib diisi','err'); return; }
-    var isRejectByE3 = (sop.status === 'pending_e3');
-    var newStatus = isRejectByE3 ? 'rejected_e3' : 'rejected_admin';
+    var newStatus = sop.status === 'pending_e3' ? 'rejected_e3' : 'rejected_admin';
     sop.status = newStatus;
-    if (isRejectByE3) {
+    if (sop.status === 'rejected_e3') {
       sop.reviewerE3Nip  = userEmp ? userEmp.nip  : '';
       sop.reviewerE3Nama = userEmp ? userEmp.name : S.user.name;
       sop.tglReviewE3    = now;
@@ -4663,17 +4663,16 @@ async function reviewSOP(sopId, action) {
     }
     await fbSaveSOP(sop);
     try {
-      // Reject dari E3 → Worker reviewE3 / Reject dari Admin → Worker reviewAdmin
-      var rejectPayload = isRejectByE3
-        ? { action:'reviewE3',    draftId:sop.id,
-            reviewerNip:userEmp?userEmp.nip:'', reviewerNama:userEmp?userEmp.name:S.user.name,
-            action_type:'reject', catatan, emailPembuat:makerEmp?makerEmp.email:'' }
-        : { action:'reviewAdmin', draftId:sop.id,
-            adminNip:userEmp?userEmp.nip:'',    adminNama:userEmp?userEmp.name:S.user.name,
-            action_type:'reject', catatan, emailPembuat:makerEmp?makerEmp.email:'' };
-      await fetch(WORKER_URL, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(rejectPayload)
+      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action       : 'reviewE3',
+          draftId      : sop.id,
+          reviewerNip  : userEmp ? userEmp.nip  : '',
+          reviewerNama : userEmp ? userEmp.name : S.user.name,
+          action_type  : 'reject',
+          catatan,
+          emailPembuat : makerEmp ? makerEmp.email : ''
+        })
       });
     } catch(e) {}
     closeModal('mSOPReview'); closeModal('mSOPInbox');
@@ -5023,7 +5022,7 @@ function injectSOPAdminTab() {
     var t = document.createElement('div');
     t.className = 'atab';
     t.id = 'tabSop';
-    t.textContent = '📋 SOP';
+    t.textContent = '🗂️ Manage SOP';
     t.onclick = function(){ switchTab('sop'); };
     tabsEl.appendChild(t);
   }
@@ -5094,6 +5093,95 @@ function getApproverE2ForDept(deptId) {
 }
 
 </script>
+
+<!-- ══ OVERLAY VERIFIKASI SOP BUILDER ══ -->
+<div id="overlayBuilderVerif" style="
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(6,13,24,.92);backdrop-filter:blur(18px);
+  align-items:center;justify-content:center;flex-direction:column;gap:0;
+">
+  <div style="
+    background:rgba(15,28,46,.95);border:1px solid rgba(0,245,212,.2);
+    border-radius:24px;padding:40px 44px;max-width:380px;width:90%;
+    text-align:center;position:relative;overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(0,245,212,.08);
+  ">
+    <!-- Glow top -->
+    <div style="position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+      width:200px;height:80px;background:radial-gradient(ellipse,rgba(0,245,212,.18),transparent 70%);
+      pointer-events:none;"></div>
+
+    <!-- Ikon dokumen animasi -->
+    <div id="ovIconWrap" style="margin:0 auto 22px;width:68px;height:68px;border-radius:18px;
+      background:linear-gradient(135deg,rgba(0,245,212,.15),rgba(67,97,238,.12));
+      border:1px solid rgba(0,245,212,.25);display:flex;align-items:center;justify-content:center;
+      position:relative;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00f5d4"
+        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <!-- Ring animasi -->
+      <div id="ovRing" style="position:absolute;inset:-6px;border-radius:24px;
+        border:2px solid transparent;border-top-color:rgba(0,245,212,.7);
+        animation:ovSpin 1s linear infinite;"></div>
+    </div>
+
+    <!-- Judul -->
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;
+      color:#e8eaf6;letter-spacing:-.3px;margin-bottom:6px;">
+      Membuka SOP Builder
+    </div>
+    <div style="font-size:12px;color:#6b7a99;margin-bottom:28px;">
+      Ditjen Badan Peradilan Agama MA RI
+    </div>
+
+    <!-- Step verifikasi -->
+    <div id="ovSteps" style="text-align:left;display:flex;flex-direction:column;gap:10px;margin-bottom:28px;">
+      <div class="ov-step" id="ovStep1" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Verifikasi identitas pegawai</div>
+      </div>
+      <div class="ov-step" id="ovStep2" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Cek akses role & unit kerja</div>
+      </div>
+      <div class="ov-step" id="ovStep3" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Menyiapkan konteks SOP Builder</div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="height:3px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;">
+      <div id="ovProgress" style="height:100%;width:0%;border-radius:4px;
+        background:linear-gradient(90deg,#00f5d4,#4361ee);
+        transition:width .4s ease;"></div>
+    </div>
+    <div id="ovProgressLabel" style="font-size:10px;color:#5a7a8a;margin-top:8px;
+      font-family:'JetBrains Mono',monospace;letter-spacing:.5px;">0%</div>
+  </div>
+</div>
+
+<style>
+@keyframes ovSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes ovStepIn {
+  from { opacity:.3; transform:translateX(-6px); }
+  to   { opacity:1;  transform:translateX(0); }
+}
+</style>
 
 <!-- CLOUDFLARE WORKER v3.0
 Salin kode dari file cloudflare_worker_v3.js
