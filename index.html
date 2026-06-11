@@ -314,6 +314,66 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   </div>
 </div>
 
+<!-- Modal iframe SOP Builder — untuk mobile (tanpa popup) -->
+<div id="mBuilderFrame" style="
+  display:none;position:fixed;inset:0;z-index:2000;
+  background:var(--bg);flex-direction:column;
+">
+  <!-- Header -->
+  <div style="
+    display:flex;align-items:center;gap:12px;
+    padding:10px 16px;
+    background:rgba(15,28,46,.98);
+    border-bottom:1px solid rgba(0,245,212,.15);
+    flex-shrink:0;
+  ">
+    <div style="width:32px;height:32px;border-radius:8px;
+      background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(67,97,238,.15));
+      border:1px solid rgba(0,245,212,.25);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00f5d4"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--tx);">SOP Builder</div>
+      <div style="font-size:10px;color:var(--mu2);" id="bfSubtitle">Ditjen Badilag MA RI</div>
+    </div>
+    <!-- Tombol buka di tab baru (fallback) -->
+    <a id="bfOpenTab" href="#" target="_blank"
+      style="font-size:11px;color:var(--cyan);text-decoration:none;
+      padding:5px 12px;border-radius:20px;border:1px solid rgba(0,245,212,.25);
+      background:rgba(0,245,212,.08);white-space:nowrap;flex-shrink:0;">
+      ↗ Tab Baru
+    </a>
+    <button onclick="closeBuilderFrame()"
+      style="width:32px;height:32px;border-radius:50%;background:rgba(255,77,109,.12);
+      border:1px solid rgba(255,77,109,.25);color:var(--red);font-size:16px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+  </div>
+  <!-- Loading state -->
+  <div id="bfLoading" style="
+    position:absolute;top:56px;left:0;right:0;bottom:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:var(--bg);z-index:1;
+  ">
+    <div style="width:48px;height:48px;border-radius:50%;
+      border:3px solid rgba(0,245,212,.15);border-top-color:var(--cyan);
+      animation:ovSpin 1s linear infinite;"></div>
+    <div style="font-size:13px;color:var(--mu2);">Memuat SOP Builder...</div>
+  </div>
+  <!-- iframe -->
+  <iframe id="builderIframe"
+    src="about:blank"
+    style="flex:1;border:none;width:100%;display:block;"
+    allow="clipboard-write">
+  </iframe>
+</div>
+
 <!-- SOP Review Modal -->
 <div class="modal" id="mSOPReview">
   <div class="mbox" style="max-width:880px;width:96vw;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -591,10 +651,21 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 </div>
 
 </div>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- Firebase SDK — jsdelivr primary, gstatic fallback -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-auth-compat.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-firestore-compat.min.js"></script>
+<script>
+// Fallback ke gstatic jika jsdelivr gagal
+if (typeof firebase === 'undefined') {
+  console.warn('jsdelivr gagal, mencoba gstatic...');
+  ['firebase-app-compat','firebase-auth-compat','firebase-firestore-compat'].forEach(function(n){
+    var s=document.createElement('script');
+    s.src='https://www.gstatic.com/firebasejs/10.12.0/'+n+'.js';
+    document.head.appendChild(s);
+  });
+}
+</script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyBsM32VhPFmSN4cQJs6ks8w0NuzCJxBdQk",
@@ -605,8 +676,12 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
     appId: "1:743445576077:web:6901a496f3352e343565c4"
   };
   try {
-    firebase.initializeApp(firebaseConfig);
-  } catch(e) {}
+    if (typeof firebase !== 'undefined') {
+      firebase.initializeApp(firebaseConfig);
+    } else {
+      console.warn('Firebase SDK belum dimuat — coba reload halaman.');
+    }
+  } catch(e) { console.warn('Firebase init error:', e.message); }
 </script>
 <script>
 
@@ -1003,6 +1078,7 @@ async function triggerGeminiClosing(skipEmail) {
     '***\"Malam hari keliling Semarang,***\n***Singgah sebentar membeli lumpia.***\n***Jika di sistem masih ada yang kurang,***\n***Jangan sungkan kembali menyapa saya!\"***',
     '***\"Pagi-pagi minum kopi hangat,***\n***Ditemani pisang goreng yang renyah.***\n***Semoga hari Bapak/Ibu penuh semangat,***\n***SOPI selalu siap saat kembali bertugas!\"***',
     '***\"Bunga melati semerbak harum,***\n***Ditata indah di atas meja.***\n***Semoga informasi yang kami sajikan maklum,***\n***Salam hangat dari SOPI untuk Bapak/Ibu semua!\"***',
+    '***\"Naik perahu menuju pesisir,***\n***Ombak tenang di waktu senja.***\n***Semoga SOP yang telah diperoleh bermanfaat,***\n***Ditjen Badilag siap melayani sepenuhnya!\"***',
   ];
   const pantun = pantunList[Math.floor(Math.random() * pantunList.length)];
   const pesan = 'Terima kasih telah menggunakan layanan SOPI, ' + namaUser + '. Untuk konsultasi SOP berikutnya, dapat menghubungi Bagian Ortala - Subbag Ketatalaksanaan Ditjen Badilag.\n\n' + pantun + '\n\nWassalamualaikum Wr. Wb. / Salam Sejahtera 🙏';
@@ -3714,7 +3790,7 @@ window.addEventListener('load', async ()=>{
 
   // Init Firebase
   try {
-    db   = firebase.firestore();
+    db   = (typeof firebase !== 'undefined') ? firebase.firestore() : null;
     auth = firebase.auth();
   } catch(e) { console.warn('Firebase init error:', e); }
 
@@ -3728,8 +3804,7 @@ window.addEventListener('load', async ()=>{
   // Load data dari Firebase (dengan timeout — tidak akan block login)
   await loadFromFirebase();
   
-  // Jika Firebase gagal, gunakan data lokal bawaan
-  loadDefaultData();
+  // Data lokal bawaan diisi di blok if(!fbLoaded) di bawah
   if(!fbLoaded || !S.depts.length) {
     S.depts = [{"id": "s01", "name": "Sekretariat Ditjen Badilag", "icon": "🏛️"}, {"id": "s02", "name": "Bagian Kepegawaian", "icon": "🧑‍💼"}, {"id": "s03", "name": "Subbag Umum Kepegawaian", "icon": "👥"}, {"id": "s04", "name": "Subbag Mutasi Kepegawaian", "icon": "🔄"}, {"id": "s05", "name": "Subbag Pemberhentian dan Pensiun", "icon": "📋"}, {"id": "s06", "name": "Bagian Organisasi dan Tata Laksana", "icon": "📐"}, {"id": "a01", "name": "Dit. Pembinaan Administrasi Peradilan Agama", "icon": "⚖️"}, {"id": "t01", "name": "Dit. Pembinaan Tenaga Teknis Peradilan Agama", "icon": "👨‍⚖️"}, {"id": "p01", "name": "Dit. Pranata dan Tatalaksana Perkara Perdata Agama", "icon": "📋"}, {"id": "p02", "name": "Subdit Syariah", "icon": "🕌"}, {"id": "p03", "name": "Kasi Pengkajian Syariah dan Hisab Rukyat", "icon": "📜"}, {"id": "p04", "name": "Kasi Evaluasi dan Pengendalian Syariah", "icon": "✅"}, {"id": "p05", "name": "Kasi Kodifikasi dan Yurisprudensi Perkara Syariah", "icon": "📖"}, {"id": "dj01", "name": "Direktorat Jenderal Badan Peradilan Agama", "icon": "🏛️"}];
   }
@@ -4159,74 +4234,149 @@ function _doOpenBuilder(u, emp) {
     deptId: (u.dept ? u.dept.id : '') || ''
   });
   var builderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
-  var win = window.open(builderURL, 'sop-builder', 'width=820,height=920,resizable=yes,scrollbars=yes');
-  if (win) {
-    var attempt = 0;
-    var tryPost = setInterval(function() {
-      attempt++;
-      try {
-        win.postMessage({ type:'SOPI_CONTEXT', nip:u.nip||'', nama:u.name||'',
-          unit: u.dept ? u.dept.name : '', e3: emp.bagian||u.bagian||'',
-          e4: emp.subbag||u.subbag||'', deptId: u.dept ? u.dept.id : '' }, '*');
-        clearInterval(tryPost);
-      } catch(e) { if (attempt > 10) clearInterval(tryPost); }
-    }, 500);
-    window.addEventListener('message', function(e) {
+
+  // ── Coba buka via iframe fullscreen (mobile-friendly) ──
+  var frameEl   = document.getElementById('mBuilderFrame');
+  var iframeEl  = document.getElementById('builderIframe');
+  var subtitleEl= document.getElementById('bfSubtitle');
+  var tabLink   = document.getElementById('bfOpenTab');
+  var loadingEl = document.getElementById('bfLoading');
+
+  if (frameEl && iframeEl) {
+    // Tampilkan modal iframe
+    frameEl.style.display = 'flex';
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (subtitleEl) subtitleEl.textContent = (u.name || '') + ' · ' + (emp.subbag || emp.bagian || '');
+    if (tabLink)   { tabLink.href = builderURL; }
+
+    // Load iframe
+    iframeEl.src = builderURL;
+
+    // Pasang listener postMessage dari Builder
+    window._builderMsgHandler && window.removeEventListener('message', window._builderMsgHandler);
+    window._builderMsgHandler = function(e) {
       if (!e.data) return;
-      if (e.data.type === 'SOP_SUBMITTED') {
-        var submittedId   = e.data.draftId  || '';
-        var submittedNama = e.data.namaSOP   || '';
-        var submittedDept = e.data.deptId    || '';
-        toast('📝 SOP "' + submittedNama + '" diterima — mencari reviewer...');
-        fbLoadSOPs().then(function() {
-          updateInboxBadge();
-          var reviewer = getReviewerE3ForDraft(submittedDept);
-          if (!reviewer && submittedDept) {
-            reviewer = S.emps.find(function(emp) {
-              return emp.role === 'reviewer_e3' &&
-                     Array.isArray(emp.reviewScope) && emp.reviewScope.length > 0;
-            }) || null;
-          }
-          if (!reviewer) {
-            addMsg('⚠️ **Reviewer Belum Dikonfigurasi**\n\nSOP **"' + submittedNama + '"** sudah masuk sistem (status: pending_e3), tetapi belum ada Reviewer E3 yang diset untuk unit ini.\n\nHubungi Admin SOP → Tab **Role SOP** untuk mengkonfigurasi reviewer.', false);
-            return;
-          }
-          var draft = _sopDrafts.find(function(s) {
-            return s.id === submittedId || s.draftId === submittedId;
-          });
-          if (draft) {
-            draft.reviewerE3Nama  = reviewer.name  || '';
-            draft.reviewerE3Email = reviewer.email || '';
-            draft.reviewerE3Id    = reviewer.id    || '';
-            fbSaveSOP(draft);
-          }
-          if (reviewer.email) {
-            fetch(WORKER_URL + '/send-email', {
-              method: 'POST', headers: {'Content-Type':'application/json'},
-              body: JSON.stringify({
-                action:'sendEmail', toEmail:reviewer.email,
-                subject:'\uD83D\uDD0D Review SOP: ' + submittedNama,
-                userName: reviewer.name || 'Bapak/Ibu',
-                tanggal: new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
-                topics: ['SOP baru dari ' + (e.data.namaPembuat||'') + ' menunggu review Anda'],
-                sopList:[{title:submittedNama, unit:e.data.eselon4||'', linkFinal:''}]
-              })
-            }).catch(function(){});
-          }
-          addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **' + submittedNama + '**\nDikirim ke **' + reviewer.name + '** untuk ditinjau.\n\n' +
-            (reviewer.email ? '📧 Email notifikasi dikirim ke **' + reviewer.email + '**.' :
-            '⚠ Email reviewer belum diset di Tab Role SOP.'), false);
-        });
+      if (e.data.type === 'BUILDER_READY') {
+        // Builder siap — kirim context
+        try {
+          iframeEl.contentWindow.postMessage({
+            type:'SOPI_CONTEXT', nip:u.nip||'', nama:u.name||'',
+            unit: u.dept ? u.dept.name : '',
+            e3: emp.bagian||u.bagian||'',
+            e4: emp.subbag||u.subbag||'',
+            deptId: u.dept ? u.dept.id : ''
+          }, '*');
+        } catch(err) {}
+      } else if (e.data.type === 'SOP_SUBMITTED') {
+        _handleSOPSubmitted(e.data);
       } else if (e.data.type === 'SOP_APPROVED') {
         toast('✅ SOP disetujui!'); fbLoadSOPs().then(updateInboxBadge);
       } else if (e.data.type === 'SOP_REJECTED') {
         toast('↩️ SOP dikembalikan.'); fbLoadSOPs().then(updateInboxBadge);
       }
-    });
+    };
+    window.addEventListener('message', window._builderMsgHandler);
+
   } else {
-    toast('⚠ Pop-up diblokir. Izinkan pop-up dari domain ini.');
+    // Fallback: window.open (desktop)
+    var win = window.open(builderURL, 'sop-builder', 'width=820,height=920,resizable=yes,scrollbars=yes');
+    if (win) {
+      var attempt = 0;
+      var tryPost = setInterval(function() {
+        attempt++;
+        try {
+          win.postMessage({ type:'SOPI_CONTEXT', nip:u.nip||'', nama:u.name||'',
+            unit: u.dept ? u.dept.name : '', e3: emp.bagian||u.bagian||'',
+            e4: emp.subbag||u.subbag||'', deptId: u.dept ? u.dept.id : '' }, '*');
+          clearInterval(tryPost);
+        } catch(e) { if (attempt > 10) clearInterval(tryPost); }
+      }, 500);
+      window.addEventListener('message', function(e) {
+        if (!e.data) return;
+        if (e.data.type === 'SOP_SUBMITTED') _handleSOPSubmitted(e.data);
+        else if (e.data.type === 'SOP_APPROVED') { toast('✅ SOP disetujui!'); fbLoadSOPs().then(updateInboxBadge); }
+        else if (e.data.type === 'SOP_REJECTED') { toast('↩️ SOP dikembalikan.'); fbLoadSOPs().then(updateInboxBadge); }
+      });
+    } else {
+      toast('⚠ Tidak dapat membuka SOP Builder. Coba buka manual via link.');
+    }
   }
-  addMsg('📝 **SOP Builder dibuka** di window baru.\n\nSilakan isi form SOP, upload file .docx untuk auto-parse, atau isi manual.\n\nSetelah submit, draft masuk ke **📥 Kotak Masuk** dan Admin SOP mendapat notifikasi.', false);
+  addMsg('📝 **SOP Builder dibuka.**\n\nSilakan isi form SOP, upload file .docx untuk auto-parse, atau isi manual.\n\nSetelah submit, draft masuk ke **📥 Kotak Masuk** dan reviewer mendapat notifikasi.', false);
+}
+
+// ── Handler iframe load ──
+function onBuilderIframeLoad() {
+  var loadingEl = document.getElementById('bfLoading');
+  var iframeEl  = document.getElementById('builderIframe');
+  if (loadingEl) loadingEl.style.display = 'none';
+  try {
+    if (iframeEl && iframeEl.contentWindow) {
+      setTimeout(function() {
+        try { iframeEl.contentWindow.postMessage({type:'SOPI_PING'}, '*'); } catch(e){}
+      }, 500);
+    }
+  } catch(e) {}
+}
+
+// Pasang onload ke iframe setelah DOM + script siap (hindari "not defined" saat load awal)
+document.addEventListener('DOMContentLoaded', function() {
+  var ifrEl = document.getElementById('builderIframe');
+  if (ifrEl) ifrEl.onload = onBuilderIframeLoad;
+});
+
+// ── Tutup Builder Frame ──
+function closeBuilderFrame() {
+  var frameEl  = document.getElementById('mBuilderFrame');
+  var iframeEl = document.getElementById('builderIframe');
+  if (frameEl)  frameEl.style.display = 'none';
+  if (iframeEl) iframeEl.src = 'about:blank';
+  // Reload drafts
+  fbLoadSOPs().then(updateInboxBadge);
+}
+
+// ── Handler SOP_SUBMITTED dari Builder (dipanggil dari dua tempat) ──
+function _handleSOPSubmitted(data) {
+  var submittedId   = data.draftId  || '';
+  var submittedNama = data.namaSOP  || '';
+  var submittedDept = data.deptId   || '';
+  toast('📝 SOP "' + submittedNama + '" diterima — mencari reviewer...');
+  fbLoadSOPs().then(function() {
+    updateInboxBadge();
+    var reviewer = getReviewerE3ForDraft(submittedDept);
+    if (!reviewer && submittedDept) {
+      reviewer = S.emps.find(function(emp) {
+        return emp.role === 'reviewer_e3' &&
+               Array.isArray(emp.reviewScope) && emp.reviewScope.length > 0;
+      }) || null;
+    }
+    if (!reviewer) {
+      addMsg('⚠️ **Reviewer Belum Dikonfigurasi**\n\nSOP **"' + submittedNama + '"** sudah masuk sistem (status: pending_e3), tetapi belum ada Reviewer E3 yang diset untuk unit ini.\n\nHubungi Admin SOP → Tab **Role SOP** untuk mengkonfigurasi reviewer.', false);
+      return;
+    }
+    var draft = _sopDrafts.find(function(s) {
+      return s.id === submittedId || s.draftId === submittedId;
+    });
+    if (draft) {
+      draft.reviewerE3Nama  = reviewer.name  || '';
+      draft.reviewerE3Email = reviewer.email || '';
+      draft.reviewerE3Id    = reviewer.id    || '';
+      fbSaveSOP(draft);
+    }
+    if (reviewer.email) {
+      fetch(WORKER_URL + '/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action:'sendEmail', toEmail:reviewer.email,
+          subject:'\uD83D\uDD0D Review SOP: ' + submittedNama,
+          userName: reviewer.name||'Bapak/Ibu',
+          tanggal: new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+          topics: ['SOP baru dari '+(data.namaPembuat||'')+' menunggu review Anda'],
+          sopList:[{title:submittedNama, unit:data.eselon4||'', linkFinal:''}]
+        })
+      }).catch(function(){});
+    }
+    addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **'+submittedNama+'**\nDikirim ke **'+reviewer.name+'** untuk ditinjau.\n\n'+(reviewer.email?'📧 Email notifikasi dikirim ke **'+reviewer.email+'**.':'⚠ Email reviewer belum diset.'), false);
+  });
 }
 
 async function editSOP(sopId) {
