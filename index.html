@@ -4445,8 +4445,8 @@ function renderSOPBuilderForm(sop) {
     var statusInfo = SOP_STATUS[statusSOP] || {};
     h += '<div style="background:rgba(255,183,3,.06);border:1px solid rgba(255,183,3,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);">';
     h += (statusInfo.icon||'⏳')+' SOP sedang dalam proses: <strong>'+( statusInfo.label||statusSOP)+'</strong>. Edit tidak tersedia.</div>';
-    h += '<div class="flabel">Judul SOP</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.judul||'—')+'</div>';
-    h += '<div class="flabel">Nomor Dokumen</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.nomorDokumen||'—')+'</div>';
+    h += '<div class="flabel">Judul SOP</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.judul||sop.namaSOP||'—')+'</div>';
+    h += '<div class="flabel">Nomor Dokumen</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);">'+(sop.nomorDokumen||sop.nomorSOP||'—')+'</div>';
     h += '<div class="flabel">Deskripsi</div><div style="padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;margin-bottom:10px;color:var(--tx);white-space:pre-wrap;">'+(sop.deskripsi||'—')+'</div>';
     if (sop.linkDraft) h += '<a href="'+sop.linkDraft+'" target="_blank" class="sop-act-btn primary" style="display:inline-block;text-decoration:none;margin-bottom:12px;">📄 Buka File SOP Draft ↗</a>';
     h += '<div class="mrow"><button class="mbtn cancel" onclick="closeModal(\'mSOPBuilder\')">Tutup</button></div>';
@@ -4757,13 +4757,13 @@ function renderSOPInbox() {
         }
       }
       if (myRole === 'reviewer_e3' && sop.status === 'pending_e3') {
-        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+sop.id+'\')">🔍 Review</button>';
+        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+( sop.id||sop.draftId)+'\')">🔍 Review</button>';
       }
       if (myRole === 'admin_sop' && sop.status === 'pending_admin') {
-        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+sop.id+'\')">⚙️ Review Final</button>';
+        h += '<button class="sop-act-btn primary" onclick="openReviewPanel(\''+( sop.id||sop.draftId)+'\')">⚙️ Review Final</button>';
       }
       if (myRole === 'approver_e2' && sop.status === 'pending_e2') {
-        h += '<button class="sop-act-btn success" onclick="openReviewPanel(\''+sop.id+'\')">✍️ Sahkan</button>';
+        h += '<button class="sop-act-btn success" onclick="openReviewPanel(\''+( sop.id||sop.draftId)+'\')">✍️ Sahkan</button>';
       }
       h += '<button class="sop-act-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu2);" onclick="viewSOPDetail(\''+sop.id+'\')">👁 Detail</button>';
       h += '</div>';
@@ -4804,8 +4804,13 @@ function switchRvView(mode) {
 
 async function openReviewPanel(sopId) {
   if (!_sopLoaded) await fbLoadSOPs();
-  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
-  if (!sop) { toast('SOP tidak ditemukan'); return; }
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) {
+    // Coba reload dari Firestore sekali lagi
+    await fbLoadSOPs();
+    sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  }
+  if (!sop) { toast('⚠ SOP tidak ditemukan. Coba tutup dan refresh Inbox.', 'err'); return; }
 
   // ── Normalisasi HANYA untuk tampilan (sop asli tetap utuh untuk reviewSOP()) ──
   var sopDisplay = normalizeBuilderFields(sop);
@@ -4993,8 +4998,9 @@ async function openReviewPanel(sopId) {
 }
 
 async function reviewSOP(sopId, action) {
-  var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
-  if (!sop) return;
+  // Cari sop by id ATAU draftId (dokumen Builder bisa pakai draftId sebagai docId)
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('⚠ Data SOP tidak ditemukan. Coba refresh Inbox.', 'err'); return; }
 
   var catatan  = (document.getElementById('rv_catatan')||{value:''}).value.trim();
   var urlPDF   = (document.getElementById('rv_urlPDF') ||{value:''}).value.trim();
