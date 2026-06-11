@@ -457,6 +457,27 @@ async function fbDeleteSOP(id) {
   try { await db.collection('sop_drafts').doc(id).delete(); } catch(e) { console.error(e); }
 }
 
+// ── Cari reviewer E3 dari Firestore (mode standalone tanpa SOPI) ──
+async function fbFetchReviewerE3(deptId) {
+  if (!db || !deptId) return null;
+  try {
+    var snap = await db.collection('emps').where('role','==','reviewer_e3').get();
+    if (snap.empty) return null;
+    var match = null;
+    snap.forEach(function(doc) {
+      if (match) return;
+      var emp = doc.data();
+      var scope = Array.isArray(emp.reviewScope) ? emp.reviewScope : [];
+      if (scope.includes(deptId)) match = Object.assign({id:doc.id}, emp);
+    });
+    if (!match) {
+      var first = snap.docs[0];
+      if (first) match = Object.assign({id:first.id}, first.data());
+    }
+    return match;
+  } catch(e) { console.warn('fbFetchReviewerE3 error:', e); return null; }
+}
+
 // ══ URL PARAMS — baca context dari SOPI ══
 function readURLContext() {
   const p = new URLSearchParams(window.location.search);
@@ -3042,7 +3063,14 @@ function toggleDraftSel(id) {
 // Fungsi ini dipanggil dari SOPI: openSOPBuilder(user)
 // Atau via URL: ?nip=xxx&nama=xxx&e3=xxx&e4=xxx
 window.addEventListener('message', function(e) {
-  if (!e.data || e.data.type !== 'SOPI_CONTEXT') return;
+  if (!e.data) return;
+  // Ping dari SOPI — balas dengan BUILDER_READY
+  if (e.data.type === 'SOPI_PING') {
+    try { window.parent.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
+    try { window.opener && window.opener.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
+    return;
+  }
+  if (e.data.type !== 'SOPI_CONTEXT') return;
   const d = e.data;
   state.ctx = { nip:d.nip||'', nama:d.nama||'', unit:d.unit||'', e3:d.e3||'', e4:d.e4||'', deptId:d.deptId||'' };
   if (state.ctx.e3) state.form.eselon3 = state.ctx.e3;
@@ -3057,6 +3085,10 @@ window.addEventListener('message', function(e) {
 window.addEventListener('load', function() {
   readURLContext();
   render();
+
+  // Beritahu parent/opener bahwa Builder sudah siap
+  try { window.parent.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
+  try { window.opener && window.opener.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
 
   // Context bar close
   const ctxClose = document.querySelector('#ctxBar .ctx-close');
