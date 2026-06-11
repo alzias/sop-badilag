@@ -207,6 +207,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .sop-status.review_e3{background:rgba(255,183,3,.15);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
 .sop-status.review_admin{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a855f7;}
 .sop-status.review_e2{background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#818cf8;}
+.sop-status.review_tte{background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#38bdf8;}
 .sop-status.approved{background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);}
 .sop-status.rejected{background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:var(--red);}
 .sop-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;margin-bottom:8px;transition:all .2s;}
@@ -1141,10 +1142,11 @@ function showChat() {
       var myRole    = userEmp.role || 'maker';
 
       var roleMsg = {
-        maker       : '\n\n📝 Anda dapat membuat SOP baru melalui tombol **Buat SOP** atau quick chip di bawah.',
-        reviewer_e3 : '\n\n🔍 **Anda bertugas mereview SOP** dari unit-unit di bawah Anda. Tap **📥 Inbox SOP** untuk melihat SOP yang menunggu review.',
-        admin_sop   : '\n\n⚙️ **Anda adalah Admin SOP Instansi**. Semua SOP yang lolos review Eselon III akan masuk ke inbox Anda. Tap **📥 Inbox SOP**.',
-        approver_e2 : '\n\n✍️ **Anda adalah Pengesah SOP** (Eselon II). SOP yang sudah disetujui Ketatalaksanaan menunggu TTD digital Anda. Tap **📥 Inbox SOP**.',
+        maker        : '\n\n📝 Anda dapat membuat SOP baru melalui tombol **Buat SOP** atau quick chip di bawah.',
+        reviewer_e3  : '\n\n🔍 **Anda bertugas mereview SOP** dari unit-unit di bawah Anda. Tap **📥 Inbox SOP** untuk melihat SOP yang menunggu review.',
+        admin_sop    : '\n\n⚙️ **Anda adalah Admin SOP Instansi**. Semua SOP yang lolos review Eselon III akan masuk ke inbox Anda. Tap **📥 Inbox SOP**.',
+        approver_e2  : '\n\n✍️ **Anda adalah Pengesah SOP** (Eselon II). SOP yang sudah disetujui Ketatalaksanaan menunggu TTD digital Anda. Tap **📥 Inbox SOP**.',
+        tu_admin_sop : '\n\n📋 **Anda adalah Petugas TU Admin SOP**. SOP yang sudah disahkan Eselon II menunggu upload dokumen TTE dari Anda. Tap **📥 Inbox SOP**.',
       };
 
       addMsg(getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + subbag + e2info + (roleMsg[myRole] || ''), false);
@@ -3775,10 +3777,11 @@ const E3_TO_E4_MAP = {
 };
 
 const ROLE_LABELS = {
-  'maker'       : { label:'Pembuat SOP',             icon:'✍️',  color:'var(--cyan)',  desc:'Eselon IV — buat & update SOP unit kerjanya' },
-  'reviewer_e3' : { label:'Reviewer Unit (Es. III)', icon:'🔍',  color:'var(--amber)', desc:'Kabag/Kasubdit — review SOP unit di bawahnya' },
-  'admin_sop'   : { label:'Admin SOP Instansi',      icon:'⚙️',  color:'#a855f7',     desc:'Kasubbag Ketatalaksanaan — review final semua SOP' },
-  'approver_e2' : { label:'Pengesah (Es. II)',        icon:'✅',  color:'var(--green)', desc:'Direktur/Sekretaris — TTD digital pengesahan' },
+  'maker'        : { label:'Pembuat SOP',             icon:'✍️',  color:'var(--cyan)',  desc:'Eselon IV — buat & update SOP unit kerjanya' },
+  'reviewer_e3'  : { label:'Reviewer Unit (Es. III)', icon:'🔍',  color:'var(--amber)', desc:'Kabag/Kasubdit — review SOP unit di bawahnya' },
+  'admin_sop'    : { label:'Admin SOP Instansi',      icon:'⚙️',  color:'#a855f7',     desc:'Kasubbag Ketatalaksanaan — review final semua SOP' },
+  'approver_e2'  : { label:'Pengesah (Es. II)',        icon:'✅',  color:'var(--green)', desc:'Direktur/Sekretaris — TTD digital pengesahan' },
+  'tu_admin_sop' : { label:'TU Admin SOP',            icon:'📋',  color:'#38bdf8',     desc:'Petugas TU — upload dokumen TTE hasil pengesahan' },
 };
 
 // ── State untuk role setter ──
@@ -3786,7 +3789,7 @@ var _roleTargetEmp = null;
 var _roleScopeIds  = [];
 
 function rRoleSOP(c) {
-  var byRole = { maker:[], reviewer_e3:[], admin_sop:[], approver_e2:[] };
+  var byRole = { maker:[], reviewer_e3:[], admin_sop:[], approver_e2:[], tu_admin_sop:[] };
   S.emps.forEach(function(e) {
     var r = e.role || 'maker';
     if (!byRole[r]) byRole[r] = [];
@@ -4035,7 +4038,9 @@ const SOP_STATUS = {
   rejected_e3    : { label:'Dikembalikan (Es. III)',   icon:'↩️', cls:'rejected',      next:'draft'         },
   pending_admin  : { label:'Review Ketatalaksanaan',   icon:'⚙️', cls:'review_admin',  next:'pending_e2'    },
   rejected_admin : { label:'Dikembalikan (Ketatal.)',  icon:'↩️', cls:'rejected',      next:'draft'         },
-  pending_e2     : { label:'Menunggu Pengesahan Es.II',icon:'✍️', cls:'review_e2',     next:'signed'        },
+  pending_e2     : { label:'Menunggu Pengesahan Es.II',icon:'✍️', cls:'review_e2',     next:'pending_tte'   },
+  pending_tte    : { label:'Menunggu Upload TTE',      icon:'📋', cls:'review_tte',    next:'tte_uploaded'  },
+  tte_uploaded   : { label:'TTE Diupload — Verifikasi',icon:'🔏', cls:'review_admin',  next:'signed'        },
   signed         : { label:'Resmi Disahkan',           icon:'🏛️', cls:'approved',      next:null            },
 };
 
@@ -4532,14 +4537,15 @@ function renderSOPInbox() {
   } else if (myRole === 'admin_sop') {
     inbox = _sopDrafts.filter(function(s){ return s.status === 'pending_admin'; });
   } else if (myRole === 'approver_e2') {
-    // Filter: hanya SOP yang e2TargetId cocok dengan eselon2Id pegawai ini
-    // Fallback: tampilkan semua pending_e2 jika eselon2Id belum diset
     var myE2Id = userEmp ? (userEmp.eselon2Id || '') : '';
     inbox = _sopDrafts.filter(function(s) {
       if (s.status !== 'pending_e2') return false;
-      if (!myE2Id || !s.e2TargetId) return true; // fallback: tampil semua
+      if (!myE2Id || !s.e2TargetId) return true;
       return s.e2TargetId === myE2Id;
     });
+  } else if (myRole === 'tu_admin_sop') {
+    // TU Admin SOP: semua SOP pending_tte (menunggu upload dokumen TTE)
+    inbox = _sopDrafts.filter(function(s){ return s.status === 'pending_tte'; });
   } else {
     // Maker: tampilkan semua SOP miliknya (semua status)
     inbox = _sopDrafts.filter(function(s){ return s.createdByNIP === (S.user?S.user.nip:'') || s.dibuatOleh === (S.user?S.user.nip:''); });
@@ -4640,11 +4646,17 @@ async function openReviewPanel(sopId) {
   // ── Normalisasi field dari Builder (array→string) ──
   sop = normalizeBuilderFields(sop);
 
-  var userEmp  = S.emps_cache_me();
-  var myRole   = userEmp ? (userEmp.role || 'maker') : 'maker';
-  var isAdmin  = myRole === 'admin_sop';
+  var userEmp    = S.emps_cache_me();
+  var myRole     = userEmp ? (userEmp.role || 'maker') : 'maker';
+  var isAdmin    = myRole === 'admin_sop';
   var isApprover = myRole === 'approver_e2';
-  var titleMap = { reviewer_e3:'🔍 Review SOP', admin_sop:'⚙️ Review Final', approver_e2:'✍️ Pengesahan SOP' };
+  var isTuAdmin  = myRole === 'tu_admin_sop';
+  var titleMap   = {
+    reviewer_e3  : '🔍 Review SOP',
+    admin_sop    : '⚙️ Review Final',
+    approver_e2  : '✍️ Pengesahan SOP',
+    tu_admin_sop : '📋 Upload Dokumen TTE'
+  };
   document.getElementById('sopReviewTitle').textContent = titleMap[myRole] || '🔍 Review SOP';
 
   // ── Isi iframe dengan link dokumen SOP ──
@@ -4706,17 +4718,35 @@ async function openReviewPanel(sopId) {
   if (sop.catatanAdmin) historyHtml += '<div style="padding:6px 10px;background:rgba(167,139,250,.06);border-radius:6px;margin-bottom:6px;font-size:11px;"><span style="color:var(--purple);font-weight:700;">Admin:</span> '+escapeHtml(sop.catatanAdmin)+'</div>';
   if (historyHtml) h += '<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:6px;">RIWAYAT CATATAN</div>'+historyHtml+'</div>';
 
-  // Form review
-  if (isApprover) {
+  // Form review — berbeda per role
+  if (isTuAdmin) {
+    // ── TU Admin SOP: upload dokumen TTE ──
     h += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px;">';
-    h += '<label class="flabel" style="color:var(--green);">🔗 Link PDF Final (setelah TTD)</label>';
-    h += '<input class="finput-sm" id="rv_urlPDF" placeholder="https://drive.google.com/..." style="margin-bottom:8px;">';
+    h += '<div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#38bdf8;">';
+    h += '📋 <strong>Tugas Anda:</strong> Upload dokumen SOP yang sudah ditandatangani secara elektronik (TTE) ke Google Drive, lalu masukkan link-nya di bawah.';
+    h += '</div>';
+    h += '<label class="flabel" style="color:#38bdf8;">🔗 Link Dokumen TTE (Google Drive) <span style="color:var(--red);">*</span></label>';
+    h += '<input class="finput-sm" id="rv_urlPDF" placeholder="https://drive.google.com/file/d/..." style="margin-bottom:6px;">';
+    h += '<div style="font-size:11px;color:var(--mu);margin-bottom:10px;">Pastikan link dapat diakses oleh seluruh pegawai (Anyone with link — Viewer).</div>';
     h += '<label class="flabel">Catatan (opsional)</label>';
+    h += '<textarea class="finput-sm" id="rv_catatan" style="min-height:50px;" placeholder="Catatan upload TTE..."></textarea>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
+    h += '<button class="sop-act-btn success" style="background:rgba(56,189,248,.15);border-color:rgba(56,189,248,.3);color:#38bdf8;" onclick="reviewSOP(\''+sopId+'\',\'upload_tte\')">📋 Submit Dokumen TTE</button>';
+    h += '</div>';
+
+  } else if (isApprover) {
+    // ── Eselon II: pengesahan → pending_tte ──
+    h += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px;">';
+    h += '<label class="flabel" style="color:var(--green);">🔗 Link PDF Draft (opsional)</label>';
+    h += '<input class="finput-sm" id="rv_urlPDF" placeholder="https://drive.google.com/..." style="margin-bottom:8px;">';
+    h += '<label class="flabel">Catatan Pengesahan (opsional)</label>';
     h += '<textarea class="finput-sm" id="rv_catatan" style="min-height:60px;" placeholder="Catatan pengesahan..."></textarea>';
     h += '</div>';
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
-    h += '<button class="sop-act-btn success" onclick="reviewSOP(\''+sopId+'\',\'approve_e2\')">🏛️ Sahkan & Aktifkan SOP</button>';
+    h += '<button class="sop-act-btn success" onclick="reviewSOP(\''+sopId+'\',\'approve_e2\')">🏛️ Sahkan → Teruskan ke TU TTE</button>';
     h += '</div>';
+
   } else {
     h += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px;">';
     h += '<label class="flabel">Catatan Review <span style="color:var(--mu);font-size:10px;">(wajib jika mengembalikan)</span></label>';
@@ -4812,16 +4842,23 @@ async function reviewSOP(sopId, action) {
   var adminSOP    = getAdminSOP();
   var approverE2  = S.emps.find(function(e){ return e.role === 'approver_e2'; });
 
-  // ── REJECT (dari E3 atau Admin) ──
+  // ── REJECT (dari E3, Admin, atau TU Admin TTE) ──
   if (action === 'reject') {
     if (!catatan) { toast('⚠ Catatan revisi wajib diisi','err'); return; }
-    var newStatus = sop.status === 'pending_e3' ? 'rejected_e3' : 'rejected_admin';
+    var isRejectByE3  = (sop.status === 'pending_e3');
+    var isRejectByTTE = (sop.status === 'tte_uploaded');
+    var newStatus = isRejectByE3  ? 'rejected_e3'
+                  : isRejectByTTE ? 'pending_tte'
+                  : 'rejected_admin';
     sop.status = newStatus;
-    if (sop.status === 'rejected_e3') {
+    if (isRejectByE3) {
       sop.reviewerE3Nip  = userEmp ? userEmp.nip  : '';
       sop.reviewerE3Nama = userEmp ? userEmp.name : S.user.name;
       sop.tglReviewE3    = now;
       sop.catatanE3      = catatan;
+    } else if (isRejectByTTE) {
+      sop.catatanTTE     = catatan;
+      sop.tglRejectTTE   = now;
     } else {
       sop.adminNip       = userEmp ? userEmp.nip  : '';
       sop.adminNama      = userEmp ? userEmp.name : S.user.name;
@@ -4925,12 +4962,15 @@ async function reviewSOP(sopId, action) {
 
   // ── APPROVE E2 → signed ──
   } else if (action === 'approve_e2') {
-    sop.status         = 'signed';
+    // E2 sahkan → status pending_tte (menunggu TU upload dokumen TTE)
+    sop.status         = 'pending_tte';
     sop.approverE2Nip  = userEmp ? userEmp.nip  : '';
     sop.approverE2Nama = userEmp ? userEmp.name : S.user.name;
-    sop.tglSigned      = now;
-    sop.urlPDFSigned   = urlPDF;
+    sop.tglApproveE2   = now;
+    sop.urlPDFSigned   = urlPDF; // URL draft PDF sebelum TTE (opsional)
     await fbSaveSOP(sop);
+    // Cari TU Admin SOP untuk email notifikasi
+    var tuAdmin = S.emps.find(function(e){ return e.role === 'tu_admin_sop'; });
     try {
       await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -4938,14 +4978,75 @@ async function reviewSOP(sopId, action) {
           draftId       : sop.id,
           approverNip   : sop.approverE2Nip,
           approverNama  : sop.approverE2Nama,
-          urlPDFSigned  : urlPDF,
+          newStatus     : 'pending_tte',
+          emailTuAdmin  : tuAdmin ? tuAdmin.email : '',
+          tuAdminNama   : tuAdmin ? tuAdmin.name  : '',
           emailPembuat  : makerEmp ? makerEmp.email : ''
         })
       });
     } catch(e) {}
     closeModal('mSOPReview'); closeModal('mSOPInbox');
-    toast('🏛️ SOP resmi disahkan dan aktif di SOPI!');
-    addMsg('🏛️ **SOP Resmi Disahkan!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: **Resmi & Aktif**\n\n'+(urlPDF?'📄 PDF Final: '+urlPDF+'\n\n':'')+'SOP ini sekarang dapat ditemukan oleh seluruh pegawai Ditjen Badilag.', false);
+    toast('✅ SOP disahkan! Menunggu upload dokumen TTE oleh TU Admin SOP.');
+    addMsg('✅ **SOP Disahkan oleh Eselon II!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n\n📋 Status: **Menunggu Upload TTE**\n'+(tuAdmin?'📧 Notifikasi dikirim ke TU Admin SOP **'+tuAdmin.name+'**.':'⚠ TU Admin SOP belum dikonfigurasi — set di Tab Role SOP.'), false);
+
+  // ── APPROVE TTE (TU Admin SOP upload dokumen TTE) ──
+  } else if (action === 'upload_tte') {
+    if (!urlPDF) { toast('⚠ URL dokumen TTE wajib diisi','err'); return; }
+    sop.status       = 'tte_uploaded';
+    sop.urlTTE       = urlPDF;
+    sop.tuAdminNip   = userEmp ? userEmp.nip  : '';
+    sop.tuAdminNama  = userEmp ? userEmp.name : S.user.name;
+    sop.tglUploadTTE = now;
+    await fbSaveSOP(sop);
+    // Notifikasi ke Admin SOP untuk verifikasi
+    var adminSOP = getAdminSOP();
+    try {
+      await fetch(WORKER_URL + '/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action  : 'sendEmail',
+          toEmail : adminSOP ? adminSOP.email : '',
+          subject : '🔏 TTE Diupload — Perlu Verifikasi: ' + (sop.namaSOP||sop.judul||''),
+          userName: adminSOP ? adminSOP.name : 'Admin SOP',
+          tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+          topics  : [
+            'Dokumen TTE sudah diupload oleh TU Admin SOP: ' + (userEmp?userEmp.name:''),
+            'SOP: ' + (sop.namaSOP||sop.judul||''),
+            'Link TTE: ' + urlPDF
+          ],
+          sopList:[{title:sop.namaSOP||sop.judul||'', unit:sop.unitEselon4||'', linkFinal:urlPDF}]
+        })
+      });
+    } catch(e) {}
+    closeModal('mSOPReview'); closeModal('mSOPInbox');
+    toast('📋 Dokumen TTE berhasil diupload! Admin SOP akan memverifikasi.');
+    addMsg('📋 **TTE Berhasil Diupload!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n\n🔗 Link TTE: '+urlPDF+'\n\n'+(adminSOP?'📧 Admin SOP **'+adminSOP.name+'** akan memverifikasi dan mengaktifkan SOP.':'⚠ Admin SOP belum dikonfigurasi.'), false);
+
+  // ── AKTIVASI FINAL (Admin SOP verifikasi TTE → signed) ──
+  } else if (action === 'aktivasi_sop') {
+    sop.status      = 'signed';
+    sop.urlPDFSigned = sop.urlTTE || sop.urlPDFSigned || '';
+    sop.tglSigned   = now;
+    sop.adminAktivasiNip  = userEmp ? userEmp.nip  : '';
+    sop.adminAktivasiNama = userEmp ? userEmp.name : S.user.name;
+    await fbSaveSOP(sop);
+    // Salin ke drives via Worker
+    try {
+      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action       : 'approveE2',
+          draftId      : sop.id,
+          approverNip  : sop.approverE2Nip  || '',
+          approverNama : sop.approverE2Nama || '',
+          newStatus    : 'signed',
+          urlPDFSigned : sop.urlPDFSigned,
+          emailPembuat : makerEmp ? makerEmp.email : ''
+        })
+      });
+    } catch(e) {}
+    closeModal('mSOPReview'); closeModal('mSOPInbox');
+    toast('🏛️ SOP resmi aktif dan tersedia di SOPI!');
+    addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: **Resmi & Aktif**\n\n'+(sop.urlPDFSigned?'📄 Dokumen TTE: '+sop.urlPDFSigned+'\n\n':'')+'SOP ini sekarang dapat ditemukan oleh seluruh pegawai Ditjen Badilag.', false);
   }
 
   updateInboxBadge();
@@ -4995,7 +5096,14 @@ function updateInboxBadge() {
   } else if (myRole === 'admin_sop') {
     count = _sopDrafts.filter(function(s){ return s.status === 'pending_admin'; }).length;
   } else if (myRole === 'approver_e2') {
-    count = _sopDrafts.filter(function(s){ return s.status === 'pending_e2'; }).length;
+    var myE2Id2 = userEmp ? (userEmp.eselon2Id || '') : '';
+    count = _sopDrafts.filter(function(s){
+      if (s.status !== 'pending_e2') return false;
+      if (!myE2Id2 || !s.e2TargetId) return true;
+      return s.e2TargetId === myE2Id2;
+    }).length;
+  } else if (myRole === 'tu_admin_sop') {
+    count = _sopDrafts.filter(function(s){ return s.status === 'pending_tte'; }).length;
   }
 
   var badge  = document.getElementById('sbInboxBadge');
