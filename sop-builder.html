@@ -205,6 +205,7 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 .stag.pending_e2{background:rgba(99,102,241,.13);border:1px solid rgba(99,102,241,.3);color:#818cf8;}
 .stag.signed{background:rgba(6,214,160,.13);border:1px solid rgba(6,214,160,.3);color:var(--green);}
 .stag.rejected,.stag.rejected_e3,.stag.rejected_admin{background:rgba(255,77,109,.13);border:1px solid rgba(255,77,109,.3);color:var(--red);}
+.stag.revision_request{background:rgba(255,183,3,.13);border:1px solid rgba(255,183,3,.3);color:var(--amber);}
 
 /* DRAFT CARD */
 .draft-card{background:rgba(255,255,255,.03);border:1px solid var(--b1);border-radius:12px;
@@ -280,17 +281,45 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
   </div>
 </div>
 
+<!-- MODAL KONFIRMASI REVISI SOP -->
+<div class="modal" id="mRevisi">
+  <div class="mbox">
+    <div class="mhd">
+      <div class="mhd-t">🔄 Ajukan Revisi SOP</div>
+      <button class="mclose" onclick="closeModal('mRevisi')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="background:rgba(255,183,3,.07);border:1px solid rgba(255,183,3,.2);border-radius:10px;
+        padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--amber);line-height:1.6;">
+        ⚠️ Anda yakin ingin mengajukan revisi SOP ini?
+      </div>
+      <div id="mRevisiInfo" style="background:rgba(255,255,255,.04);border:1px solid var(--b1);
+        border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--mu2);line-height:1.7;"></div>
+      <div style="margin-bottom:14px;">
+        <label class="flabel">Alasan / Catatan Revisi <span style="color:var(--red);">*</span></label>
+        <textarea class="finput" id="mRevisiAlasan" rows="3"
+          placeholder="Jelaskan alasan revisi SOP ini..."
+          style="resize:vertical;min-height:70px;"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:14px;padding:8px 12px;
+        background:rgba(67,97,238,.06);border-radius:8px;border:1px solid rgba(67,97,238,.12);">
+        📧 Permintaan revisi akan dikirim via email ke Admin SOP Kasubbag Ketatalaksanaan.
+        Status SOP akan berubah menjadi <strong style="color:var(--amber);">Pengajuan Revisi</strong>.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="closeModal('mRevisi')" style="flex:1;">Tidak</button>
+        <button class="btn" onclick="doRevisiSOP()"
+          style="flex:2;background:linear-gradient(135deg,var(--amber),#e59200);color:#000;font-weight:700;border:none;">
+          Ya, Ajukan Revisi
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="hd">
-  <div id="navLogo" style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(67,97,238,.15));border:1px solid rgba(0,245,212,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f5d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-      <polyline points="10 9 9 9 8 9"/>
-    </svg>
-  </div>
+  <img class="hd-logo" id="navLogo" alt="MA" style="border-radius:50%;">
   <div>
     <div class="hd-title">SOP Builder</div>
     <div class="hd-sub">Ditjen Badilag MA RI · v3.1</div>
@@ -1491,11 +1520,10 @@ function closeModal(id) { document.getElementById(id).classList.remove('on'); }
 
 // ══ TAB ══
 function setTab(i) {
-  // Sync state dari DOM SEBELUM ganti tab — cegah data hilang
   if (state.tab === 0) syncFormFromDOM();
   state.tab = i;
-  const classes  = ['on', 'on amber', 'on green', 'on purple'];
-  const defaults = ['', 'amber', 'green', 'purple'];
+  const classes  = ['on','on amber','on green','on purple'];
+  const defaults = ['','amber','green','purple'];
   [0,1,2,3].forEach(j => {
     const b = document.getElementById('tab'+j);
     if (!b) return;
@@ -1731,11 +1759,10 @@ function renderMultiField(key, label, items, ph) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ══ TAB 1 & 2: PREVIEW DOKUMEN / FLOWCHART (dipisah jadi 2 tab) ══
+// ══ TAB 1 & 2: PREVIEW DOKUMEN / FLOWCHART ══
 function renderPreviewView(mode) {
   const f = state.form;
   const isDoc = (mode !== 'flow');
-  // Sync state.previewMode agar switchPreview tetap kompatibel
   state.previewMode = mode || 'doc';
   return `<div>
     <div id="previewToolbar" style="display:flex;gap:8px;margin-bottom:10px;">
@@ -2352,22 +2379,134 @@ function renderMakerCard(d) {
     draft:'draft', pending_e3:'pending_e3', rejected_e3:'rejected',
     pending_admin:'pending_admin', rejected_admin:'rejected',
     pending_e2:'pending_e2', signed:'signed',
-    // fallback status lama
+    revision_request:'revision_request',
     pending:'pending_e3', approved:'signed', rejected:'rejected'
   };
   const LABEL_MAP = {
-    draft:'📝 Draft',
-    pending_e3:'🔍 Review Es.III', rejected_e3:'↩️ Dikembalikan Es.III',
-    pending_admin:'⚙️ Review Ketatal.', rejected_admin:'↩️ Dikembalikan Ketatal.',
-    pending_e2:'✍️ Tunggu Es.II', signed:'🏛️ Resmi Disahkan',
-    // fallback
-    pending:'🔍 Sedang Diproses', approved:'✅ Disetujui', rejected:'↩️ Dikembalikan'
+    draft          : '📝 Draft',
+    pending_e3     : '🔍 Review Es.III',
+    rejected_e3    : '↩️ Dikembalikan Es.III',
+    pending_admin  : '⚙️ Review Ketatal.',
+    rejected_admin : '↩️ Dikembalikan Ketatal.',
+    pending_e2     : '✍️ Tunggu Es.II',
+    signed         : '🏛️ Resmi Disahkan',
+    revision_request: '🔄 Pengajuan Revisi',
+    pending        : '🔍 Sedang Diproses',
+    approved       : '✅ Disetujui',
+    rejected       : '↩️ Dikembalikan'
   };
-  const stCls = STATUS_MAP[d.status] || 'draft';
-  const stLbl = LABEL_MAP[d.status]  || d.status;
-
-  const canEdit   = ['draft','rejected_e3','rejected_admin','rejected'].includes(d.status);
+  const stCls     = STATUS_MAP[d.status] || 'draft';
+  const stLbl     = LABEL_MAP[d.status]  || d.status;
+  const id        = d.draftId || d.id;
+  const isRejected = ['rejected_e3','rejected_admin','rejected'].includes(d.status);
+  const isPending  = ['pending_e3','pending_admin','pending_e2'].includes(d.status);
+  const isSigned   = d.status === 'signed';
+  const isDraft    = d.status === 'draft';
+  const isRevReq   = d.status === 'revision_request';
   const catatanInfo = d.catatanE3 || d.catatanAdmin || d.catatanReview || '';
+
+  // ── Tombol aksi (inline style agar konsisten) ──
+  const btnStyle = (bg, border, color) =>
+    `style="flex:1;padding:8px 6px;font-size:11.5px;font-weight:600;
+    background:${bg};border:1px solid ${border};color:${color};
+    border-radius:9px;cursor:pointer;font-family:inherit;"`;
+
+  // Tombol preview dokumen
+  const btnPreview = `<button class="btn" ${btnStyle('rgba(0,245,212,.1)','rgba(0,245,212,.25)','var(--cyan)')}
+    onclick="previewDraftDoc('${id}')">👁️ Preview</button>`;
+
+  // Tombol export Word
+  const btnWord = `<button class="btn" ${btnStyle('rgba(29,78,216,.15)','rgba(29,78,216,.3)','#7b9fff')}
+    onclick="exportDraftWord('${id}')">📄 Word</button>`;
+
+  // Tombol export PDF
+  const btnPDF = `<button class="btn" ${btnStyle('rgba(185,28,28,.15)','rgba(185,28,28,.3)','#fca5a5')}
+    onclick="exportDraftPDF('${id}')">📑 PDF</button>`;
+
+  // Tombol edit
+  const btnEdit = `<button class="btn" ${btnStyle('rgba(0,245,212,.1)','rgba(0,245,212,.25)','var(--cyan)')}
+    onclick="editDraftFromList('${id}')">✏️ Edit</button>`;
+
+  // Tombol ajukan ulang
+  const btnAjukan = `<button class="btn" ${btnStyle('rgba(255,183,3,.1)','rgba(255,183,3,.25)','var(--amber)')}
+    onclick="resubmitDraft('${id}')">📤 Ajukan Ulang</button>`;
+
+  // Tombol hapus
+  const btnHapus = `<button class="btn" ${btnStyle('rgba(255,77,109,.1)','rgba(255,77,109,.25)','var(--red)')}
+    onclick="deleteDraft('${id}')">🗑️ Hapus</button>`;
+
+  // Tombol revisi SOP (khusus signed)
+  const btnRevisi = `<button class="btn" ${btnStyle('rgba(255,183,3,.12)','rgba(255,183,3,.3)','var(--amber)')}
+    onclick="openRevisiModal('${id}')">🔄 Revisi SOP</button>`;
+
+  // Tombol lihat PDF final (signed)
+  const linkPDF = isSigned && d.urlPDFSigned
+    ? `<a href="${d.urlPDFSigned}" target="_blank" class="btn"
+        ${btnStyle('rgba(6,214,160,.1)','rgba(6,214,160,.25)','var(--green)')}
+        style="flex:1;padding:8px 6px;font-size:11.5px;font-weight:600;text-decoration:none;
+        display:flex;align-items:center;justify-content:center;gap:4px;
+        background:rgba(6,214,160,.1);border:1px solid rgba(6,214,160,.25);
+        color:var(--green);border-radius:9px;">
+        📄 PDF Final ↗</a>`
+    : '';
+
+  // ── Susun baris tombol per status ──
+  let actionRow = '';
+
+  if (isDraft) {
+    // Draft: Preview | Word | PDF | Edit | Hapus
+    actionRow = `
+    <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      ${btnPreview}${btnWord}${btnPDF}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      ${btnEdit}${btnHapus}
+    </div>`;
+
+  } else if (isPending) {
+    // Sedang diproses: Preview | Word | PDF (tidak bisa edit)
+    actionRow = `
+    <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      ${btnPreview}${btnWord}${btnPDF}
+    </div>
+    <div style="margin-top:6px;padding:7px 10px;background:rgba(255,183,3,.05);
+      border:1px solid rgba(255,183,3,.12);border-radius:8px;
+      font-size:11px;color:var(--mu);">
+      ⏳ SOP sedang dalam proses review — tidak dapat diedit saat ini.
+    </div>`;
+
+  } else if (isRejected) {
+    // Dikembalikan: Preview | Word | PDF + Edit | Ajukan Ulang | Hapus
+    actionRow = `
+    <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      ${btnPreview}${btnWord}${btnPDF}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      ${btnEdit}${btnAjukan}${btnHapus}
+    </div>`;
+
+  } else if (isSigned) {
+    // Disahkan: Preview | Word | PDF | PDF Final + Revisi SOP
+    actionRow = `
+    <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      ${btnPreview}${btnWord}${btnPDF}${linkPDF}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      ${btnRevisi}
+    </div>`;
+
+  } else if (isRevReq) {
+    // Pengajuan revisi terkirim — hanya preview
+    actionRow = `
+    <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+      ${btnPreview}${btnWord}${btnPDF}
+    </div>
+    <div style="margin-top:6px;padding:7px 10px;background:rgba(255,183,3,.06);
+      border:1px solid rgba(255,183,3,.15);border-radius:8px;
+      font-size:11px;color:var(--amber);">
+      🔄 Permintaan revisi sudah dikirim ke Admin SOP. Tombol revisi dinonaktifkan.
+    </div>`;
+  }
 
   return `<div class="draft-card">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -2378,61 +2517,144 @@ function renderMakerCard(d) {
       </div>
       <span class="stag ${stCls}">${stLbl}</span>
     </div>
-    ${catatanInfo && canEdit ? `
+    ${catatanInfo && isRejected ? `
     <div style="background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:8px;
       padding:8px 12px;margin-top:8px;font-size:12px;color:var(--red);">
-      📝 Catatan: ${catatanInfo}
+      📝 Catatan reviewer: ${catatanInfo}
     </div>` : ''}
-    ${d.status==='signed' && d.urlPDFSigned ? `
-    <div style="margin-top:8px;">
-      <a href="${d.urlPDFSigned}" target="_blank" class="btn btn-secondary" 
-        style="padding:6px 12px;font-size:12px;display:inline-flex;gap:4px;text-decoration:none;">
-        📄 Lihat PDF Final ↗
-      </a>
-    </div>` : ''}
-    ${canEdit ? `
-    <div style="display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
-      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(0,245,212,.1);
-        border:1px solid rgba(0,245,212,.2);color:var(--cyan);"
-        onclick="editDraftFromList('${d.draftId||d.id}')">✏️ Edit & Revisi</button>
-      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(255,183,3,.1);
-        border:1px solid rgba(255,183,3,.2);color:var(--amber);"
-        onclick="resubmitDraft('${d.draftId||d.id}')">📤 Kirim Ulang</button>
-      <button class="btn" style="padding:8px 10px;font-size:12px;background:rgba(255,77,109,.1);
-        border:1px solid rgba(255,77,109,.2);color:var(--red);"
-        onclick="deleteDraft('${d.draftId||d.id}')" title="Hapus SOP">🗑️</button>
-    </div>` : ''}
-    ${d.status==='signed' ? `
-    <div style="display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
-      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(0,245,212,.1);
-        border:1px solid rgba(0,245,212,.2);color:var(--cyan);"
-        onclick="viewSignedSOP('${d.draftId||d.id}')">👁️ Lihat</button>
-      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(67,97,238,.1);
-        border:1px solid rgba(67,97,238,.2);color:#7b9fff;"
-        onclick="editDraftFromList('${d.draftId||d.id}')">✏️ Edit</button>
-      <button class="btn" style="flex:1;padding:8px;font-size:12px;background:rgba(255,77,109,.1);
-        border:1px solid rgba(255,77,109,.2);color:var(--red);"
-        onclick="deleteDraft('${d.draftId||d.id}')">🗑️ Hapus</button>
-    </div>` : ''}
+    ${actionRow}
   </div>`;
 }
 
 function editDraftFromList(draftId) {
   const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
   if (!d) return;
-  // Load data SOP ke form
   try {
     const sopData = d.sopData ? JSON.parse(d.sopData) : d;
     state.form = Object.assign({}, sopData, {
-      nomorSOP   : d.nomorSOP    || sopData.nomorSOP    || '',
-      namaSOP    : d.namaSOP     || sopData.namaSOP     || '',
-      eselon3    : d.eselon3     || sopData.eselon3     || '',
-      eselon4    : d.eselon4     || sopData.eselon4     || '',
+      nomorSOP : d.nomorSOP || sopData.nomorSOP || '',
+      namaSOP  : d.namaSOP  || sopData.namaSOP  || '',
+      eselon3  : d.eselon3  || sopData.eselon3  || '',
+      eselon4  : d.eselon4  || sopData.eselon4  || '',
     });
     state._editingDraftId = draftId;
   } catch(e) { state.form = Object.assign({}, state.form); }
   setTab(0);
   toast('✏️ Data SOP dimuat ke form untuk diedit');
+}
+
+// ── Preview dokumen dari card SOP Saya ──
+function previewDraftDoc(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan', 'err'); return; }
+  try {
+    const sopData = d.sopData ? JSON.parse(d.sopData) : d;
+    state.form = Object.assign({}, sopData, {
+      nomorSOP : d.nomorSOP || sopData.nomorSOP || '',
+      namaSOP  : d.namaSOP  || sopData.namaSOP  || '',
+      eselon3  : d.eselon3  || sopData.eselon3  || '',
+      eselon4  : d.eselon4  || sopData.eselon4  || '',
+    });
+    state.previewMode = 'doc';
+    setTab(1);
+    toast('👁️ Membuka preview dokumen SOP');
+  } catch(e) { toast('Gagal membuka preview: ' + e.message, 'err'); }
+}
+
+// ── Export Word dari card SOP Saya ──
+function exportDraftWord(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan', 'err'); return; }
+  try {
+    const sopData = d.sopData ? JSON.parse(d.sopData) : d;
+    state.form = Object.assign({}, sopData, {
+      nomorSOP : d.nomorSOP || sopData.nomorSOP || '',
+      namaSOP  : d.namaSOP  || sopData.namaSOP  || '',
+    });
+    exportToWord();
+  } catch(e) { toast('Gagal export Word: ' + e.message, 'err'); }
+}
+
+// ── Export PDF dari card SOP Saya ──
+function exportDraftPDF(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan', 'err'); return; }
+  try {
+    const sopData = d.sopData ? JSON.parse(d.sopData) : d;
+    state.form = Object.assign({}, sopData, {
+      nomorSOP : d.nomorSOP || sopData.nomorSOP || '',
+      namaSOP  : d.namaSOP  || sopData.namaSOP  || '',
+    });
+    exportDocPDF();
+  } catch(e) { toast('Gagal export PDF: ' + e.message, 'err'); }
+}
+
+// ── Buka modal konfirmasi revisi ──
+function openRevisiModal(draftId) {
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan', 'err'); return; }
+  state._revisiDraftId = draftId;
+  const info = document.getElementById('mRevisiInfo');
+  if (info) info.innerHTML =
+    '<strong style="color:var(--tx);">📄 ' + (d.namaSOP||'—') + '</strong><br>' +
+    '<span style="color:var(--mu);">Unit: ' + (d.eselon4||d.eselon3||'—') + '</span><br>' +
+    '<span style="color:var(--mu);">Disahkan: ' + (d.tglSigned ? new Date(d.tglSigned).toLocaleDateString('id-ID') : '—') + '</span>';
+  const alasan = document.getElementById('mRevisiAlasan');
+  if (alasan) alasan.value = '';
+  openModal('mRevisi');
+}
+
+// ── Proses ajukan revisi SOP ──
+async function doRevisiSOP() {
+  const draftId = state._revisiDraftId;
+  if (!draftId) return;
+  const alasanEl = document.getElementById('mRevisiAlasan');
+  const alasan   = alasanEl ? alasanEl.value.trim() : '';
+  if (!alasan) { toast('⚠ Alasan revisi wajib diisi', 'err'); alasanEl && alasanEl.focus(); return; }
+
+  const d = state.draftList.find(x => (x.draftId||x.id) === draftId);
+  if (!d) { toast('Data SOP tidak ditemukan', 'err'); return; }
+
+  const btnYa = document.querySelector('#mRevisi button[onclick="doRevisiSOP()"]');
+  if (btnYa) { btnYa.textContent = '⏳ Mengirim...'; btnYa.disabled = true; }
+
+  // Update status di Firestore → revision_request
+  d.status = 'revision_request';
+  d.catatanRevisi = alasan;
+  d.tglRevisiRequest = new Date().toISOString();
+  await fbSaveSOP(d).catch(function(){});
+
+  // Kirim email ke Admin SOP via Worker /send-email
+  try {
+    await fetch(WORKER_URL + '/send-email', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({
+        action  : 'sendEmail',
+        toEmail : state.ctx && state.ctx.adminEmail ? state.ctx.adminEmail : '',
+        subject : '🔄 Permintaan Revisi SOP: ' + (d.namaSOP||''),
+        userName: 'Admin SOP',
+        tanggal : new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'}),
+        topics  : [
+          'Permintaan revisi dari: ' + (state.ctx ? decodeURIComponent(state.ctx.nama||'') : d.namaPembuat||'Pembuat'),
+          'SOP: ' + (d.namaSOP||''),
+          'Unit: ' + (d.eselon4||d.eselon3||''),
+          'Alasan: ' + alasan
+        ],
+        sopList : [{ title: d.namaSOP||'', unit: d.eselon4||'', linkFinal: d.urlPDFSigned||'' }]
+      })
+    });
+  } catch(e) { console.warn('Email revisi error:', e); }
+
+  if (btnYa) { btnYa.textContent = 'Ya, Ajukan Revisi'; btnYa.disabled = false; }
+  closeModal('mRevisi');
+
+  // Update local state
+  const idx = state.draftList.findIndex(x => (x.draftId||x.id) === draftId);
+  if (idx >= 0) state.draftList[idx] = d;
+
+  toast('✅ Permintaan revisi berhasil dikirim ke Admin SOP');
+  render();
 }
 
 async function resubmitDraft(draftId) {
