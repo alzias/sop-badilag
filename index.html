@@ -482,7 +482,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 <div id="loginScreen">
   <div class="lglow"></div>
   <div class="llogo">⚖️</div>
-  <div class="ltitle">SOP Center</div>
+  <div class="ltitle">SOP Intelligence</div>
   <div class="lsub">Ditjen Badan Peradilan Agama — MA RI</div>
   <div class="lcard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -514,7 +514,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   <div class="atabs">
     <div class="atab on" id="tabDept" onclick="switchTab('dept')">🏢 Unit</div>
     <div class="atab" id="tabEmp" onclick="switchTab('emp')">👤 Pegawai</div>
-    <div class="atab" id="tabDrive" onclick="switchTab('drive')">📋 SOP</div>
+    <div class="atab" id="tabDrive" onclick="switchTab('drive')">🗂️ Manage SOP</div>
     <div class="atab" id="tabQR" onclick="switchTab('qr')">🔲 QR Code</div>
     <div class="atab" id="tabBackup" onclick="switchTab('backup')">💾 Backup</div>
   <div class="atab" id="tabRole" onclick="switchTab('role')">🔐 Role SOP</div>
@@ -3823,6 +3823,17 @@ function rRoleSOP(c) {
   h += '<input class="finput" id="roleEmail" type="email" placeholder="contoh: nama@badilag.go.id atau nama@gmail.com"/>';
   h += '<div style="font-size:11px;color:var(--mu);margin-top:3px;">Pastikan email aktif dan bisa menerima pesan dari sopi@sopibadilag.my.id</div>';
   h += '</div>';
+  // ── Dropdown E2 — hanya muncul untuk approver_e2 ──
+  h += '<div id="e2TargetPanel" style="display:none;margin-top:8px;">';
+  h += '<label class="flabel" style="color:var(--green);">🏛️ Unit Eselon II yang Disahkan</label>';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:6px;">Pilih unit Eselon II yang berwenang untuk pegawai ini</div>';
+  h += '<select class="fselect" id="roleE2Target">';
+  h += '<option value="">— Pilih Unit Eselon II —</option>';
+  ESELON2.forEach(function(e2) {
+    h += '<option value="'+e2.id+'">'+e2.icon+' '+e2.name+'</option>';
+  });
+  h += '</select>';
+  h += '</div>';
   h += '<div id="reviewScopePanel" style="display:none;margin-top:8px;">';
   h += '<label class="flabel">Unit Eselon IV yang boleh direview</label>';
   h += '<div style="font-size:11px;color:var(--amber);margin-bottom:8px;">Pilih berdasarkan posisi Eselon III pegawai ini</div>';
@@ -3925,15 +3936,20 @@ function selectRoleEmp(id) {
 }
 
 function onRoleChange() {
-  var role = document.getElementById('roleSelect') && document.getElementById('roleSelect').value;
+  var role       = document.getElementById('roleSelect') && document.getElementById('roleSelect').value;
   var scopePanel = document.getElementById('reviewScopePanel');
   var emailPanel = document.getElementById('emailPanel');
+  var e2Panel    = document.getElementById('e2TargetPanel');
   if (scopePanel) scopePanel.style.display = role === 'reviewer_e3' ? 'block' : 'none';
   if (emailPanel) emailPanel.style.display = role !== 'maker' ? 'block' : 'none';
+  if (e2Panel)   e2Panel.style.display    = role === 'approver_e2' ? 'block' : 'none';
   _roleScopeIds = [];
-  if (_roleTargetEmp && _roleTargetEmp.email) {
+  if (_roleTargetEmp) {
     var emailEl = document.getElementById('roleEmail');
-    if (emailEl) emailEl.value = _roleTargetEmp.email;
+    if (emailEl && _roleTargetEmp.email) emailEl.value = _roleTargetEmp.email;
+    // Pre-fill eselon2Id jika sudah ada
+    var e2sel = document.getElementById('roleE2Target');
+    if (e2sel && _roleTargetEmp.eselon2Id) e2sel.value = _roleTargetEmp.eselon2Id;
   }
 }
 
@@ -3968,6 +3984,17 @@ async function saveRole() {
   }
   if (role === 'reviewer_e3' && !_roleScopeIds.length) {
     toast('⚠ Pilih Bagian/Subdit untuk menentukan unit yang bisa direview'); return;
+  }
+  // ── Validasi eselon2Id untuk approver_e2 ──
+  if (role === 'approver_e2') {
+    var e2selEl = document.getElementById('roleE2Target');
+    var e2id    = e2selEl ? e2selEl.value.trim() : '';
+    if (!e2id) { toast('⚠ Pilih unit Eselon II yang akan disahkan oleh pegawai ini'); return; }
+    _roleTargetEmp.eselon2Id = e2id;
+    var e2obj = ESELON2.find(function(e){ return e.id === e2id; });
+    _roleTargetEmp.eselon2   = e2obj ? e2obj.name : '';
+  } else {
+    delete _roleTargetEmp.eselon2Id;
   }
   if (role === 'admin_sop') {
     var existingAdmin = S.emps.filter(function(e){ return e.role==='admin_sop' && e.id!==_roleTargetEmp.id; });
@@ -4062,8 +4089,62 @@ function openSOPBuilder() {
     toast('⚠ Login sebagai pegawai untuk membuat SOP');
     return;
   }
-  var u = S.user;
+  var u   = S.user;
   var emp = S.emps.find(function(e){ return e.nip === u.nip; }) || {};
+
+  // ── Tampilkan overlay verifikasi ──
+  var ov = document.getElementById('overlayBuilderVerif');
+  if (ov) {
+    ov.style.display = 'flex';
+    // Reset semua step & progress
+    ['ovStep1','ovStep2','ovStep3'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.opacity = '.3';
+      el.style.animation = '';
+      var dot = el.querySelector('.ov-dot');
+      if (dot) dot.textContent = '⏳';
+    });
+    var prog    = document.getElementById('ovProgress');
+    var progLbl = document.getElementById('ovProgressLabel');
+    if (prog)    prog.style.width = '0%';
+    if (progLbl) progLbl.textContent = '0%';
+    // Reset ring
+    var ring = document.getElementById('ovRing');
+    if (ring) {
+      ring.style.animation = 'ovSpin 1s linear infinite';
+      ring.style.border = '2px solid transparent';
+      ring.style.borderTopColor = 'rgba(0,245,212,.7)';
+    }
+
+    function activateStep(id, pct) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.opacity = '1';
+      el.style.animation = 'ovStepIn .35s ease forwards';
+      var dot = el.querySelector('.ov-dot');
+      if (dot) dot.textContent = '✅';
+      if (prog)    prog.style.width = pct + '%';
+      if (progLbl) progLbl.textContent = pct + '%';
+    }
+
+    setTimeout(function(){ activateStep('ovStep1', 33); }, 400);
+    setTimeout(function(){ activateStep('ovStep2', 66); }, 900);
+    setTimeout(function(){
+      activateStep('ovStep3', 100);
+      var r = document.getElementById('ovRing');
+      if (r) { r.style.animation='none'; r.style.border='2px solid rgba(0,245,212,.5)'; }
+    }, 1400);
+    setTimeout(function(){
+      if (ov) ov.style.display = 'none';
+      _doOpenBuilder(u, emp);
+    }, 1900);
+  } else {
+    _doOpenBuilder(u, emp);
+  }
+}
+
+function _doOpenBuilder(u, emp) {
   var params = new URLSearchParams({
     nip   : u.nip      || '',
     nama  : u.name     || '',
@@ -4088,8 +4169,49 @@ function openSOPBuilder() {
     window.addEventListener('message', function(e) {
       if (!e.data) return;
       if (e.data.type === 'SOP_SUBMITTED') {
-        toast('📝 SOP "'+e.data.namaSOP+'" dikirim untuk review!');
-        fbLoadSOPs().then(updateInboxBadge);
+        var submittedId   = e.data.draftId  || '';
+        var submittedNama = e.data.namaSOP   || '';
+        var submittedDept = e.data.deptId    || '';
+        toast('📝 SOP "' + submittedNama + '" diterima — mencari reviewer...');
+        fbLoadSOPs().then(function() {
+          updateInboxBadge();
+          var reviewer = getReviewerE3ForDraft(submittedDept);
+          if (!reviewer && submittedDept) {
+            reviewer = S.emps.find(function(emp) {
+              return emp.role === 'reviewer_e3' &&
+                     Array.isArray(emp.reviewScope) && emp.reviewScope.length > 0;
+            }) || null;
+          }
+          if (!reviewer) {
+            addMsg('⚠️ **Reviewer Belum Dikonfigurasi**\n\nSOP **"' + submittedNama + '"** sudah masuk sistem (status: pending_e3), tetapi belum ada Reviewer E3 yang diset untuk unit ini.\n\nHubungi Admin SOP → Tab **Role SOP** untuk mengkonfigurasi reviewer.', false);
+            return;
+          }
+          var draft = _sopDrafts.find(function(s) {
+            return s.id === submittedId || s.draftId === submittedId;
+          });
+          if (draft) {
+            draft.reviewerE3Nama  = reviewer.name  || '';
+            draft.reviewerE3Email = reviewer.email || '';
+            draft.reviewerE3Id    = reviewer.id    || '';
+            fbSaveSOP(draft);
+          }
+          if (reviewer.email) {
+            fetch(WORKER_URL + '/send-email', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({
+                action:'sendEmail', toEmail:reviewer.email,
+                subject:'\uD83D\uDD0D Review SOP: ' + submittedNama,
+                userName: reviewer.name || 'Bapak/Ibu',
+                tanggal: new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+                topics: ['SOP baru dari ' + (e.data.namaPembuat||'') + ' menunggu review Anda'],
+                sopList:[{title:submittedNama, unit:e.data.eselon4||'', linkFinal:''}]
+              })
+            }).catch(function(){});
+          }
+          addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **' + submittedNama + '**\nDikirim ke **' + reviewer.name + '** untuk ditinjau.\n\n' +
+            (reviewer.email ? '📧 Email notifikasi dikirim ke **' + reviewer.email + '**.' :
+            '⚠ Email reviewer belum diset di Tab Role SOP.'), false);
+        });
       } else if (e.data.type === 'SOP_APPROVED') {
         toast('✅ SOP disetujui!'); fbLoadSOPs().then(updateInboxBadge);
       } else if (e.data.type === 'SOP_REJECTED') {
@@ -4410,7 +4532,14 @@ function renderSOPInbox() {
   } else if (myRole === 'admin_sop') {
     inbox = _sopDrafts.filter(function(s){ return s.status === 'pending_admin'; });
   } else if (myRole === 'approver_e2') {
-    inbox = _sopDrafts.filter(function(s){ return s.status === 'pending_e2'; });
+    // Filter: hanya SOP yang e2TargetId cocok dengan eselon2Id pegawai ini
+    // Fallback: tampilkan semua pending_e2 jika eselon2Id belum diset
+    var myE2Id = userEmp ? (userEmp.eselon2Id || '') : '';
+    inbox = _sopDrafts.filter(function(s) {
+      if (s.status !== 'pending_e2') return false;
+      if (!myE2Id || !s.e2TargetId) return true; // fallback: tampil semua
+      return s.e2TargetId === myE2Id;
+    });
   } else {
     // Maker: tampilkan semua SOP miliknya (semua status)
     inbox = _sopDrafts.filter(function(s){ return s.createdByNIP === (S.user?S.user.nip:'') || s.dibuatOleh === (S.user?S.user.nip:''); });
@@ -4593,7 +4722,42 @@ async function openReviewPanel(sopId) {
     h += '<label class="flabel">Catatan Review <span style="color:var(--mu);font-size:10px;">(wajib jika mengembalikan)</span></label>';
     h += '<textarea class="finput-sm" id="rv_catatan" style="min-height:70px;" placeholder="Tulis catatan atau alasan pengembalian..."></textarea>';
     h += '</div>';
-    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">';
+
+    // ── Dropdown Eselon II (hanya untuk Admin SOP) ──
+    if (isAdmin) {
+      // Auto-detect: cari E2 berdasarkan unit pembuat SOP
+      var sopDeptId = sop.unitEselon4Id || sop.deptId || '';
+      var autoE2Id  = '';
+      if (sopDeptId) {
+        // Cari E4 → E3 → E2
+        var e4obj = (typeof ESELON4 !== 'undefined' ? ESELON4 : [])
+          .find(function(e){ return e.id === sopDeptId; });
+        var e3id  = e4obj ? e4obj.eselon3 : '';
+        var e3obj = ESELON3.find(function(e){ return e.id === e3id; });
+        autoE2Id  = e3obj ? e3obj.eselon2 : '';
+      }
+
+      h += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px;">';
+      h += '<label class="flabel" style="color:var(--purple);">🏛️ Teruskan ke Eselon II <span style="color:var(--red);">*</span></label>';
+      h += '<div style="font-size:11px;color:var(--mu);margin-bottom:6px;">Pilih unit Eselon II yang berwenang mengesahkan SOP ini.</div>';
+      h += '<select class="finput-sm" id="rv_e2target" style="margin-bottom:4px;">';
+      h += '<option value="">— Pilih Unit Eselon II —</option>';
+      ESELON2.forEach(function(e2) {
+        // Cari apakah ada approver_e2 untuk unit ini
+        var hasApprover = S.emps.some(function(emp){
+          return emp.role === 'approver_e2' && (emp.eselon2Id === e2.id || emp.eselon2 === e2.name);
+        });
+        var label = e2.icon + ' ' + e2.name + (hasApprover ? '' : ' ⚠ (belum ada approver)');
+        var sel   = (autoE2Id === e2.id) ? ' selected' : '';
+        h += '<option value="'+e2.id+'"'+sel+'>'+label+'</option>';
+      });
+      h += '</select>';
+      // Tampilkan nama approver jika sudah ada
+      h += '<div id="rv_e2approverInfo" style="font-size:11px;color:var(--green);margin-top:4px;min-height:16px;"></div>';
+      h += '</div>';
+    }
+
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">';
     h += '<button class="sop-act-btn danger" onclick="reviewSOP(\''+sopId+'\',\'reject\')">↩️ Kembalikan</button>';
     if (isAdmin) {
       h += '<button class="sop-act-btn success" onclick="reviewSOP(\''+sopId+'\',\'approve_admin\')">⚙️ Teruskan ke Eselon II</button>';
@@ -4605,6 +4769,33 @@ async function openReviewPanel(sopId) {
 
   body.innerHTML = h;
   openModal('mSOPReview');
+
+  // ── Auto-show approver name saat dropdown E2 berubah ──
+  setTimeout(function() {
+    var selEl = document.getElementById('rv_e2target');
+    if (!selEl) return;
+    function updateApproverInfo() {
+      var e2id = selEl.value;
+      var infoEl = document.getElementById('rv_e2approverInfo');
+      if (!infoEl) return;
+      if (!e2id) { infoEl.textContent = ''; return; }
+      var e2obj = ESELON2.find(function(e){ return e.id === e2id; });
+      var approver = S.emps.find(function(emp){
+        return emp.role === 'approver_e2' &&
+          (emp.eselon2Id === e2id || emp.eselon2 === (e2obj ? e2obj.name : ''));
+      });
+      if (approver) {
+        infoEl.innerHTML = '✅ Approver: <strong>' + escapeHtml(approver.name) + '</strong>' +
+          (approver.email ? ' · ' + escapeHtml(approver.email) : ' <span style="color:var(--amber);">⚠ email belum diset</span>');
+        infoEl.style.color = 'var(--green)';
+      } else {
+        infoEl.innerHTML = '⚠ Belum ada pegawai dengan role <em>approver_e2</em> untuk unit ini. Set di Tab Role SOP.';
+        infoEl.style.color = 'var(--amber)';
+      }
+    }
+    selEl.addEventListener('change', updateApproverInfo);
+    updateApproverInfo(); // run sekali saat panel terbuka
+  }, 100);
 }
 
 async function reviewSOP(sopId, action) {
@@ -4684,11 +4875,32 @@ async function reviewSOP(sopId, action) {
 
   // ── APPROVE ADMIN → pending_e2 ──
   } else if (action === 'approve_admin') {
+    // ── Ambil pilihan Eselon II dari dropdown ──
+    var e2TargetId = (document.getElementById('rv_e2target')||{value:''}).value.trim();
+    if (!e2TargetId) {
+      toast('⚠ Pilih unit Eselon II tujuan terlebih dahulu', 'err');
+      return;
+    }
+    var e2obj      = ESELON2.find(function(e){ return e.id === e2TargetId; });
+    var approverE2Selected = S.emps.find(function(emp){
+      return emp.role === 'approver_e2' &&
+        (emp.eselon2Id === e2TargetId || emp.eselon2 === (e2obj ? e2obj.name : ''));
+    });
+    // Fallback: approver_e2 pertama jika tidak ada yang spesifik
+    if (!approverE2Selected) {
+      approverE2Selected = S.emps.find(function(e){ return e.role === 'approver_e2'; });
+    }
+
     sop.status         = 'pending_e2';
     sop.adminNip       = userEmp ? userEmp.nip  : '';
     sop.adminNama      = userEmp ? userEmp.name : S.user.name;
     sop.tglReviewAdmin = now;
     sop.catatanAdmin   = catatan;
+    sop.e2TargetId     = e2TargetId;
+    sop.e2TargetName   = e2obj ? e2obj.name : '';
+    sop.approverE2Id   = approverE2Selected ? approverE2Selected.id  : '';
+    sop.approverE2Nip  = approverE2Selected ? approverE2Selected.nip : '';
+    sop.approverE2Nama = approverE2Selected ? approverE2Selected.name: '';
     await fbSaveSOP(sop);
     try {
       await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
@@ -4699,15 +4911,17 @@ async function reviewSOP(sopId, action) {
           adminNama       : sop.adminNama,
           action_type     : 'approve',
           catatan,
-          approverE2Email : approverE2 ? approverE2.email : '',
-          approverE2Nama  : approverE2 ? approverE2.name  : '',
+          e2TargetId,
+          e2TargetName    : sop.e2TargetName,
+          approverE2Email : approverE2Selected ? approverE2Selected.email : '',
+          approverE2Nama  : approverE2Selected ? approverE2Selected.name  : '',
           emailPembuat    : makerEmp ? makerEmp.email : ''
         })
       });
     } catch(e) {}
     closeModal('mSOPReview'); closeModal('mSOPInbox');
-    toast('✅ SOP diteruskan ke Eselon II untuk pengesahan');
-    addMsg('✅ **SOP Lolos Review Ketatalaksanaan**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\nDiteruskan ke **'+(approverE2?approverE2.name:'Eselon II')+'** untuk TTD digital.', false);
+    toast('✅ SOP diteruskan ke ' + (e2obj ? e2obj.name : 'Eselon II') + ' untuk pengesahan');
+    addMsg('✅ **SOP Lolos Review Ketatalaksanaan**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\nDiteruskan ke **'+(e2obj ? e2obj.icon+' '+e2obj.name : 'Eselon II')+'**\n\n'+(approverE2Selected ? '📧 Notifikasi dikirim ke **'+approverE2Selected.name+'**' : '⚠ Belum ada approver_e2 untuk unit ini — notifikasi tidak terkirim.'), false);
 
   // ── APPROVE E2 → signed ──
   } else if (action === 'approve_e2') {
@@ -4998,7 +5212,7 @@ function injectSOPAdminTab() {
     var t = document.createElement('div');
     t.className = 'atab';
     t.id = 'tabSop';
-    t.textContent = '📋 SOP';
+    t.textContent = '🗂️ Manage SOP';
     t.onclick = function(){ switchTab('sop'); };
     tabsEl.appendChild(t);
   }
@@ -5069,6 +5283,77 @@ function getApproverE2ForDept(deptId) {
 }
 
 </script>
+
+<!-- ══ OVERLAY VERIFIKASI SOP BUILDER ══ -->
+<div id="overlayBuilderVerif" style="
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(6,13,24,.92);backdrop-filter:blur(18px);
+  align-items:center;justify-content:center;flex-direction:column;
+">
+  <div style="
+    background:rgba(15,28,46,.95);border:1px solid rgba(0,245,212,.2);
+    border-radius:24px;padding:40px 44px;max-width:380px;width:90%;
+    text-align:center;position:relative;overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(0,245,212,.08);
+  ">
+    <div style="position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+      width:200px;height:80px;background:radial-gradient(ellipse,rgba(0,245,212,.18),transparent 70%);
+      pointer-events:none;"></div>
+    <!-- Ikon + ring spin -->
+    <div style="margin:0 auto 22px;width:68px;height:68px;border-radius:18px;
+      background:linear-gradient(135deg,rgba(0,245,212,.15),rgba(67,97,238,.12));
+      border:1px solid rgba(0,245,212,.25);display:flex;align-items:center;justify-content:center;
+      position:relative;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00f5d4"
+        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <div id="ovRing" style="position:absolute;inset:-6px;border-radius:24px;
+        border:2px solid transparent;border-top-color:rgba(0,245,212,.7);
+        animation:ovSpin 1s linear infinite;"></div>
+    </div>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;
+      color:#e8eaf6;letter-spacing:-.3px;margin-bottom:6px;">Membuka SOP Builder</div>
+    <div style="font-size:12px;color:#6b7a99;margin-bottom:28px;">Ditjen Badan Peradilan Agama MA RI</div>
+    <!-- Steps -->
+    <div style="text-align:left;display:flex;flex-direction:column;gap:10px;margin-bottom:28px;">
+      <div id="ovStep1" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Verifikasi identitas pegawai</div>
+      </div>
+      <div id="ovStep2" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Cek akses role & unit kerja</div>
+      </div>
+      <div id="ovStep3" style="display:flex;align-items:center;gap:10px;opacity:.3;">
+        <div class="ov-dot" style="width:22px;height:22px;border-radius:50%;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;">⏳</div>
+        <div style="font-size:12.5px;color:#9aa5be;">Menyiapkan konteks SOP Builder</div>
+      </div>
+    </div>
+    <!-- Progress -->
+    <div style="height:3px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;">
+      <div id="ovProgress" style="height:100%;width:0%;border-radius:4px;
+        background:linear-gradient(90deg,#00f5d4,#4361ee);transition:width .4s ease;"></div>
+    </div>
+    <div id="ovProgressLabel" style="font-size:10px;color:#5a7a8a;margin-top:8px;
+      font-family:'JetBrains Mono',monospace;letter-spacing:.5px;">0%</div>
+  </div>
+</div>
+
+<style>
+@keyframes ovSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes ovStepIn { from{opacity:.3;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+</style>
 
 <!-- CLOUDFLARE WORKER v3.0
 Salin kode dari file cloudflare_worker_v3.js
