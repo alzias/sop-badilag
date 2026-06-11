@@ -1660,8 +1660,14 @@ function syncFormFromDOM() {
 function render() {
   const cont = document.getElementById('mainContent');
   if (state.tab===0)      cont.innerHTML = renderFormView();
-  else if (state.tab===1) cont.innerHTML = renderPreviewView('doc');
-  else if (state.tab===2) cont.innerHTML = renderPreviewView('flow');
+  else if (state.tab===1) {
+    syncFormFromDOM(); // pastikan data form terbaru sebelum render preview
+    cont.innerHTML = renderPreviewView('doc');
+  }
+  else if (state.tab===2) {
+    syncFormFromDOM(); // pastikan data form terbaru sebelum render flowchart
+    cont.innerHTML = renderPreviewView('flow');
+  }
   else                    cont.innerHTML = renderAdminView();
   bindEvents();
 }
@@ -3042,9 +3048,12 @@ async function doKirim() {
   btn.disabled = true;
 
   const f = state.form;
+  // ── ID tunggal — satu-satunya yang tulis Firestore ──
   const draftId = 'sop_'+Date.now();
+  const now = new Date().toISOString();
   const draftData = {
-    draftId, namaSOP:f.namaSOP, nomorSOP:f.nomorSOP,
+    draftId, id:draftId,
+    namaSOP:f.namaSOP, nomorSOP:f.nomorSOP,
     eselon3:f.eselon3, eselon4:f.eselon4,
     instansi:f.instansi, alamat:f.alamat,
     tglPembuatan:f.tglPembuatan, tglRevisi:f.tglRevisi, tglEfektif:f.tglEfektif,
@@ -3054,73 +3063,80 @@ async function doKirim() {
     peringatan:f.peringatan, pencatatan:f.pencatatan,
     pelaksana:f.pelaksana, langkah:f.langkah,
     dibuatOleh:nip, namaPembuat:nama,
+    // alias agar SOPI inbox bisa baca
+    judul:f.namaSOP, unitEselon4:f.eselon4,
+    unitEselon4Id: state.ctx ? state.ctx.deptId : '',
+    createdBy:nama, createdByNIP:nip,
     deptId: state.ctx ? state.ctx.deptId : '',
     status:'pending_e3', catatanE3:'', catatanAdmin:'',
-    reviewerE3Nip:'', reviewerE3Nama:'', tglReviewE3:'',
-    adminNip:'', adminNama:'', tglReviewAdmin:'',
+    reviewerE3Nip:'', reviewerE3Nama:'', reviewerE3Email:'',
+    tglReviewE3:'', adminNip:'', adminNama:'', tglReviewAdmin:'',
     approverE2Nip:'', approverE2Nama:'', tglSigned:'', urlPDFSigned:'',
-    tglKirim:new Date().toISOString(),
-    createdAt:new Date().toISOString(),
-    updatedAt:new Date().toISOString()
+    tglKirim:now, createdAt:now, updatedAt:now,
+    sumber:'builder'
   };
 
-  // Simpan ke Firebase Firestore
-  // Simpan ke Firestore sop_drafts dengan field draftId
-  const savedFB = await fbSaveSOP(Object.assign({id:draftId, draftId}, draftData));
-
-  // Kirim ke Worker juga (untuk email notifikasi)
-  let workerOk = false;
-  try {
-    const res = await fetch(WORKER_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-          action          : 'submitDraft',
-          sopData         : f,
-          dibuatOleh      : nip,
-          namaPembuat     : nama,
-          deptId          : draftData.deptId,
-          eselon4         : f.eselon4,
-          reviewerE3Email : '',
-          reviewerE3Nama  : ''
-        })
-    });
-    const data = await res.json();
-    workerOk = data.success;
-  } catch(e) { console.warn('Worker submit error:', e); }
+  // ── SATU-SATUNYA yang tulis Firestore ──
+  const savedFB = await fbSaveSOP(draftData);
 
   btn.textContent = '📤 Kirim Sekarang';
   btn.disabled = false;
 
-  if (savedFB || workerOk) {
-    closeModal('mKirim');
-    toast('✅ Draft berhasil dikirim! Admin akan mereview segera.');
-
-    // Notify SOPI via postMessage (jika dibuka dari SOPI)
-    if (window.opener) {
-      try {
-        window.opener.postMessage({
-          type:'SOP_SUBMITTED',
-          draftId, namaSOP:f.namaSOP, status:'pending_e3',
-          namaPembuat:nama, nip
-        }, '*');
-      } catch(e) {}
-    }
-
-    // Tambah ke list lokal
-    state.draftList.unshift(Object.assign({}, draftData));
-
-    // Reset form
-    state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
-    if (state.ctx) {
-      if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
-      if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
-    }
-    state.fileState = 'idle';
-
-    setTimeout(() => setTab(3), 800);
-  } else {
-    toast('❌ Gagal menyimpan. Cek koneksi.','err');
+  if (!savedFB) {
+    toast('❌ Gagal menyimpan ke Firestore. Cek koneksi.','err');
+    return;
   }
+
+  closeModal('mKirim');
+  toast('✅ Draft tersimpan! Mengirim notifikasi...');
+
+  // ── Beritahu SOPI via postMessage (iframe atau popup) ──
+  const msgData = {
+    type:'SOP_SUBMITTED', draftId,
+    namaSOP:f.namaSOP, status:'pending_e3',
+    namaPembuat:nama, nip,
+    deptId:draftData.deptId, eselon4:f.eselon4
+  };
+  // Coba parent (iframe mode) dulu, lalu opener (popup mode)
+  try { window.parent && window.parent !== window && window.parent.postMessage(msgData, '*'); } catch(e){}
+  try { window.opener && window.opener.postMessage(msgData, '*'); } catch(e){}
+
+  // ── Jika standalone (tidak ada parent/opener) — fetch reviewer sendiri ──
+  if (!window.opener && (window.parent === window)) {
+    fbFetchReviewerE3(draftData.deptId).then(function(reviewer) {
+      if (!reviewer) { toast('⚠ Reviewer E3 belum dikonfigurasi untuk unit ini.','err'); return; }
+      var updated = Object.assign({}, draftData, {
+        reviewerE3Nama: reviewer.name||'', reviewerE3Email: reviewer.email||'', reviewerE3Id: reviewer.id||''
+      });
+      fbSaveSOP(updated);
+      if (reviewer.email) {
+        fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action:'sendEmail', toEmail:reviewer.email,
+            subject:'\uD83D\uDD0D Review SOP: '+f.namaSOP,
+            userName:reviewer.name||'Bapak/Ibu',
+            tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics:['SOP baru dari '+nama+' menunggu review Anda'],
+            sopList:[{title:f.namaSOP, unit:f.eselon4||f.eselon3||'', linkFinal:''}]
+          })
+        }).catch(function(){});
+        toast('📧 Email notifikasi dikirim ke '+reviewer.name);
+      }
+    });
+  }
+
+  // Tambah ke list lokal
+  state.draftList.unshift(Object.assign({}, draftData));
+
+  // Reset form
+  state.form = JSON.parse(JSON.stringify(EMPTY_FORM));
+  if (state.ctx) {
+    if (state.ctx.e3) state.form.eselon3 = decodeURIComponent(state.ctx.e3);
+    if (state.ctx.e4) state.form.eselon4 = decodeURIComponent(state.ctx.e4);
+  }
+  state.fileState = 'idle';
+  setTimeout(() => setTab(3), 800);
 }
 
 // ══ ADMIN ACTIONS ══
