@@ -4339,9 +4339,14 @@ function _handleSOPSubmitted(data) {
   var submittedId   = data.draftId  || '';
   var submittedNama = data.namaSOP  || '';
   var submittedDept = data.deptId   || '';
+
   toast('📝 SOP "' + submittedNama + '" diterima — mencari reviewer...');
+
+  // Reload drafts dulu, lalu proses reviewer
   fbLoadSOPs().then(function() {
     updateInboxBadge();
+
+    // Cari reviewer E3
     var reviewer = getReviewerE3ForDraft(submittedDept);
     if (!reviewer && submittedDept) {
       reviewer = S.emps.find(function(emp) {
@@ -4349,10 +4354,13 @@ function _handleSOPSubmitted(data) {
                Array.isArray(emp.reviewScope) && emp.reviewScope.length > 0;
       }) || null;
     }
+
     if (!reviewer) {
       addMsg('⚠️ **Reviewer Belum Dikonfigurasi**\n\nSOP **"' + submittedNama + '"** sudah masuk sistem (status: pending_e3), tetapi belum ada Reviewer E3 yang diset untuk unit ini.\n\nHubungi Admin SOP → Tab **Role SOP** untuk mengkonfigurasi reviewer.', false);
       return;
     }
+
+    // Update Firestore dengan data reviewer
     var draft = _sopDrafts.find(function(s) {
       return s.id === submittedId || s.draftId === submittedId;
     });
@@ -4362,6 +4370,8 @@ function _handleSOPSubmitted(data) {
       draft.reviewerE3Id    = reviewer.id    || '';
       fbSaveSOP(draft);
     }
+
+    // Kirim email ke reviewer E3 via Worker /send-email
     if (reviewer.email) {
       fetch(WORKER_URL + '/send-email', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -4375,7 +4385,11 @@ function _handleSOPSubmitted(data) {
         })
       }).catch(function(){});
     }
-    addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **'+submittedNama+'**\nDikirim ke **'+reviewer.name+'** untuk ditinjau.\n\n'+(reviewer.email?'📧 Email notifikasi dikirim ke **'+reviewer.email+'**.':'⚠ Email reviewer belum diset.'), false);
+
+    addMsg('📤 **SOP Dikirim untuk Review!**\n\n📋 **'+submittedNama+'**\nDikirim ke **'+reviewer.name+'** untuk ditinjau.\n\n'+(reviewer.email?'📧 Email notifikasi dikirim ke **'+reviewer.email+'**.':'⚠ Email reviewer belum diset di Tab Role SOP.'), false);
+  }).catch(function(err) {
+    console.warn('_handleSOPSubmitted fbLoadSOPs error:', err);
+    toast('📝 SOP diterima — refresh Inbox SOP untuk melihat.');
   });
 }
 
@@ -4793,8 +4807,8 @@ async function openReviewPanel(sopId) {
   var sop = _sopDrafts.find(function(s){ return s.id === sopId; });
   if (!sop) { toast('SOP tidak ditemukan'); return; }
 
-  // ── Normalisasi field dari Builder (array→string) ──
-  sop = normalizeBuilderFields(sop);
+  // ── Normalisasi HANYA untuk tampilan (sop asli tetap utuh untuk reviewSOP()) ──
+  var sopDisplay = normalizeBuilderFields(sop);
 
   var userEmp    = S.emps_cache_me();
   var myRole     = userEmp ? (userEmp.role || 'maker') : 'maker';
@@ -4810,7 +4824,7 @@ async function openReviewPanel(sopId) {
   document.getElementById('sopReviewTitle').textContent = titleMap[myRole] || '🔍 Review SOP';
 
   // ── Isi iframe dengan link dokumen SOP ──
-  var docUrl = sop.urlPDFSigned || sop.linkDraft || sop.linkFinal || sop.urlDrive || '';
+  var docUrl = sopDisplay.urlPDFSigned || sopDisplay.linkDraft || sopDisplay.linkFinal || sopDisplay.urlDrive || '';
   var iframeEl   = document.getElementById('rvIframe');
   var linkOut    = document.getElementById('rvIframeLinkOut');
   var placeholder= document.getElementById('rvIframePlaceholder');
@@ -4844,9 +4858,9 @@ async function openReviewPanel(sopId) {
 
   // Info SOP
   h += '<div style="background:rgba(255,255,255,.04);border:1px solid var(--b1);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
-  h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;">'+escapeHtml(sop.namaSOP||sop.judul||'—')+'</div>';
-  h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sop.unitEselon4||'—')+'<br>👤 '+escapeHtml(sop.createdBy||'—')+' (NIP: '+escapeHtml(sop.createdByNIP||'—')+')</div>';
-  if (sop.nomorSOP) h += '<div style="font-size:10px;color:var(--mu);margin-top:4px;">No: '+escapeHtml(sop.nomorSOP)+'</div>';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;">'+escapeHtml(sopDisplay.namaSOP||sopDisplay.judul||'—')+'</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+'<br>👤 '+escapeHtml(sopDisplay.createdBy||'—')+' (NIP: '+escapeHtml(sopDisplay.createdByNIP||'—')+')</div>';
+  if (sopDisplay.nomorSOP) h += '<div style="font-size:10px;color:var(--mu);margin-top:4px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
   h += '</div>';
 
   function secRow(label, val) {
@@ -4857,15 +4871,15 @@ async function openReviewPanel(sopId) {
       'background:rgba(255,255,255,.03);border-radius:8px;padding:8px 12px;max-height:120px;overflow-y:auto;">'+escapeHtml(val)+'</div></div>';
   }
 
-  h += secRow('DASAR HUKUM', sop.dasarHukum);
-  h += secRow('KUALIFIKASI PELAKSANA', sop.kualifikasi);
-  h += secRow('PERINGATAN', sop.peringatan);
-  h += secRow('LANGKAH PROSEDUR', sop.langkah);
+  h += secRow('DASAR HUKUM', sopDisplay.dasarHukum);
+  h += secRow('KUALIFIKASI PELAKSANA', sopDisplay.kualifikasi);
+  h += secRow('PERINGATAN', sopDisplay.peringatan);
+  h += secRow('LANGKAH PROSEDUR', sopDisplay.langkah);
 
   // Riwayat review sebelumnya
   var historyHtml = '';
-  if (sop.catatanE3)    historyHtml += '<div style="padding:6px 10px;background:rgba(255,183,3,.06);border-radius:6px;margin-bottom:6px;font-size:11px;"><span style="color:var(--amber);font-weight:700;">E3:</span> '+escapeHtml(sop.catatanE3)+'</div>';
-  if (sop.catatanAdmin) historyHtml += '<div style="padding:6px 10px;background:rgba(167,139,250,.06);border-radius:6px;margin-bottom:6px;font-size:11px;"><span style="color:var(--purple);font-weight:700;">Admin:</span> '+escapeHtml(sop.catatanAdmin)+'</div>';
+  if (sopDisplay.catatanE3)    historyHtml += '<div style="padding:6px 10px;background:rgba(255,183,3,.06);border-radius:6px;margin-bottom:6px;font-size:11px;"><span style="color:var(--amber);font-weight:700;">E3:</span> '+escapeHtml(sopDisplay.catatanE3)+'</div>';
+  if (sopDisplay.catatanAdmin) historyHtml += '<div style="padding:6px 10px;background:rgba(167,139,250,.06);border-radius:6px;margin-bottom:6px;font-size:11px;"><span style="color:var(--purple);font-weight:700;">Admin:</span> '+escapeHtml(sopDisplay.catatanAdmin)+'</div>';
   if (historyHtml) h += '<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:6px;">RIWAYAT CATATAN</div>'+historyHtml+'</div>';
 
   // Form review — berbeda per role
@@ -4906,7 +4920,7 @@ async function openReviewPanel(sopId) {
     // ── Dropdown Eselon II (hanya untuk Admin SOP) ──
     if (isAdmin) {
       // Auto-detect: cari E2 berdasarkan unit pembuat SOP
-      var sopDeptId = sop.unitEselon4Id || sop.deptId || '';
+      var sopDeptId = sopDisplay.unitEselon4Id || sopDisplay.deptId || '';
       var autoE2Id  = '';
       if (sopDeptId) {
         // Cari E4 → E3 → E2
