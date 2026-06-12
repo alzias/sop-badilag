@@ -2064,8 +2064,8 @@ function renderFlowchart(f) {
         svg += `<text x="${ecx}" y="${cy - 4}" text-anchor="middle"
           font-size="7" fill="${ecol.text}" font-style="italic" font-family="sans-serif">koordinasi</text>`;
         // Garis penghubung horizontal dari kotak utama ke kotak koordinasi
-        const lx1 = pi0 < epi ? cx + BOX_W/2 : cx - BOX_W/2;
-        const lx2 = pi0 < epi ? ecx - BOX_W/2 : ecx + BOX_W/2;
+        const lx1 = pi < epi ? cx + BOX_W/2 : cx - BOX_W/2;
+        const lx2 = pi < epi ? ecx - BOX_W/2 : ecx + BOX_W/2;
         svg += `<line x1="${lx1}" y1="${cy}" x2="${lx2}" y2="${cy}"
           stroke="${ecol.stroke}" stroke-width="1.5" stroke-dasharray="6,3"
           marker-end="url(#arr)"/>`;
@@ -3174,6 +3174,37 @@ window.addEventListener('message', function(e) {
   if (e.data.type === 'SOPI_PING') {
     try { window.parent.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
     try { window.opener && window.opener.postMessage({type:'BUILDER_READY'}, '*'); } catch(err){}
+    return;
+  }
+  // Load data SOP ke form (mode preview dari reviewer)
+  if (e.data.type === 'LOAD_SOP_DATA' && e.data.sopData) {
+    const sop = e.data.sopData;
+    // Merge data SOP ke state.form
+    const mapped = {
+      nomorSOP    : sop.nomorSOP    || sop.nomorDokumen || '',
+      namaSOP     : sop.namaSOP     || sop.judul        || '',
+      eselon3     : sop.eselon3     || '',
+      eselon4     : sop.eselon4     || sop.unitEselon4  || '',
+      instansi    : sop.instansi    || '',
+      alamat      : sop.alamat      || '',
+      tglPembuatan: sop.tglPembuatan|| '',
+      tglRevisi   : sop.tglRevisi   || '',
+      tglEfektif  : sop.tglEfektif  || '',
+      disahkanOleh: sop.disahkanOleh|| '',
+      deskripsi   : sop.deskripsi   || '',
+      dasarHukum  : Array.isArray(sop.dasarHukum) ? sop.dasarHukum : [sop.dasarHukum||''],
+      kualifikasiPelaksana: Array.isArray(sop.kualifikasiPelaksana) ? sop.kualifikasiPelaksana : [sop.kualifikasiPelaksana||sop.kualifikasi||''],
+      keterkaitan : Array.isArray(sop.keterkaitan)  ? sop.keterkaitan  : [sop.keterkaitan||''],
+      peralatan   : Array.isArray(sop.peralatan)    ? sop.peralatan    : [sop.peralatan||''],
+      peringatan  : Array.isArray(sop.peringatan)   ? sop.peringatan   : [sop.peringatan||''],
+      pencatatan  : Array.isArray(sop.pencatatan)   ? sop.pencatatan   : [sop.pencatatan||''],
+      pelaksana   : Array.isArray(sop.pelaksana)    ? sop.pelaksana    : [],
+      langkah     : Array.isArray(sop.langkah)      ? sop.langkah      : [],
+    };
+    state.form = Object.assign({}, state.form, mapped);
+    // Langsung buka tab Preview Dokumen
+    setTab(1);
+    toast('📄 Dokumen SOP dimuat — lihat Preview dan Flowchart');
     return;
   }
   if (e.data.type !== 'SOPI_CONTEXT') return;
