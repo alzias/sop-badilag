@@ -404,7 +404,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
       <div id="rvIframeCol" style="flex:1.2;display:flex;flex-direction:column;border-right:1px solid var(--b1);overflow:hidden;">
         <div style="padding:8px 12px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--b1);
           display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span style="font-size:11px;color:var(--mu2);">Dokumen SOP</span>
+          <span style="font-size:11px;color:var(--mu2);">📄 Preview Dokumen SOP</span>
           <a id="rvIframeLinkOut" href="#" target="_blank"
             style="margin-left:auto;font-size:11px;color:var(--cyan);text-decoration:none;
             padding:3px 10px;border-radius:20px;background:rgba(0,245,212,.08);border:1px solid rgba(0,245,212,.2);">
@@ -5004,11 +5004,7 @@ async function openReviewPanel(sopId) {
   };
   document.getElementById('sopReviewTitle').textContent = titleMap[myRole] || '🔍 Review SOP';
 
-  // ── Isi iframe dengan link dokumen SOP ──
-  var docUrl = sopDisplay.urlPDFSigned || sopDisplay.linkDraft || sopDisplay.linkFinal || sopDisplay.urlDrive || '';
-  var iframeEl   = document.getElementById('rvIframe');
-  var linkOut    = document.getElementById('rvIframeLinkOut');
-  var placeholder= document.getElementById('rvIframePlaceholder');
+  // Variabel iframe — diisi di setTimeout setelah openModal
 
   // ── Build panel teks (kanan) ──
   var body = document.getElementById('sopReviewBody');
@@ -5019,13 +5015,6 @@ async function openReviewPanel(sopId) {
   h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;">'+escapeHtml(sopDisplay.namaSOP||sopDisplay.judul||'—')+'</div>';
   h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+'<br>👤 '+escapeHtml(sopDisplay.createdBy||'—')+' (NIP: '+escapeHtml(sopDisplay.createdByNIP||'—')+')</div>';
   if (sopDisplay.nomorSOP) h += '<div style="font-size:10px;color:var(--mu);margin-top:4px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
-  // Tombol lihat dokumen lengkap — buka Builder preview di iframe baru
-  h += '<div style="margin-top:10px;display:flex;gap:6px;">';
-  h += '<button onclick="openBuilderPreviewForReview(\''+sopId+'\')" style="flex:1;padding:8px 10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Lihat Dokumen SOP Lengkap</button>';
-  if (sopDisplay.linkDraft||sopDisplay.urlDrive||sopDisplay.urlPDFSigned) {
-    h += '<a href="'+(sopDisplay.linkDraft||sopDisplay.urlDrive||sopDisplay.urlPDFSigned)+'" target="_blank" style="padding:8px 10px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:8px;font-size:12px;text-decoration:none;display:flex;align-items:center;">↗ Drive</a>';
-  }
-  h += '</div>';
   h += '</div>';
 
   function secRow(label, val) {
@@ -5130,30 +5119,53 @@ async function openReviewPanel(sopId) {
   body.innerHTML = h;
   openModal('mSOPReview');
 
-  // ── Isi iframe dan switchRvView SETELAH modal terbuka (setTimeout agar DOM ready) ──
+  // ── Isi rvIframe dengan Builder preview + handle dropdown SETELAH modal terbuka ──
   setTimeout(function() {
-    var iframeEl2   = document.getElementById('rvIframe');
+    var rvIframeEl  = document.getElementById('rvIframe');
     var linkOut2    = document.getElementById('rvIframeLinkOut');
     var placeholder2= document.getElementById('rvIframePlaceholder');
 
-    if (docUrl) {
-      var embedUrl2 = docUrl;
-      var dm = docUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-      if (dm) embedUrl2 = 'https://drive.google.com/file/d/' + dm[1] + '/preview';
-      else if (docUrl.includes('docs.google.com/document')) {
-        var dm2 = docUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (dm2) embedUrl2 = 'https://docs.google.com/document/d/' + dm2[1] + '/preview';
-      }
-      if (iframeEl2) { iframeEl2.src = embedUrl2; iframeEl2.style.display = 'block'; }
-      if (placeholder2) placeholder2.style.display = 'none';
-      if (linkOut2) { linkOut2.href = docUrl; linkOut2.style.display = 'inline-flex'; }
-      switchRvView('iframe');
-    } else {
-      if (iframeEl2) { iframeEl2.src = 'about:blank'; iframeEl2.style.display = 'none'; }
-      if (placeholder2) placeholder2.style.display = 'flex';
-      if (linkOut2) linkOut2.style.display = 'none';
-      switchRvView('text');
+    // ── Selalu embed Builder Preview di rvIframe (tampilkan dokumen visual) ──
+    try {
+      sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop));
+    } catch(e) {}
+
+    var rvParams = new URLSearchParams({
+      mode   : 'preview',
+      nip    : sop.createdByNIP || sop.dibuatOleh || '',
+      nama   : sop.createdBy    || sop.namaPembuat || '',
+      deptId : sop.deptId       || sop.unitEselon4Id || '',
+      e3     : sop.eselon3      || '',
+      e4     : sop.eselon4      || sop.unitEselon4 || ''
+    });
+    var rvBuilderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + rvParams.toString();
+
+    if (rvIframeEl) {
+      rvIframeEl.src = rvBuilderURL;
+      rvIframeEl.style.display = 'block';
+      // Kirim data SOP via postMessage saat iframe siap
+      rvIframeEl.onload = function() {
+        var sent = false;
+        function trySend() {
+          if (sent) return;
+          try {
+            rvIframeEl.contentWindow.postMessage({ type: 'LOAD_SOP_DATA', sopData: sop }, '*');
+            sent = true;
+          } catch(e) {}
+        }
+        setTimeout(trySend, 800);
+        setTimeout(trySend, 2000); // fallback
+      };
     }
+    if (placeholder2) placeholder2.style.display = 'none';
+
+    // Tombol "↗ Buka di tab baru" → link ke Builder preview
+    if (linkOut2) {
+      linkOut2.href = rvBuilderURL;
+      linkOut2.style.display = 'inline-flex';
+    }
+    // Default tampilkan kolom iframe
+    switchRvView('iframe');
 
     // Auto-show approver name saat dropdown E2 berubah
     var selEl = document.getElementById('rv_e2target');
