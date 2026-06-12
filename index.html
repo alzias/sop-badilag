@@ -36,6 +36,10 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 
 /* MODALS — fixed so they always sit above everything */
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+/* Modal yang muncul di atas modal lain */
+#mSOPReview{z-index:2300;}
+#mSOPBuilder{z-index:2300;}
+#mConfirm{z-index:2400;}
 .modal.on{display:flex;}
 .mbox{background:rgba(12,18,30,.98);border:1px solid var(--b2);border-radius:20px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
@@ -917,8 +921,32 @@ function now() { return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',mi
 function toast(msg) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
 
 // ══ MODAL HELPERS ══
-function openModal(id)  { const el=document.getElementById(id); if(el) el.classList.add('on'); }
-function closeModal(id) { const el=document.getElementById(id); if(el) el.classList.remove('on'); }
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('on');
+  // Saat buka Review/Builder/Detail di atas Inbox — sembunyikan Inbox sementara
+  if (id === 'mSOPReview' || id === 'mSOPBuilder') {
+    const inbox = document.getElementById('mSOPInbox');
+    if (inbox && inbox.classList.contains('on')) {
+      inbox.style.opacity = '0';
+      inbox.style.pointerEvents = 'none';
+    }
+  }
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('on');
+  // Saat tutup Review/Builder — kembalikan Inbox jika masih terbuka
+  if (id === 'mSOPReview' || id === 'mSOPBuilder') {
+    const inbox = document.getElementById('mSOPInbox');
+    if (inbox && inbox.classList.contains('on')) {
+      inbox.style.opacity = '';
+      inbox.style.pointerEvents = '';
+    }
+  }
+}
 
 // ══ ADMIN AUTH ══
 function openAdminLogin() {
@@ -4872,14 +4900,14 @@ function openBuilderPreviewForReview(sopId) {
 }
 
 async function openReviewPanel(sopId) {
-  if (!_sopLoaded) await fbLoadSOPs();
-  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
-  if (!sop) {
-    // Coba reload dari Firestore sekali lagi
-    await fbLoadSOPs();
-    sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
-  }
-  if (!sop) { toast('⚠ SOP tidak ditemukan. Coba tutup dan refresh Inbox.', 'err'); return; }
+  try {
+    if (!_sopLoaded) await fbLoadSOPs();
+    var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+    if (!sop) {
+      await fbLoadSOPs();
+      sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+    }
+    if (!sop) { toast('⚠ SOP tidak ditemukan. Coba refresh Inbox.', 'err'); return; }
 
   // ── Normalisasi HANYA untuk tampilan (sop asli tetap utuh untuk reviewSOP()) ──
   var sopDisplay = normalizeBuilderFields(sop);
@@ -5074,6 +5102,10 @@ async function openReviewPanel(sopId) {
       updateApproverInfo();
     }
   }, 80);
+  } catch(err) {
+    console.error('openReviewPanel error:', err);
+    toast('⚠ Terjadi kesalahan saat membuka panel review. Coba lagi.', 'err');
+  }
 }
 
 async function reviewSOP(sopId, action) {
