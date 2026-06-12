@@ -4289,7 +4289,7 @@ function _doOpenBuilder(u, emp) {
     window._builderMsgHandler && window.removeEventListener('message', window._builderMsgHandler);
     window._builderMsgHandler = function(e) {
       if (!e.data) return;
-      if (e.data.type === 'BUILDER_READY') {
+    if (e.data.type === 'BUILDER_READY') {
         // Builder siap — kirim context
         try {
           iframeEl.contentWindow.postMessage({
@@ -4841,62 +4841,141 @@ function openBuilderPreviewForReview(sopId) {
   var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
   if (!sop) { toast('Data SOP tidak ditemukan'); return; }
 
-  // Encode data SOP ke URL params untuk Builder
-  var params = new URLSearchParams({
-    preview : '1',
-    nip     : sop.createdByNIP || sop.dibuatOleh || '',
-    nama    : sop.createdBy    || sop.namaPembuat || '',
-    deptId  : sop.deptId       || sop.unitEselon4Id || '',
-    e3      : sop.eselon3      || '',
-    e4      : sop.eselon4      || sop.unitEselon4 || ''
-  });
-
-  var builderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
-
-  // Tampilkan di mBuilderFrame (iframe fullscreen)
   var frameEl   = document.getElementById('mBuilderFrame');
   var iframeEl  = document.getElementById('builderIframe');
   var subtitleEl= document.getElementById('bfSubtitle');
   var tabLink   = document.getElementById('bfOpenTab');
   var loadingEl = document.getElementById('bfLoading');
 
-  if (frameEl && iframeEl) {
-    frameEl.style.display = 'flex';
-    if (loadingEl) loadingEl.style.display = 'flex';
-    if (subtitleEl) subtitleEl.textContent = 'Preview: ' + (sop.namaSOP || sop.judul || '');
-    if (tabLink) tabLink.href = builderURL;
+  if (!frameEl || !iframeEl) { toast('⚠ Komponen viewer tidak ditemukan'); return; }
 
-    iframeEl.src = builderURL;
+  // Simpan data SOP ke sessionStorage agar Builder bisa baca langsung
+  // (lebih reliable dari postMessage yang tergantung timing)
+  try {
+    sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop));
+  } catch(e) {}
 
-    // Kirim data SOP ke Builder via postMessage setelah load
-    window._previewMsgHandler && window.removeEventListener('message', window._previewMsgHandler);
-    window._previewMsgHandler = function(e) {
-      if (!e.data) return;
-      if (e.data.type === 'BUILDER_READY' || e.data.type === 'SOPI_PING') {
-        // Kirim data SOP untuk di-load ke form Builder (mode preview)
-        try {
-          iframeEl.contentWindow.postMessage({
-            type   : 'SOPI_CONTEXT',
-            nip    : sop.createdByNIP || sop.dibuatOleh || '',
-            nama   : sop.createdBy    || sop.namaPembuat || '',
-            deptId : sop.deptId       || '',
-            e3     : sop.eselon3      || '',
-            e4     : sop.eselon4      || sop.unitEselon4 || ''
-          }, '*');
-          // Kirim data SOP untuk load ke form
-          setTimeout(function() {
-            try {
-              iframeEl.contentWindow.postMessage({
-                type   : 'LOAD_SOP_DATA',
-                sopData: sop
-              }, '*');
-            } catch(err) {}
-          }, 800);
-        } catch(err) {}
-      }
-    };
-    window.addEventListener('message', window._previewMsgHandler);
+  // Buka Builder dengan mode preview
+  var params = new URLSearchParams({
+    mode   : 'preview',
+    sopId  : sopId,
+    nip    : sop.createdByNIP || sop.dibuatOleh || '',
+    nama   : sop.createdBy    || sop.namaPembuat || '',
+    deptId : sop.deptId       || sop.unitEselon4Id || '',
+    e3     : sop.eselon3      || '',
+    e4     : sop.eselon4      || sop.unitEselon4 || ''
+  });
+  var builderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
+
+  // Tampilkan iframe fullscreen
+  frameEl.style.display = 'flex';
+  frameEl.style.pointerEvents = 'auto';
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (subtitleEl) subtitleEl.textContent = '👁️ Preview: ' + (sop.namaSOP || sop.judul || '');
+  if (tabLink) { tabLink.href = builderURL; tabLink.style.display = 'inline-flex'; }
+
+  // Load Builder
+  iframeEl.src = builderURL;
+
+  // Pasang listener - kirim data SOP saat Builder siap
+  window._previewMsgHandler && window.removeEventListener('message', window._previewMsgHandler);
+  var _sentData = false;
+
+  function sendSopData() {
+    if (_sentData) return;
+    try {
+      iframeEl.contentWindow.postMessage({ type: 'LOAD_SOP_DATA', sopData: sop }, '*');
+      _sentData = true;
+    } catch(e) {}
   }
+
+  window._previewMsgHandler = function(e) {
+    if (!e.data) return;
+    if (e.data.type === 'BUILDER_READY' || e.data.type === 'SOPI_PING') {
+      // Kirim context dulu
+      try {
+        iframeEl.contentWindow.postMessage({
+          type: 'SOPI_CONTEXT',
+          nip  : sop.createdByNIP || sop.dibuatOleh || '',
+          nama : sop.createdBy    || sop.namaPembuat || '',
+          deptId: sop.deptId      || '',
+          e3   : sop.eselon3      || '',
+          e4   : sop.eselon4      || sop.unitEselon4 || ''
+        }, '*');
+      } catch(e) {}
+      // Kirim data SOP setelah 600ms agar Builder sudah siap terima
+      setTimeout(sendSopData, 600);
+    }
+  };
+  window.addEventListener('message', window._previewMsgHandler);
+
+  // Fallback: jika BUILDER_READY tidak diterima dalam 3 detik, kirim paksa
+  setTimeout(function() {
+    if (!_sentData) sendSopData();
+  }, 3000);
+}
+
+// ── normalizeBuilderFields ──
+// Dokumen dari Builder menyimpan array untuk beberapa field.
+// Review panel SOPI expects string. Fungsi ini membuat salinan ternormalisasi
+// tanpa mengubah dokumen asli di _sopDrafts.
+function normalizeBuilderFields(sop) {
+  var s = Object.assign({}, sop);
+
+  function arrToStr(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) {
+      var filtered = val.filter(function(x){ return String(x||'').trim(); });
+      return filtered.length > 1
+        ? filtered.map(function(x,i){ return (i+1)+'. '+x; }).join('\n')
+        : (filtered[0] || '');
+    }
+    return String(val);
+  }
+
+  function langkahToStr(val, pelaksanaArr) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) {
+      return val
+        .filter(function(l){ return l && String(l.aktivitas||'').trim(); })
+        .map(function(l, i) {
+          var pel = '';
+          if (Array.isArray(l.pelaksana)) {
+            pel = l.pelaksana.map(function(pi){
+              return (pelaksanaArr && pelaksanaArr[pi]) ? pelaksanaArr[pi] : ('Pelaksana '+(pi+1));
+            }).join(', ');
+          } else if (typeof l.pelaksana === 'number') {
+            pel = (pelaksanaArr && pelaksanaArr[l.pelaksana]) ? pelaksanaArr[l.pelaksana] : ('Pelaksana '+(l.pelaksana+1));
+          }
+          var parts = [(i+1)+'. '+l.aktivitas];
+          if (pel)      parts.push('   Pelaksana: '+pel);
+          if (l.waktu)  parts.push('   Waktu: '+l.waktu);
+          if (l.output) parts.push('   Output: '+l.output);
+          return parts.join('\n');
+        }).join('\n\n');
+    }
+    return String(val);
+  }
+
+  s.dasarHukum  = arrToStr(sop.dasarHukum);
+  s.kualifikasi = arrToStr(sop.kualifikasiPelaksana || sop.kualifikasi);
+  s.keterkaitan = arrToStr(sop.keterkaitan);
+  s.peralatan   = arrToStr(sop.peralatan);
+  s.peringatan  = arrToStr(sop.peringatan);
+  s.pencatatan  = arrToStr(sop.pencatatan);
+  s.langkah     = langkahToStr(sop.langkah, sop.pelaksana);
+
+  // Alias field
+  s.judul        = sop.judul       || sop.namaSOP      || sop.title  || '';
+  s.unitEselon4  = sop.unitEselon4 || sop.eselon4      || '';
+  s.unitEselon4Id= sop.unitEselon4Id|| sop.deptId      || '';
+  s.createdBy    = sop.createdBy   || sop.namaPembuat  || '';
+  s.createdByNIP = sop.createdByNIP|| sop.dibuatOleh   || '';
+  s.nomorSOP     = sop.nomorSOP    || sop.nomorDokumen || '';
+
+  return s;
 }
 
 async function openReviewPanel(sopId) {
