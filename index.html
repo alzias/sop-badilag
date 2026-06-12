@@ -35,7 +35,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .fselect option{background:#0d1117;color:var(--tx);}
 
 /* MODALS — fixed so they always sit above everything */
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:900;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
 .modal.on{display:flex;}
 .mbox{background:rgba(12,18,30,.98);border:1px solid var(--b2);border-radius:20px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
@@ -4802,6 +4802,70 @@ function switchRvView(mode) {
   }
 }
 
+// ── Buka Builder dalam mode preview untuk reviewer ──
+// Reviewer bisa melihat dokumen SOP lengkap (preview + flowchart) tanpa bisa edit
+function openBuilderPreviewForReview(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('Data SOP tidak ditemukan'); return; }
+
+  // Encode data SOP ke URL params untuk Builder
+  var params = new URLSearchParams({
+    preview : '1',
+    nip     : sop.createdByNIP || sop.dibuatOleh || '',
+    nama    : sop.createdBy    || sop.namaPembuat || '',
+    deptId  : sop.deptId       || sop.unitEselon4Id || '',
+    e3      : sop.eselon3      || '',
+    e4      : sop.eselon4      || sop.unitEselon4 || ''
+  });
+
+  var builderURL = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
+
+  // Tampilkan di mBuilderFrame (iframe fullscreen)
+  var frameEl   = document.getElementById('mBuilderFrame');
+  var iframeEl  = document.getElementById('builderIframe');
+  var subtitleEl= document.getElementById('bfSubtitle');
+  var tabLink   = document.getElementById('bfOpenTab');
+  var loadingEl = document.getElementById('bfLoading');
+
+  if (frameEl && iframeEl) {
+    frameEl.style.display = 'flex';
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (subtitleEl) subtitleEl.textContent = 'Preview: ' + (sop.namaSOP || sop.judul || '');
+    if (tabLink) tabLink.href = builderURL;
+
+    iframeEl.src = builderURL;
+
+    // Kirim data SOP ke Builder via postMessage setelah load
+    window._previewMsgHandler && window.removeEventListener('message', window._previewMsgHandler);
+    window._previewMsgHandler = function(e) {
+      if (!e.data) return;
+      if (e.data.type === 'BUILDER_READY' || e.data.type === 'SOPI_PING') {
+        // Kirim data SOP untuk di-load ke form Builder (mode preview)
+        try {
+          iframeEl.contentWindow.postMessage({
+            type   : 'SOPI_CONTEXT',
+            nip    : sop.createdByNIP || sop.dibuatOleh || '',
+            nama   : sop.createdBy    || sop.namaPembuat || '',
+            deptId : sop.deptId       || '',
+            e3     : sop.eselon3      || '',
+            e4     : sop.eselon4      || sop.unitEselon4 || ''
+          }, '*');
+          // Kirim data SOP untuk load ke form
+          setTimeout(function() {
+            try {
+              iframeEl.contentWindow.postMessage({
+                type   : 'LOAD_SOP_DATA',
+                sopData: sop
+              }, '*');
+            } catch(err) {}
+          }, 800);
+        } catch(err) {}
+      }
+    };
+    window.addEventListener('message', window._previewMsgHandler);
+  }
+}
+
 async function openReviewPanel(sopId) {
   if (!_sopLoaded) await fbLoadSOPs();
   var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
@@ -4861,11 +4925,18 @@ async function openReviewPanel(sopId) {
   var body = document.getElementById('sopReviewBody');
   var h = '';
 
-  // Info SOP
+  // Info SOP + tombol lihat dokumen
   h += '<div style="background:rgba(255,255,255,.04);border:1px solid var(--b1);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
   h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;">'+escapeHtml(sopDisplay.namaSOP||sopDisplay.judul||'—')+'</div>';
   h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+'<br>👤 '+escapeHtml(sopDisplay.createdBy||'—')+' (NIP: '+escapeHtml(sopDisplay.createdByNIP||'—')+')</div>';
   if (sopDisplay.nomorSOP) h += '<div style="font-size:10px;color:var(--mu);margin-top:4px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
+  // Tombol lihat dokumen lengkap — buka Builder preview di iframe baru
+  h += '<div style="margin-top:10px;display:flex;gap:6px;">';
+  h += '<button onclick="openBuilderPreviewForReview(\''+sopId+'\')" style="flex:1;padding:8px 10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Lihat Dokumen SOP Lengkap</button>';
+  if (sopDisplay.linkDraft||sopDisplay.urlDrive||sopDisplay.urlPDFSigned) {
+    h += '<a href="'+(sopDisplay.linkDraft||sopDisplay.urlDrive||sopDisplay.urlPDFSigned)+'" target="_blank" style="padding:8px 10px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:8px;font-size:12px;text-decoration:none;display:flex;align-items:center;">↗ Drive</a>';
+  }
+  h += '</div>';
   h += '</div>';
 
   function secRow(label, val) {
