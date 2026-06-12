@@ -506,15 +506,13 @@ function readURLContext() {
   const e3     = p.get('eselon3')|| p.get('e3')     || '';
   const e4     = p.get('eselon4')|| p.get('e4')     || '';
   const deptId = p.get('deptId') || '';
+  const mode   = p.get('mode')   || '';
 
   if (nip || nama) {
     state.ctx = { nip, nama, unit, e3, e4, deptId };
+    if (e3) state.form.eselon3 = decodeURIComponent(e3);
+    if (e4) state.form.eselon4 = decodeURIComponent(e4);
 
-    // Auto-inject ke form
-    if (e3)   state.form.eselon3 = decodeURIComponent(e3);
-    if (e4)   state.form.eselon4 = decodeURIComponent(e4);
-
-    // Tampilkan context bar
     const bar = document.getElementById('ctxBar');
     if (bar) {
       bar.style.display = 'flex';
@@ -524,13 +522,50 @@ function readURLContext() {
       document.getElementById('badgeUser').style.display = '';
     }
 
-    // Pre-fill modal NIP & nama
     setTimeout(function() {
       var el = document.getElementById('mNIP');
       var el2 = document.getElementById('mNama');
       if (el) el.value = nip;
       if (el2) el2.value = decodeURIComponent(nama);
     }, 100);
+  }
+
+  // ── Mode Preview: load data SOP dari sessionStorage langsung ke tab Preview ──
+  if (mode === 'preview') {
+    try {
+      var raw = sessionStorage.getItem('sopi_preview_sop');
+      if (raw) {
+        var sop = JSON.parse(raw);
+        var mapped = {
+          nomorSOP    : sop.nomorSOP    || sop.nomorDokumen || '',
+          namaSOP     : sop.namaSOP     || sop.judul        || '',
+          eselon3     : sop.eselon3     || '',
+          eselon4     : sop.eselon4     || sop.unitEselon4  || '',
+          instansi    : sop.instansi    || 'Direktorat Jenderal Badan Peradilan Agama Mahkamah Agung RI',
+          alamat      : sop.alamat      || 'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat',
+          tglPembuatan: sop.tglPembuatan|| '',
+          tglRevisi   : sop.tglRevisi   || '',
+          tglEfektif  : sop.tglEfektif  || '',
+          disahkanOleh: sop.disahkanOleh|| '',
+          deskripsi   : sop.deskripsi   || '',
+          dasarHukum  : Array.isArray(sop.dasarHukum) ? sop.dasarHukum : (sop.dasarHukum ? [sop.dasarHukum] : ['']),
+          kualifikasiPelaksana: Array.isArray(sop.kualifikasiPelaksana) ? sop.kualifikasiPelaksana : [sop.kualifikasiPelaksana||sop.kualifikasi||''],
+          keterkaitan : Array.isArray(sop.keterkaitan) ? sop.keterkaitan : [sop.keterkaitan||''],
+          peralatan   : Array.isArray(sop.peralatan)   ? sop.peralatan   : [sop.peralatan||''],
+          peringatan  : Array.isArray(sop.peringatan)  ? sop.peringatan  : [sop.peringatan||''],
+          pencatatan  : Array.isArray(sop.pencatatan)  ? sop.pencatatan  : [sop.pencatatan||''],
+          pelaksana   : Array.isArray(sop.pelaksana)   ? sop.pelaksana   : [],
+          langkah     : Array.isArray(sop.langkah)     ? sop.langkah     : [],
+        };
+        state.form = Object.assign({}, state.form, mapped);
+        // Buka langsung ke tab Preview Dokumen setelah render
+        setTimeout(function() {
+          setTab(1);
+          // Beritahu SOPI bahwa preview sudah siap
+          try { window.parent.postMessage({type:'PREVIEW_READY'}, '*'); } catch(e){}
+        }, 300);
+      }
+    } catch(e) { console.warn('Preview load error:', e); }
   }
 }
 
