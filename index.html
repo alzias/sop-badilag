@@ -4798,7 +4798,13 @@ function renderSOPInbox() {
       if (myRole === 'approver_e2' && sop.status === 'pending_e2') {
         h += '<button class="sop-act-btn success" onclick="openReviewPanel(\''+( sop.id||sop.draftId)+'\')">✍️ Sahkan</button>';
       }
-      h += '<button class="sop-act-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu2);" onclick="viewSOPDetail(\''+sop.id+'\')">👁 Detail</button>';
+      if (myRole === 'tu_admin_sop' && (sop.status === 'pending_tte' || sop.status === 'tte_uploaded')) {
+        h += '<button class="sop-act-btn primary" onclick="openTTEPanel(\'' + (sop.id||sop.draftId) + '\')" style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#38bdf8;">📋 Proses TTE</button>';
+      }
+      if (myRole === 'admin_sop' && sop.status === 'tte_uploaded') {
+        h += '<button class="sop-act-btn success" onclick="openReviewPanel(\'' + (sop.id||sop.draftId) + '\')" >✅ Verifikasi TTE</button>';
+      }
+            h += '<button class="sop-act-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu2);" onclick="viewSOPDetail(\''+sop.id+'\')">👁 Detail</button>';
       h += '</div>';
       h += '</div>';
     });
@@ -4976,6 +4982,140 @@ function normalizeBuilderFields(sop) {
   s.nomorSOP     = sop.nomorSOP    || sop.nomorDokumen || '';
 
   return s;
+}
+
+// ── Modal TTE Panel untuk TU Admin SOP ──
+async function openTTEPanel(sopId) {
+  if (!_sopLoaded) await fbLoadSOPs();
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan', 'err'); return; }
+
+  var sopDisplay = normalizeBuilderFields(sop);
+  var isUploaded = sop.status === 'tte_uploaded';
+
+  var h = '';
+
+  // Info SOP
+  h += '<div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:12px 14px;margin-bottom:16px;">';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px;">'+escapeHtml(sopDisplay.namaSOP||'—')+'</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+' · 👤 '+escapeHtml(sopDisplay.createdBy||'—')+'</div>';
+  if (sopDisplay.nomorSOP) h += '<div style="font-size:11px;color:var(--mu);margin-top:2px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
+  h += '</div>';
+
+  // Status TTE
+  if (isUploaded) {
+    h += '<div style="background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:4px;">✅ TTE Sudah Diupload</div>';
+    if (sop.urlTTE) h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="font-size:12px;color:var(--cyan);">↗ Lihat Dokumen TTE</a>';
+    h += '<div style="font-size:11px;color:var(--mu);margin-top:4px;">Upload oleh: '+escapeHtml(sop.tuAdminNama||'—')+(sop.tglUploadTTE?' · '+formatTglShort(sop.tglUploadTTE):'')+'</div>';
+    h += '</div>';
+  }
+
+  // Preview & Download
+  h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.8px;margin-bottom:10px;">📄 DOKUMEN SOP</div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  h += '<button onclick="openBuilderPreviewForReview(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">👁️ Preview Dokumen</button>';
+  h += '<button onclick="downloadSOPWord(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(29,78,216,.15);border:1px solid rgba(29,78,216,.3);color:#7b9fff;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Download Word</button>';
+  h += '<button onclick="downloadSOPPDF(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(185,28,28,.15);border:1px solid rgba(185,28,28,.3);color:#fca5a5;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 Download PDF</button>';
+  h += '</div>';
+  h += '</div>';
+
+  // Upload TTE
+  h += '<div style="border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:#38bdf8;letter-spacing:.8px;margin-bottom:8px;">🔏 UPLOAD DOKUMEN TTE</div>';
+  h += '<div style="font-size:11px;color:var(--mu);margin-bottom:10px;line-height:1.6;">Upload dokumen SOP yang sudah ditandatangani secara elektronik (TTE) ke Google Drive, lalu masukkan link-nya di bawah.</div>';
+  h += '<label class="flabel">Link Dokumen TTE (Google Drive) <span style="color:var(--red);">*</span></label>';
+  h += '<input class="finput-sm" id="tte_urlInput" placeholder="https://drive.google.com/file/d/..." value="'+(sop.urlTTE?escapeHtml(sop.urlTTE):'')+'" style="margin-bottom:6px;">';
+  h += '<div style="font-size:10px;color:var(--mu);margin-bottom:12px;">Pastikan Anyone with link — Viewer agar bisa diakses semua pihak.</div>';
+  h += '<label class="flabel">Catatan (opsional)</label>';
+  h += '<textarea class="finput-sm" id="tte_catatan" rows="2" placeholder="Catatan upload TTE..." style="min-height:50px;resize:vertical;"></textarea>';
+  h += '<div style="display:flex;gap:8px;margin-top:10px;">';
+  if (isUploaded) {
+    h += '<button onclick="closeModal(\'mSOPBuilder\')" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:9px;cursor:pointer;font-size:12px;font-family:inherit;">Tutup</button>';
+    h += '<button onclick="submitTTE(\''+sopId+'\')" style="flex:2;padding:9px;background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(56,189,248,.15));border:1px solid rgba(56,189,248,.4);color:#38bdf8;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">🔄 Update Link TTE</button>';
+  } else {
+    h += '<button onclick="closeModal(\'mSOPBuilder\')" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:9px;cursor:pointer;font-size:12px;font-family:inherit;">Batal</button>';
+    h += '<button onclick="submitTTE(\''+sopId+'\')" style="flex:2;padding:9px;background:linear-gradient(135deg,rgba(56,189,248,.3),rgba(56,189,248,.2));border:1px solid rgba(56,189,248,.4);color:#38bdf8;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📋 Submit Dokumen TTE</button>';
+  }
+  h += '</div>';
+  h += '</div>';
+
+  // Tampilkan di modal mSOPBuilder (pakai modal yang sudah ada)
+  document.getElementById('sopBuilderTitle').textContent = '📋 Proses TTE — ' + (sopDisplay.namaSOP||'SOP');
+  document.getElementById('sopBuilderBody').innerHTML = h;
+  openModal('mSOPBuilder');
+}
+
+// ── Submit TTE oleh TU Admin SOP ──
+async function submitTTE(sopId) {
+  var urlTTE  = (document.getElementById('tte_urlInput')||{value:''}).value.trim();
+  var catatan = (document.getElementById('tte_catatan')||{value:''}).value.trim();
+  if (!urlTTE) { toast('⚠ Link dokumen TTE wajib diisi', 'err'); return; }
+
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan', 'err'); return; }
+
+  var btn = document.querySelector('#mSOPBuilder button[onclick*="submitTTE"]');
+  if (btn) { btn.textContent = '⏳ Menyimpan...'; btn.disabled = true; }
+
+  sop.status       = 'tte_uploaded';
+  sop.urlTTE       = urlTTE;
+  sop.tuAdminNip   = S.user ? S.user.nip  : '';
+  sop.tuAdminNama  = S.user ? S.user.name : '';
+  sop.catatanTTE   = catatan;
+  sop.tglUploadTTE = new Date().toISOString();
+  await fbSaveSOP(sop);
+
+  // Email ke Admin SOP
+  var adminSOP = getAdminSOP();
+  if (adminSOP && adminSOP.email) {
+    fetch(WORKER_URL + '/send-email', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        action  : 'sendEmail',
+        toEmail : adminSOP.email,
+        subject : '🔏 TTE Diupload — Perlu Verifikasi & Aktivasi: ' + (sop.namaSOP||sop.judul||''),
+        userName: adminSOP.name || 'Admin SOP',
+        tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+        topics  : [
+          'Dokumen TTE sudah diupload oleh TU Admin SOP: ' + (sop.tuAdminNama||''),
+          'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+          'Link TTE: ' + urlTTE,
+          catatan ? 'Catatan: ' + catatan : ''
+        ].filter(Boolean),
+        sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal: urlTTE }]
+      })
+    }).catch(function(){});
+  }
+
+  closeModal('mSOPBuilder');
+  toast('✅ Dokumen TTE berhasil disubmit! Admin SOP akan memverifikasi.');
+  addMsg('📋 **TTE Berhasil Diupload!**\n\n📋 **'+(sop.namaSOP||sop.judul||'')+'**\n🔗 '+urlTTE+'\n\n'+(adminSOP?'📧 Notifikasi dikirim ke **'+adminSOP.name+'**':''), false);
+  fbLoadSOPs().then(updateInboxBadge);
+}
+
+// ── Download Word dari inbox ──
+function downloadSOPWord(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('SOP tidak ditemukan', 'err'); return; }
+  // Buka Builder dalam mode download Word
+  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
+  var params = new URLSearchParams({ mode:'preview', exportWord:'1',
+    nip:sop.createdByNIP||'', nama:sop.createdBy||'', deptId:sop.deptId||'' });
+  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(), '_blank');
+  toast('📄 Membuka Builder untuk export Word...');
+}
+
+// ── Download PDF dari inbox ──
+function downloadSOPPDF(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
+  if (!sop) { toast('SOP tidak ditemukan', 'err'); return; }
+  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
+  var params = new URLSearchParams({ mode:'preview', exportPDF:'1',
+    nip:sop.createdByNIP||'', nama:sop.createdBy||'', deptId:sop.deptId||'' });
+  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(), '_blank');
+  toast('📑 Membuka Builder untuk export PDF...');
 }
 
 async function openReviewPanel(sopId) {
