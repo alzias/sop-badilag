@@ -36,23 +36,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 #toast.err{background:rgba(255,77,109,.12);border-color:rgba(255,77,109,.3);color:var(--red);}
 
 /* HEADER */
-.hd{position:sticky;top:0;z-index:100;background:rgba(8,17,31,.95);backdrop-filter:blur(16px);
-/* ── Mode Preview: sembunyikan elemen tidak perlu ── */
-body.preview-mode .hd { display:none !important; }
-body.preview-mode #ctxBar { display:none !important; }
-body.preview-mode #tab0 { display:none !important; }
-body.preview-mode #tab3 { display:none !important; }
-body.preview-mode #previewToolbar { display:none !important; }
-body.preview-mode .tabs {
-  background:rgba(8,17,31,.95);
-  border-bottom:1px solid rgba(0,245,212,.15);
-  padding:6px 10px;
-}
-body.preview-mode .tab-btn { font-size:12px; padding:6px 14px; }
-  border-bottom:1px solid var(--b1);padding:0 20px;display:flex;align-items:center;gap:12px;height:56px;}
+.hd{position:sticky;top:0;z-index:100;background:rgba(8,17,31,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--b1);padding:0 20px;display:flex;align-items:center;gap:12px;height:56px;}
 .hd-logo{width:32px;height:32px;object-fit:contain;border-radius:6px;}
 .hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.3px;}
 .hd-sub{font-size:11px;color:var(--mu2);margin-top:1px;}
+/* ── Mode Preview: sembunyikan elemen yang tidak diperlukan reviewer ── */
+body.preview-mode .hd{display:none!important;}
+body.preview-mode #ctxBar{display:none!important;}
+body.preview-mode #tab0{display:none!important;}
+body.preview-mode #tab3{display:none!important;}
+body.preview-mode #previewToolbar{display:none!important;}
+body.preview-mode .tabs{background:rgba(8,17,31,.95);border-bottom:1px solid rgba(0,245,212,.15);padding:6px 10px;}
+body.preview-mode .tab-btn{font-size:12px;padding:6px 14px;}
 .hd-badges{margin-left:auto;display:flex;gap:6px;}
 .badge{background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);
   border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:.5px;}
@@ -267,6 +262,15 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
 </style>
 </head>
 <body>
+<script>
+// ── Deteksi mode=preview SEBELUM render agar CSS langsung aktif ──
+(function() {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('mode') === 'preview') {
+    document.body.classList.add('preview-mode');
+  }
+})();
+</script>
 
 <div id="toast"></div>
 
