@@ -4802,7 +4802,7 @@ function renderSOPInbox() {
         h += '<button class="sop-act-btn primary" onclick="openTTEPanel(\'' + (sop.id||sop.draftId) + '\')" style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#38bdf8;">📋 Proses TTE</button>';
       }
       if (myRole === 'admin_sop' && sop.status === 'tte_uploaded') {
-        h += '<button class="sop-act-btn success" onclick="openReviewPanel(\'' + (sop.id||sop.draftId) + '\')" >✅ Verifikasi TTE</button>';
+        h += '<button class="sop-act-btn success" onclick="openVerifikasiTTEPanel(\'' + (sop.id||sop.draftId) + '\')" >✅ Verifikasi TTE</button>';
       }
             h += '<button class="sop-act-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu2);" onclick="viewSOPDetail(\''+sop.id+'\')">👁 Detail</button>';
       h += '</div>';
@@ -4921,6 +4921,109 @@ function openBuilderPreviewForReview(sopId) {
   }, 3000);
 }
 
+// ── Panel Verifikasi TTE untuk Admin SOP ──
+async function openVerifikasiTTEPanel(sopId) {
+  if (!_sopLoaded) await fbLoadSOPs();
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan','err'); return; }
+  var sopDisplay = normalizeBuilderFields(sop);
+  var h = '';
+  // Info SOP
+  h += '<div style="background:rgba(6,214,160,.07);border:1px solid rgba(6,214,160,.2);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px;">'+escapeHtml(sopDisplay.namaSOP||'—')+'</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+' · 👤 '+escapeHtml(sopDisplay.createdBy||'—')+'</div>';
+  if (sopDisplay.nomorSOP) h += '<div style="font-size:11px;color:var(--mu);margin-top:2px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
+  h += '</div>';
+  // Dokumen TTE dari TU
+  h += '<div style="border:1px solid rgba(56,189,248,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
+  h += '<div style="font-size:10px;font-weight:700;color:#38bdf8;letter-spacing:.8px;margin-bottom:8px;">DOKUMEN TTE DARI TU ADMIN SOP</div>';
+  h += '<div style="font-size:11px;color:var(--mu2);margin-bottom:8px;">Oleh: <strong style="color:var(--tx);">'+escapeHtml(sop.tuAdminNama||'—')+'</strong>'+(sop.tglUploadTTE?' · '+formatTglShort(sop.tglUploadTTE):'')+'</div>';
+  if (sop.urlTTE) {
+    h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:8px;text-decoration:none;margin-bottom:6px;">';
+    h += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6.28 3h11.44l3.43 5.94-5.73 9.91H2.85L6.28 3z" fill="#0061FF" opacity=".2"/><path d="M6.28 3L2.85 18.85h5.72l3.43-5.94H6.28" stroke="#0061FF" stroke-width="1.4" fill="none"/><path d="M17.72 3H6.28l3.72 9.91h7.15L21.15 8.94 17.72 3z" stroke="#00AC47" stroke-width="1.4" fill="none"/><path d="M9.57 12.91l-3.43 5.94h10.87l3.43-5.94H9.57z" stroke="#FFBA00" stroke-width="1.4" fill="none"/></svg>';
+    h += '<span style="font-size:12px;font-weight:600;color:#38bdf8;flex:1;">Buka & Verifikasi Dokumen TTE</span><span style="font-size:11px;color:var(--mu);">↗</span></a>';
+  }
+  if (sop.catatanTTE) h += '<div style="font-size:11px;color:var(--mu);padding-top:4px;">📝 '+escapeHtml(sop.catatanTTE)+'</div>';
+  h += '</div>';
+  // Download
+  h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
+  h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:8px;">UNDUH DOKUMEN SOP</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  h += '<button onclick="exportTTEWord(\''+sopId+'\')" style="padding:9px;background:rgba(29,78,216,.12);border:1px solid rgba(29,78,216,.25);color:#7b9fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Word</button>';
+  h += '<button onclick="exportTTEPDF(\''+sopId+'\')" style="padding:9px;background:rgba(185,28,28,.12);border:1px solid rgba(185,28,28,.25);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 PDF</button>';
+  h += '</div></div>';
+  // Link Drive SOP Final
+  h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
+  h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:6px;">LINK FINAL UNTUK DOKUMEN SOP</div>';
+  h += '<div style="font-size:11px;color:var(--mu);margin-bottom:8px;">Link ini yang akan disimpan dan ditampilkan di tab Dokumen SOP untuk semua pegawai.</div>';
+  h += '<input class="finput-sm" id="verif_urlDrive" type="url" placeholder="https://drive.google.com/file/d/..." value="'+(sop.urlTTE?escapeHtml(sop.urlTTE):'')+'">';
+  h += '</div>';
+  // Tombol aksi
+  h += '<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:8px;">';
+  h += '<button onclick="aktivasiSOP(\''+sopId+'\',\'kembalikan\')" style="padding:10px;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);color:var(--red);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;">↩️ Kembalikan ke TU</button>';
+  h += '<button onclick="aktivasiSOP(\''+sopId+'\',\'aktifkan\')" style="padding:10px;background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">🏛️ Aktifkan SOP</button>';
+  h += '</div>';
+  document.getElementById('sopBuilderTitle').textContent = '✅ Verifikasi TTE';
+  document.getElementById('sopBuilderBody').innerHTML = h;
+  openModal('mSOPBuilder');
+}
+
+// ── Aktivasi SOP final ──
+async function aktivasiSOP(sopId, tindakan) {
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan','err'); return; }
+  if (tindakan==='kembalikan') {
+    sop.status='pending_tte'; sop.catatanTTE='TTE dikembalikan oleh Admin SOP';
+    await fbSaveSOP(sop);
+    var tuAdmin = S.emps.find(function(e){ return e.role==='tu_admin_sop'; });
+    if (tuAdmin&&tuAdmin.email) {
+      fetch(WORKER_URL+'/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'sendEmail',toEmail:tuAdmin.email,
+          subject:'↩️ TTE Dikembalikan — Perlu Upload Ulang: '+(sop.namaSOP||''),
+          userName:tuAdmin.name||'TU Admin SOP',
+          tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+          topics:['TTE dikembalikan oleh Admin SOP, silakan upload ulang','SOP: '+(sop.namaSOP||sop.judul||'')],
+          sopList:[{title:sop.namaSOP||sop.judul||'',unit:sop.unitEselon4||'',linkFinal:''}]
+        })
+      }).catch(function(){});
+    }
+    closeModal('mSOPBuilder');
+    toast('↩️ TTE dikembalikan ke TU Admin SOP');
+    fbLoadSOPs().then(updateInboxBadge);
+    return;
+  }
+  // ── AKTIFKAN ──
+  var urlDrive = (document.getElementById('verif_urlDrive')||{value:''}).value.trim();
+  var btn = document.querySelector('#mSOPBuilder button[onclick*="aktifkan"]');
+  if (btn) { btn.textContent='⏳ Mengaktifkan...'; btn.disabled=true; }
+  var kontenTeks = generateKontenTeks(sop);
+  sop.status='signed'; sop.urlPDFSigned=urlDrive||sop.urlTTE||'';
+  sop.tglSigned=new Date().toISOString();
+  sop.adminAktivasiNip=S.user?S.user.nip:''; sop.adminAktivasiNama=S.user?S.user.name:'';
+  await fbSaveSOP(sop);
+  await fbSaveDrive(sop, kontenTeks);
+  // Reload S.drives
+  if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return Object.assign({id:d.id},d.data());}); } catch(e){} }
+  // Email ke pembuat
+  var makerEmp = S.emps.find(function(e){ return e.nip===(sop.dibuatOleh||sop.createdByNIP); });
+  if (makerEmp&&makerEmp.email) {
+    fetch(WORKER_URL+'/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'sendEmail',toEmail:makerEmp.email,
+        subject:'🏛️ SOP Resmi Aktif: '+(sop.namaSOP||sop.judul||''),
+        userName:makerEmp.name||'Bapak/Ibu',
+        tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+        topics:['SOP Anda telah resmi aktif di SOPI','Nama SOP: '+(sop.namaSOP||sop.judul||''),'Nomor SOP: '+(sop.nomorSOP||'-'),'Disahkan oleh: '+(sop.approverE2Nama||sop.disahkanOleh||'-'),sop.urlPDFSigned?'Link: '+sop.urlPDFSigned:''].filter(Boolean),
+        sopList:[{title:sop.namaSOP||sop.judul||'',unit:sop.unitEselon4||'',linkFinal:sop.urlPDFSigned||''}]
+      })
+    }).catch(function(){});
+  }
+  closeModal('mSOPBuilder');
+  toast('🏛️ SOP resmi aktif! SOPI siap menjawab pertanyaan tentang SOP ini.');
+  addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: Resmi & Aktif\n\n🤖 SOPI sudah dapat menjawab pertanyaan pegawai tentang SOP ini.\n\n'+(sop.urlPDFSigned?'📄 Link: '+sop.urlPDFSigned:''),false);
+  fbLoadSOPs().then(updateInboxBadge);
+}
+
+
 // ── normalizeBuilderFields ──
 // Dokumen dari Builder menyimpan array untuk beberapa field.
 // Review panel SOPI expects string. Fungsi ini membuat salinan ternormalisasi
@@ -4985,69 +5088,149 @@ function normalizeBuilderFields(sop) {
 }
 
 // ── Modal TTE Panel untuk TU Admin SOP ──
+// ── Generate konten teks SOP untuk SOPI AI ──
+function generateKontenTeks(sop) {
+  var lines = [];
+  lines.push('NAMA SOP: ' + (sop.namaSOP||sop.judul||''));
+  lines.push('NOMOR SOP: ' + (sop.nomorSOP||sop.nomorDokumen||'-'));
+  lines.push('UNIT: ' + (sop.unitEselon4||sop.eselon4||'-'));
+  lines.push('UNIT E-III: ' + (sop.eselon3||'-'));
+  lines.push('TANGGAL EFEKTIF: ' + (sop.tglEfektif||'-'));
+  lines.push('DISAHKAN OLEH: ' + (sop.disahkanOleh||'-'));
+  lines.push('');
+  if (sop.dasarHukum) {
+    lines.push('DASAR HUKUM:');
+    var dh = Array.isArray(sop.dasarHukum)?sop.dasarHukum:[sop.dasarHukum];
+    dh.forEach(function(d,i){ if(d) lines.push((i+1)+'. '+d); });
+    lines.push('');
+  }
+  if (sop.kualifikasiPelaksana||sop.kualifikasi) {
+    lines.push('KUALIFIKASI PELAKSANA:');
+    var kq = sop.kualifikasiPelaksana||sop.kualifikasi;
+    var arr = Array.isArray(kq)?kq:[kq];
+    arr.forEach(function(k,i){ if(k) lines.push((i+1)+'. '+k); });
+    lines.push('');
+  }
+  if (sop.peringatan) {
+    var pw = Array.isArray(sop.peringatan)?sop.peringatan.filter(Boolean):[sop.peringatan];
+    if (pw.length) { lines.push('PERINGATAN: '+pw.join('; ')); lines.push(''); }
+  }
+  if (sop.pelaksana && sop.pelaksana.length) {
+    var pel = Array.isArray(sop.pelaksana)?sop.pelaksana.filter(Boolean):[];
+    if (pel.length) { lines.push('PELAKSANA: '+pel.join(', ')); lines.push(''); }
+  }
+  if (sop.langkah && sop.langkah.length) {
+    lines.push('LANGKAH PROSEDUR:');
+    var langkah = Array.isArray(sop.langkah)?sop.langkah:[];
+    langkah.forEach(function(l,i) {
+      if (!l) return;
+      var aktivitas = typeof l==='string'?l:(l.aktivitas||'');
+      var pelaksana = '';
+      if (typeof l==='object' && Array.isArray(sop.pelaksana) && typeof l.pelaksana==='number') {
+        pelaksana = sop.pelaksana[l.pelaksana]||'';
+      }
+      var parts = [(i+1)+'. '+aktivitas];
+      if (pelaksana) parts.push('Pelaksana: '+pelaksana);
+      if (l.waktu)   parts.push('Waktu: '+l.waktu);
+      if (l.output)  parts.push('Output: '+l.output);
+      lines.push(parts.join(' | '));
+    });
+    lines.push('');
+  }
+  if (sop.deskripsi) lines.push('DESKRIPSI: '+sop.deskripsi);
+  return lines.join('\n').trim();
+}
+
+// ── Simpan SOP aktif ke koleksi drives ──
+async function fbSaveDrive(sop, kontenTeks) {
+  if (!db) return false;
+  try {
+    var driveData = {
+      id:sop.id||sop.draftId, draftId:sop.draftId||sop.id,
+      namaSOP:sop.namaSOP||sop.judul||'', nomorSOP:sop.nomorSOP||sop.nomorDokumen||'',
+      eselon3:sop.eselon3||'', eselon4:sop.unitEselon4||sop.eselon4||'',
+      deptId:sop.deptId||sop.unitEselon4Id||'',
+      urlTTE:sop.urlTTE||sop.urlPDFSigned||'',
+      tglAktif:new Date().toISOString(), tglEfektif:sop.tglEfektif||'',
+      disahkanOleh:sop.disahkanOleh||'', approverE2Nama:sop.approverE2Nama||'',
+      createdBy:sop.createdBy||sop.namaPembuat||'',
+      createdByNIP:sop.createdByNIP||sop.dibuatOleh||'',
+      kontenTeks:kontenTeks, updatedAt:new Date().toISOString()
+    };
+    await db.collection('drives').doc(driveData.id).set(driveData);
+    return true;
+  } catch(e) { console.error('fbSaveDrive error:',e); return false; }
+}
+
+// ── Panel TTE untuk TU Admin SOP ──
 async function openTTEPanel(sopId) {
   if (!_sopLoaded) await fbLoadSOPs();
-  var sop = _sopDrafts.find(function(s){ return s.id === sopId || s.draftId === sopId; });
-  if (!sop) { toast('⚠ SOP tidak ditemukan', 'err'); return; }
-
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan','err'); return; }
   var sopDisplay = normalizeBuilderFields(sop);
-  var isUploaded = sop.status === 'tte_uploaded';
-
+  var isUploaded = sop.status==='tte_uploaded';
   var h = '';
-
   // Info SOP
-  h += '<div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:12px 14px;margin-bottom:16px;">';
+  h += '<div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
   h += '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px;">'+escapeHtml(sopDisplay.namaSOP||'—')+'</div>';
   h += '<div style="font-size:11px;color:var(--mu2);">📐 '+escapeHtml(sopDisplay.unitEselon4||'—')+' · 👤 '+escapeHtml(sopDisplay.createdBy||'—')+'</div>';
   if (sopDisplay.nomorSOP) h += '<div style="font-size:11px;color:var(--mu);margin-top:2px;">No: '+escapeHtml(sopDisplay.nomorSOP)+'</div>';
   h += '</div>';
-
-  // Status TTE
+  // Status jika sudah upload
   if (isUploaded) {
-    h += '<div style="background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;">';
+    h += '<div style="background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;">';
     h += '<div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:4px;">✅ TTE Sudah Diupload</div>';
     if (sop.urlTTE) h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="font-size:12px;color:var(--cyan);">↗ Lihat Dokumen TTE</a>';
-    h += '<div style="font-size:11px;color:var(--mu);margin-top:4px;">Upload oleh: '+escapeHtml(sop.tuAdminNama||'—')+(sop.tglUploadTTE?' · '+formatTglShort(sop.tglUploadTTE):'')+'</div>';
+    h += '<div style="font-size:11px;color:var(--mu);margin-top:4px;">Oleh: '+escapeHtml(sop.tuAdminNama||'—')+(sop.tglUploadTTE?' · '+formatTglShort(sop.tglUploadTTE):'')+'</div>';
     h += '</div>';
   }
-
-  // Preview & Download
-  h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:14px;">';
-  h += '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.8px;margin-bottom:10px;">📄 DOKUMEN SOP</div>';
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-  h += '<button onclick="openBuilderPreviewForReview(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">👁️ Preview Dokumen</button>';
-  h += '<button onclick="downloadSOPWord(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(29,78,216,.15);border:1px solid rgba(29,78,216,.3);color:#7b9fff;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Download Word</button>';
-  h += '<button onclick="downloadSOPPDF(\''+sopId+'\')" style="flex:1;padding:9px;background:rgba(185,28,28,.15);border:1px solid rgba(185,28,28,.3);color:#fca5a5;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 Download PDF</button>';
-  h += '</div>';
-  h += '</div>';
-
+  // Download
+  h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
+  h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:8px;">UNDUH DOKUMEN SOP</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  h += '<button onclick="exportTTEWord(\''+sopId+'\')" style="padding:9px;background:rgba(29,78,216,.12);border:1px solid rgba(29,78,216,.25);color:#7b9fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Word</button>';
+  h += '<button onclick="exportTTEPDF(\''+sopId+'\')" style="padding:9px;background:rgba(185,28,28,.12);border:1px solid rgba(185,28,28,.25);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 PDF</button>';
+  h += '</div></div>';
   // Upload TTE
   h += '<div style="border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 14px;">';
-  h += '<div style="font-size:11px;font-weight:700;color:#38bdf8;letter-spacing:.8px;margin-bottom:8px;">🔏 UPLOAD DOKUMEN TTE</div>';
-  h += '<div style="font-size:11px;color:var(--mu);margin-bottom:10px;line-height:1.6;">Upload dokumen SOP yang sudah ditandatangani secara elektronik (TTE) ke Google Drive, lalu masukkan link-nya di bawah.</div>';
-  h += '<label class="flabel">Link Dokumen TTE (Google Drive) <span style="color:var(--red);">*</span></label>';
-  h += '<input class="finput-sm" id="tte_urlInput" placeholder="https://drive.google.com/file/d/..." value="'+(sop.urlTTE?escapeHtml(sop.urlTTE):'')+'" style="margin-bottom:6px;">';
-  h += '<div style="font-size:10px;color:var(--mu);margin-bottom:12px;">Pastikan Anyone with link — Viewer agar bisa diakses semua pihak.</div>';
+  h += '<div style="font-size:10px;font-weight:700;color:#38bdf8;letter-spacing:.8px;margin-bottom:8px;">UPLOAD DOKUMEN TTE</div>';
+  h += '<div style="font-size:11px;color:var(--mu);margin-bottom:10px;line-height:1.6;">Setelah SOP di-TTE, upload ke Google Drive Badilag lalu masukkan link-nya di bawah.</div>';
+  h += '<a href="https://drive.google.com/drive/folders/1GZW-xBbPhSsPCaGpfvYlGK6uIL71Jje-?usp=sharing" target="_blank" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;border:1px solid var(--b1);background:rgba(255,255,255,.04);text-decoration:none;margin-bottom:10px;">';
+  h += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6.28 3h11.44l3.43 5.94-5.73 9.91H2.85L6.28 3z" fill="#0061FF" opacity=".2"/><path d="M6.28 3L2.85 18.85h5.72l3.43-5.94H6.28" stroke="#0061FF" stroke-width="1.4" fill="none"/><path d="M17.72 3H6.28l3.72 9.91h7.15L21.15 8.94 17.72 3z" stroke="#00AC47" stroke-width="1.4" fill="none"/><path d="M9.57 12.91l-3.43 5.94h10.87l3.43-5.94H9.57z" stroke="#FFBA00" stroke-width="1.4" fill="none"/></svg>';
+  h += '<span style="font-size:12px;font-weight:600;color:var(--tx);flex:1;">Buka folder Google Drive TTE</span><span style="font-size:11px;color:var(--mu);">↗</span></a>';
+  h += '<label class="flabel">Link dokumen TTE <span style="color:var(--red);">*</span></label>';
+  h += '<input class="finput-sm" id="tte_urlInput" type="url" placeholder="https://drive.google.com/file/d/..." value="'+(sop.urlTTE?escapeHtml(sop.urlTTE):'')+'" style="margin-bottom:4px;">';
+  h += '<div style="font-size:10px;color:var(--mu);margin-bottom:10px;">Pastikan <em>Anyone with link — Viewer</em></div>';
   h += '<label class="flabel">Catatan (opsional)</label>';
   h += '<textarea class="finput-sm" id="tte_catatan" rows="2" placeholder="Catatan upload TTE..." style="min-height:50px;resize:vertical;"></textarea>';
-  h += '<div style="display:flex;gap:8px;margin-top:10px;">';
-  if (isUploaded) {
-    h += '<button onclick="closeModal(\'mSOPBuilder\')" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:9px;cursor:pointer;font-size:12px;font-family:inherit;">Tutup</button>';
-    h += '<button onclick="submitTTE(\''+sopId+'\')" style="flex:2;padding:9px;background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(56,189,248,.15));border:1px solid rgba(56,189,248,.4);color:#38bdf8;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">🔄 Update Link TTE</button>';
-  } else {
-    h += '<button onclick="closeModal(\'mSOPBuilder\')" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--mu2);border-radius:9px;cursor:pointer;font-size:12px;font-family:inherit;">Batal</button>';
-    h += '<button onclick="submitTTE(\''+sopId+'\')" style="flex:2;padding:9px;background:linear-gradient(135deg,rgba(56,189,248,.3),rgba(56,189,248,.2));border:1px solid rgba(56,189,248,.4);color:#38bdf8;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📋 Submit Dokumen TTE</button>';
-  }
-  h += '</div>';
-  h += '</div>';
-
-  // Tampilkan di modal mSOPBuilder (pakai modal yang sudah ada)
-  document.getElementById('sopBuilderTitle').textContent = '📋 Proses TTE — ' + (sopDisplay.namaSOP||'SOP');
+  h += '<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:10px;">';
+  h += '<button onclick="closeModal(\'mSOPBuilder\')" style="padding:9px;background:rgba(255,255,255,.04);border:1px solid var(--b1);color:var(--mu2);border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;">Batal</button>';
+  h += '<button onclick="submitTTE(\''+sopId+'\')" style="padding:9px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.4);color:#38bdf8;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">'+(isUploaded?'🔄 Update Link TTE':'📋 Submit Dokumen TTE')+'</button>';
+  h += '</div></div>';
+  document.getElementById('sopBuilderTitle').textContent = '📋 Proses TTE';
   document.getElementById('sopBuilderBody').innerHTML = h;
   openModal('mSOPBuilder');
 }
 
-// ── Submit TTE oleh TU Admin SOP ──
+// ── Export Word/PDF untuk TU & Admin dari modal ──
+async function exportTTEWord(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('SOP tidak ditemukan','err'); return; }
+  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
+  var params = new URLSearchParams({mode:'preview',nip:sop.createdByNIP||'',nama:sop.createdBy||'',deptId:sop.deptId||''});
+  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(),'_blank');
+  toast('📄 Buka Builder → klik Export Word');
+}
+async function exportTTEPDF(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('SOP tidak ditemukan','err'); return; }
+  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
+  var params = new URLSearchParams({mode:'preview',nip:sop.createdByNIP||'',nama:sop.createdBy||'',deptId:sop.deptId||''});
+  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(),'_blank');
+  toast('📑 Buka Builder → klik Export PDF');
+}
+
+
 async function submitTTE(sopId) {
   var urlTTE  = (document.getElementById('tte_urlInput')||{value:''}).value.trim();
   var catatan = (document.getElementById('tte_catatan')||{value:''}).value.trim();
