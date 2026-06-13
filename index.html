@@ -655,6 +655,10 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 </div>
 
 </div>
+<!-- Export Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+
 <!-- Firebase SDK — jsdelivr primary, gstatic fallback -->
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-auth-compat.min.js"></script>
@@ -5212,22 +5216,224 @@ async function openTTEPanel(sopId) {
   openModal('mSOPBuilder');
 }
 
-// ── Export Word/PDF untuk TU & Admin dari modal ──
+// ── Render HTML dokumen SOP untuk export ──
+function renderSOPHtmlForExport(sop) {
+  var s = sop;
+  function fmtArr(val) {
+    if (!val) return [];
+    return Array.isArray(val) ? val.filter(Boolean) : [val].filter(Boolean);
+  }
+  function fmtDate(d) {
+    if (!d) return '-';
+    try { return new Date(d).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); } catch(e){ return d; }
+  }
+
+  var pelaksana = fmtArr(s.pelaksana);
+  var langkah   = fmtArr(s.langkah);
+
+  var html = '<div style="background:#fff;font-family:Arial,sans-serif;font-size:11px;padding:10px;">';
+
+  // Header
+  html += '<table style="width:100%;border-collapse:collapse;margin-bottom:6px;">';
+  html += '<tr><td style="border:1px solid #000;padding:10px;width:52%;vertical-align:middle;">';
+  html += '<b style="font-size:13px;">DIREKTORAT JENDERAL<br>BADAN PERADILAN AGAMA<br>MAHKAMAH AGUNG RI</b>';
+  html += '<div style="margin-top:4px;font-size:10px;">'+(s.eselon3||s.unitEselon3||'')+'</div>';
+  html += '<div style="font-size:9px;color:#555;">'+(s.alamat||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat')+'</div>';
+  html += '</td>';
+  html += '<td style="border:1px solid #000;padding:0;vertical-align:top;">';
+  html += '<table style="width:100%;border-collapse:collapse;">';
+  var rows = [
+    ['Nomor SOP', s.nomorSOP||s.nomorDokumen||'-'],
+    ['Tanggal Pembuatan', fmtDate(s.tglPembuatan)],
+    ['Tanggal Revisi', fmtDate(s.tglRevisi)],
+    ['Tanggal Efektif', fmtDate(s.tglEfektif)],
+    ['Disahkan Oleh', s.disahkanOleh||'-'],
+    ['Nama SOP', s.namaSOP||s.judul||'-'],
+  ];
+  rows.forEach(function(r) {
+    html += '<tr><td style="border:1px solid #000;padding:3px 6px;font-weight:700;width:42%;font-size:10px;">'+r[0]+'</td>';
+    html += '<td style="border:1px solid #000;padding:3px 6px;font-size:10px;">'+r[1]+'</td></tr>';
+  });
+  html += '</table></td></tr></table>';
+
+  // Info 2 kolom
+  var dasarHukum = fmtArr(s.dasarHukum);
+  var kualifikasi = fmtArr(s.kualifikasiPelaksana||s.kualifikasi);
+  var keterkaitan = fmtArr(s.keterkaitan);
+  var peralatan   = fmtArr(s.peralatan);
+  var peringatan  = fmtArr(s.peringatan);
+  var pencatatan  = fmtArr(s.pencatatan);
+
+  html += '<table style="width:100%;border-collapse:collapse;margin-bottom:4px;">';
+  var infoRows = [
+    ['Dasar Hukum:', dasarHukum, 'Kualifikasi Pelaksana:', kualifikasi],
+    ['Keterkaitan:', keterkaitan, 'Peralatan/Perlengkapan:', peralatan],
+    ['Peringatan:', peringatan, 'Pencatatan dan Pendataan:', pencatatan],
+  ];
+  infoRows.forEach(function(r) {
+    html += '<tr>';
+    html += '<td style="border:1px solid #000;padding:6px;vertical-align:top;width:50%;">';
+    html += '<b>'+r[0]+'</b>';
+    r[1].forEach(function(x,i){ html += '<div>'+(r[1].length>1?(i+1)+'. ':'')+x+'</div>'; });
+    html += '</td>';
+    html += '<td style="border:1px solid #000;padding:6px;vertical-align:top;">';
+    html += '<b>'+r[2]+'</b>';
+    r[3].forEach(function(x,i){ html += '<div>'+(r[3].length>1?(i+1)+'. ':'')+x+'</div>'; });
+    html += '</td></tr>';
+  });
+  html += '</table>';
+
+  // Tabel prosedur
+  html += '<table style="width:100%;border-collapse:collapse;font-size:9px;">';
+  html += '<thead><tr>';
+  html += '<th rowspan="2" style="border:1px solid #000;padding:4px;text-align:center;width:22px;">No</th>';
+  html += '<th rowspan="2" style="border:1px solid #000;padding:4px;text-align:center;width:130px;">Aktivitas</th>';
+  pelaksana.forEach(function(p) {
+    html += '<th style="border:1px solid #000;padding:3px;text-align:center;font-size:8px;width:46px;">'+p+'</th>';
+  });
+  html += '<th style="border:1px solid #000;padding:4px;text-align:center;width:80px;">Persyaratan</th>';
+  html += '<th style="border:1px solid #000;padding:4px;text-align:center;width:36px;">Waktu</th>';
+  html += '<th style="border:1px solid #000;padding:4px;text-align:center;width:65px;">Output</th>';
+  html += '<th style="border:1px solid #000;padding:4px;text-align:center;width:24px;">Ket</th>';
+  html += '</tr></thead><tbody>';
+
+  langkah.forEach(function(l, i) {
+    if (!l) return;
+    var aktivitas   = typeof l === 'string' ? l : (l.aktivitas||'');
+    var persyaratan = typeof l === 'object' ? (l.persyaratan||'') : '';
+    var waktu       = typeof l === 'object' ? (l.waktu||'')       : '';
+    var output      = typeof l === 'object' ? (l.output||'')      : '';
+    var pelIdx      = typeof l === 'object' ? l.pelaksana          : -1;
+    var pelArr      = Array.isArray(pelIdx) ? pelIdx : [pelIdx];
+
+    html += '<tr>';
+    html += '<td style="border:1px solid #000;padding:3px;text-align:center;">'+(i+1)+'.</td>';
+    html += '<td style="border:1px solid #000;padding:3px;">'+aktivitas+'</td>';
+    pelaksana.forEach(function(_, pi) {
+      var isActor = pelArr.indexOf(pi) >= 0;
+      html += '<td style="border:1px solid #000;padding:3px;text-align:center;">'+(isActor?'✓':'')+'</td>';
+    });
+    html += '<td style="border:1px solid #000;padding:3px;font-size:8px;">'+persyaratan+'</td>';
+    html += '<td style="border:1px solid #000;padding:3px;text-align:center;">'+waktu+'</td>';
+    html += '<td style="border:1px solid #000;padding:3px;font-size:8px;">'+output+'</td>';
+    html += '<td style="border:1px solid #000;padding:3px;"></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// ── Export Word langsung dari SOPI ──
 async function exportTTEWord(sopId) {
   var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
   if (!sop) { toast('SOP tidak ditemukan','err'); return; }
-  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
-  var params = new URLSearchParams({mode:'preview',nip:sop.createdByNIP||'',nama:sop.createdBy||'',deptId:sop.deptId||''});
-  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(),'_blank');
-  toast('📄 Buka Builder → klik Export Word');
+  if (!window.docx) { toast('⏳ Library Word belum siap, tunggu sebentar...','err'); return; }
+
+  toast('⏳ Membuat file Word...');
+  var D = window.docx;
+
+  try {
+    // Buat dokumen Word sederhana dari data Firestore
+    var pelaksana = Array.isArray(sop.pelaksana) ? sop.pelaksana.filter(Boolean) : [];
+    var langkah   = Array.isArray(sop.langkah)   ? sop.langkah   : [];
+    var dasarHukum= Array.isArray(sop.dasarHukum) ? sop.dasarHukum.filter(Boolean) : [];
+
+    var children = [];
+
+    // Judul
+    children.push(new D.Paragraph({ text: 'DIREKTORAT JENDERAL BADAN PERADILAN AGAMA MAHKAMAH AGUNG RI', alignment: D.AlignmentType.CENTER, heading: D.HeadingLevel.HEADING_1 }));
+    children.push(new D.Paragraph({ text: sop.eselon3||'', alignment: D.AlignmentType.CENTER }));
+    children.push(new D.Paragraph({ text: '' }));
+
+    // Info SOP
+    var infoRows = [
+      ['Nama SOP', sop.namaSOP||sop.judul||'-'],
+      ['Nomor SOP', sop.nomorSOP||sop.nomorDokumen||'-'],
+      ['Unit E-III', sop.eselon3||'-'],
+      ['Unit E-IV', sop.unitEselon4||sop.eselon4||'-'],
+      ['Tanggal Efektif', sop.tglEfektif||'-'],
+      ['Disahkan Oleh', sop.disahkanOleh||'-'],
+    ];
+    infoRows.forEach(function(r) {
+      children.push(new D.Paragraph({
+        children: [
+          new D.TextRun({ text: r[0]+': ', bold: true, size: 22 }),
+          new D.TextRun({ text: r[1], size: 22 }),
+        ]
+      }));
+    });
+
+    children.push(new D.Paragraph({ text: '' }));
+    children.push(new D.Paragraph({ text: 'DASAR HUKUM:', bold: true }));
+    dasarHukum.forEach(function(d, i) {
+      children.push(new D.Paragraph({ text: (i+1)+'. '+d, indent: { left: 360 } }));
+    });
+
+    children.push(new D.Paragraph({ text: '' }));
+    children.push(new D.Paragraph({ text: 'LANGKAH PROSEDUR:', bold: true }));
+    langkah.forEach(function(l, i) {
+      if (!l) return;
+      var aktivitas = typeof l==='string'?l:(l.aktivitas||'');
+      var pelIdx = typeof l==='object'?l.pelaksana:-1;
+      var pelArr = Array.isArray(pelIdx)?pelIdx:[pelIdx];
+      var pelNames = pelArr.map(function(pi){ return pelaksana[pi]||''; }).filter(Boolean).join(', ');
+      children.push(new D.Paragraph({
+        children: [
+          new D.TextRun({ text: (i+1)+'. '+aktivitas, size: 22 }),
+          pelNames ? new D.TextRun({ text: '  ['+pelNames+']', color:'666666', size:20 }) : new D.TextRun(''),
+          (typeof l==='object'&&l.waktu) ? new D.TextRun({ text: '  Waktu: '+l.waktu, color:'666666', size:20 }) : new D.TextRun(''),
+        ]
+      }));
+    });
+
+    var doc = new D.Document({ sections: [{ children: children }] });
+    var blob = await D.Packer.toBlob(doc);
+    var fname = (sop.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)+' - '+(sop.namaSOP||'SOP').slice(0,30)+'.docx';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    toast('✅ File Word berhasil diunduh!');
+  } catch(e) {
+    console.error('Export Word error:', e);
+    toast('❌ Gagal export Word: '+e.message,'err');
+  }
 }
+
+// ── Export PDF langsung dari SOPI ──
 async function exportTTEPDF(sopId) {
   var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
   if (!sop) { toast('SOP tidak ditemukan','err'); return; }
-  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
-  var params = new URLSearchParams({mode:'preview',nip:sop.createdByNIP||'',nama:sop.createdBy||'',deptId:sop.deptId||''});
-  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(),'_blank');
-  toast('📑 Buka Builder → klik Export PDF');
+  if (!window.html2pdf) { toast('⏳ Library PDF belum siap, tunggu sebentar...','err'); return; }
+
+  toast('⏳ Membuat file PDF...');
+  try {
+    var htmlContent = renderSOPHtmlForExport(sop);
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:absolute;left:-9999px;top:0;width:1122px;';
+    wrapper.innerHTML = htmlContent;
+    document.body.appendChild(wrapper);
+
+    var fname = (sop.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)+' - '+(sop.namaSOP||'SOP').slice(0,30)+'.pdf';
+
+    await html2pdf().set({
+      margin    : [5,5,5,5],
+      filename  : fname,
+      image     : { type:'jpeg', quality:0.95 },
+      html2canvas: { scale:2, useCORS:true, logging:false },
+      jsPDF     : { unit:'mm', format:'a4', orientation:'landscape' }
+    }).from(wrapper).save();
+
+    document.body.removeChild(wrapper);
+    toast('✅ File PDF berhasil diunduh!');
+  } catch(e) {
+    console.error('Export PDF error:', e);
+    toast('❌ Gagal export PDF: '+e.message,'err');
+  }
 }
 
 
