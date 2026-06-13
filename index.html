@@ -5239,17 +5239,25 @@ async function reviewSOP(sopId, action) {
     }
     await fbSaveSOP(sop);
     try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action       : 'reviewE3',
-          draftId      : sop.id,
-          reviewerNip  : userEmp ? userEmp.nip  : '',
-          reviewerNama : userEmp ? userEmp.name : S.user.name,
-          action_type  : 'reject',
-          catatan,
-          emailPembuat : makerEmp ? makerEmp.email : ''
-        })
-      });
+      // ── Email ke Pembuat SOP bahwa SOP dikembalikan ──
+      if (makerEmp && makerEmp.email) {
+        await fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : makerEmp.email,
+            subject : '↩️ SOP Dikembalikan untuk Revisi: ' + (sop.namaSOP||sop.judul||''),
+            userName: makerEmp.name || 'Bapak/Ibu',
+            tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics  : [
+              'SOP Anda dikembalikan oleh Reviewer Es.III: ' + (userEmp?userEmp.name:''),
+              'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+              'Catatan: ' + (catatan||'-')
+            ],
+            sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal:'' }]
+          })
+        }).catch(function(e){ console.warn('Email reject error:', e); });
+      }
     } catch(e) {}
     closeModal('mSOPReview'); closeModal('mSOPInbox');
     toast('↩️ SOP dikembalikan ke pembuat untuk revisi');
@@ -5263,21 +5271,28 @@ async function reviewSOP(sopId, action) {
     sop.tglReviewE3    = now;
     sop.catatanE3      = catatan;
     await fbSaveSOP(sop);
-    try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action       : 'reviewE3',
-          draftId      : sop.id,
-          reviewerNip  : sop.reviewerE3Nip,
-          reviewerNama : sop.reviewerE3Nama,
-          action_type  : 'approve',
-          catatan,
-          adminEmail   : adminSOP ? adminSOP.email : '',
-          adminNama    : adminSOP ? adminSOP.name  : '',
-          emailPembuat : makerEmp ? makerEmp.email : ''
-        })
-      });
-    } catch(e) {}
+    // ── Email ke Admin Ketatalaksanaan ──
+    if (adminSOP && adminSOP.email) {
+      try {
+        await fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : adminSOP.email,
+            subject : '⚙️ SOP Menunggu Review: ' + (sop.namaSOP||sop.judul||''),
+            userName: adminSOP.name || 'Admin SOP',
+            tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics  : [
+              'SOP telah disetujui oleh Reviewer Es.III: ' + (userEmp?userEmp.name:''),
+              'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+              'Unit: ' + (sop.unitEselon4||sop.eselon4||''),
+              'Catatan E3: ' + (catatan||'-')
+            ],
+            sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal:'' }]
+          })
+        });
+      } catch(e) { console.warn('Email admin error:', e); }
+    }
     closeModal('mSOPReview'); closeModal('mSOPInbox');
     toast('✅ SOP diteruskan ke Kasubbag Ketatalaksanaan');
     addMsg('✅ **SOP Lolos Review E3**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\nDiteruskan ke **'+(adminSOP?adminSOP.name:'Kasubbag Ketatalaksanaan')+'** untuk review final.', false);
@@ -5311,23 +5326,29 @@ async function reviewSOP(sopId, action) {
     sop.approverE2Nip  = approverE2Selected ? approverE2Selected.nip : '';
     sop.approverE2Nama = approverE2Selected ? approverE2Selected.name: '';
     await fbSaveSOP(sop);
-    try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action          : 'reviewAdmin',
-          draftId         : sop.id,
-          adminNip        : sop.adminNip,
-          adminNama       : sop.adminNama,
-          action_type     : 'approve',
-          catatan,
-          e2TargetId,
-          e2TargetName    : sop.e2TargetName,
-          approverE2Email : approverE2Selected ? approverE2Selected.email : '',
-          approverE2Nama  : approverE2Selected ? approverE2Selected.name  : '',
-          emailPembuat    : makerEmp ? makerEmp.email : ''
-        })
-      });
-    } catch(e) {}
+    // ── Email ke Eselon II ──
+    if (approverE2Selected && approverE2Selected.email) {
+      try {
+        await fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : approverE2Selected.email,
+            subject : '✍️ SOP Menunggu Pengesahan: ' + (sop.namaSOP||sop.judul||''),
+            userName: approverE2Selected.name || 'Bapak/Ibu',
+            tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics  : [
+              'SOP telah melalui review Ketatalaksanaan dan siap untuk disahkan',
+              'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+              'Unit: ' + (sop.unitEselon4||sop.eselon4||''),
+              'Unit Eselon II: ' + (sop.e2TargetName||''),
+              'Catatan Admin: ' + (catatan||'-')
+            ],
+            sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal:'' }]
+          })
+        });
+      } catch(e) { console.warn('Email E2 error:', e); }
+    }
     closeModal('mSOPReview'); closeModal('mSOPInbox');
     toast('✅ SOP diteruskan ke ' + (e2obj ? e2obj.name : 'Eselon II') + ' untuk pengesahan');
     addMsg('✅ **SOP Lolos Review Ketatalaksanaan**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\nDiteruskan ke **'+(e2obj ? e2obj.icon+' '+e2obj.name : 'Eselon II')+'**\n\n'+(approverE2Selected ? '📧 Notifikasi dikirim ke **'+approverE2Selected.name+'**' : '⚠ Belum ada approver_e2 untuk unit ini — notifikasi tidak terkirim.'), false);
@@ -5343,20 +5364,28 @@ async function reviewSOP(sopId, action) {
     await fbSaveSOP(sop);
     // Cari TU Admin SOP untuk email notifikasi
     var tuAdmin = S.emps.find(function(e){ return e.role === 'tu_admin_sop'; });
-    try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action        : 'approveE2',
-          draftId       : sop.id,
-          approverNip   : sop.approverE2Nip,
-          approverNama  : sop.approverE2Nama,
-          newStatus     : 'pending_tte',
-          emailTuAdmin  : tuAdmin ? tuAdmin.email : '',
-          tuAdminNama   : tuAdmin ? tuAdmin.name  : '',
-          emailPembuat  : makerEmp ? makerEmp.email : ''
-        })
-      });
-    } catch(e) {}
+    // ── Email ke TU Admin SOP ──
+    if (tuAdmin && tuAdmin.email) {
+      try {
+        await fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : tuAdmin.email,
+            subject : '📋 SOP Disahkan — Upload Dokumen TTE: ' + (sop.namaSOP||sop.judul||''),
+            userName: tuAdmin.name || 'TU Admin SOP',
+            tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics  : [
+              'SOP telah disahkan oleh ' + (userEmp?userEmp.name:'Eselon II'),
+              'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+              'Unit: ' + (sop.unitEselon4||sop.eselon4||''),
+              'Silakan upload dokumen SOP yang sudah ber-TTE ke sistem'
+            ],
+            sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal:'' }]
+          })
+        });
+      } catch(e) { console.warn('Email TU error:', e); }
+    }
     closeModal('mSOPReview'); closeModal('mSOPInbox');
     toast('✅ SOP disahkan! Menunggu upload dokumen TTE oleh TU Admin SOP.');
     addMsg('✅ **SOP Disahkan oleh Eselon II!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n\n📋 Status: **Menunggu Upload TTE**\n'+(tuAdmin?'📧 Notifikasi dikirim ke TU Admin SOP **'+tuAdmin.name+'**.':'⚠ TU Admin SOP belum dikonfigurasi — set di Tab Role SOP.'), false);
@@ -5402,20 +5431,29 @@ async function reviewSOP(sopId, action) {
     sop.adminAktivasiNip  = userEmp ? userEmp.nip  : '';
     sop.adminAktivasiNama = userEmp ? userEmp.name : S.user.name;
     await fbSaveSOP(sop);
-    // Salin ke drives via Worker
-    try {
-      await fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action       : 'approveE2',
-          draftId      : sop.id,
-          approverNip  : sop.approverE2Nip  || '',
-          approverNama : sop.approverE2Nama || '',
-          newStatus    : 'signed',
-          urlPDFSigned : sop.urlPDFSigned,
-          emailPembuat : makerEmp ? makerEmp.email : ''
-        })
-      });
-    } catch(e) {}
+    // ── Email ke Pembuat SOP bahwa SOP resmi aktif ──
+    if (makerEmp && makerEmp.email) {
+      try {
+        await fetch(WORKER_URL + '/send-email', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action  : 'sendEmail',
+            toEmail : makerEmp.email,
+            subject : '🏛️ SOP Resmi Aktif: ' + (sop.namaSOP||sop.judul||''),
+            userName: makerEmp.name || 'Bapak/Ibu',
+            tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+            topics  : [
+              'SOP yang Anda buat telah resmi aktif dan tersedia di SOPI',
+              'Nama SOP: ' + (sop.namaSOP||sop.judul||''),
+              'Nomor SOP: ' + (sop.nomorSOP||'-'),
+              'Disahkan oleh: ' + (sop.approverE2Nama||sop.disahkanOleh||'-'),
+              sop.urlPDFSigned ? 'Link Dokumen TTE: ' + sop.urlPDFSigned : ''
+            ].filter(Boolean),
+            sopList : [{ title: sop.namaSOP||sop.judul||'', unit: sop.unitEselon4||'', linkFinal: sop.urlPDFSigned||'' }]
+          })
+        });
+      } catch(e) { console.warn('Email pembuat error:', e); }
+    }
     closeModal('mSOPReview'); closeModal('mSOPInbox');
     toast('🏛️ SOP resmi aktif dan tersedia di SOPI!');
     addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: **Resmi & Aktif**\n\n'+(sop.urlPDFSigned?'📄 Dokumen TTE: '+sop.urlPDFSigned+'\n\n':'')+'SOP ini sekarang dapat ditemukan oleh seluruh pegawai Ditjen Badilag.', false);
