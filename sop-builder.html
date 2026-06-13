@@ -37,6 +37,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 
 /* HEADER */
 .hd{position:sticky;top:0;z-index:100;background:rgba(8,17,31,.95);backdrop-filter:blur(16px);
+/* ── Mode Preview: sembunyikan elemen tidak perlu ── */
+body.preview-mode .hd { display:none !important; }
+body.preview-mode #ctxBar { display:none !important; }
+body.preview-mode #tab0 { display:none !important; }
+body.preview-mode #tab3 { display:none !important; }
+body.preview-mode #previewToolbar { display:none !important; }
+body.preview-mode .tabs {
+  background:rgba(8,17,31,.95);
+  border-bottom:1px solid rgba(0,245,212,.15);
+  padding:6px 10px;
+}
+body.preview-mode .tab-btn { font-size:12px; padding:6px 14px; }
   border-bottom:1px solid var(--b1);padding:0 20px;display:flex;align-items:center;gap:12px;height:56px;}
 .hd-logo{width:32px;height:32px;object-fit:contain;border-radius:6px;}
 .hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.3px;}
@@ -532,6 +544,9 @@ function readURLContext() {
 
   // ── Mode Preview: load data SOP dari sessionStorage langsung ke tab Preview ──
   if (mode === 'preview') {
+    // Tambah class ke body agar CSS preview-mode aktif
+    document.body.classList.add('preview-mode');
+
     try {
       var raw = sessionStorage.getItem('sopi_preview_sop');
       if (raw) {
