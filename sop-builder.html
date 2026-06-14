@@ -5212,29 +5212,69 @@ async function openTTEPanel(sopId) {
   openModal('mSOPBuilder');
 }
 
-// ── Submit TTE dari panel openTTEPanel ──
+// ── Submit TTE dari panel openTTEPanel — standalone, tidak bergantung reviewSOP DOM ──
 async function submitTTE(sopId) {
-  var urlInput = document.getElementById('tte_urlInput');
+  var urlInput     = document.getElementById('tte_urlInput');
   var catatanInput = document.getElementById('tte_catatan');
   if (!urlInput) { toast('⚠ Form TTE tidak ditemukan','err'); return; }
-  var url = urlInput.value.trim();
-  var catatan = catatanInput ? catatanInput.value.trim() : '';
-  if (!url) { toast('⚠ URL dokumen TTE wajib diisi','err'); return; }
 
-  // Validasi format URL Google Drive
+  var url     = urlInput.value.trim();
+  var catatan = catatanInput ? catatanInput.value.trim() : '';
+
+  if (!url) { toast('⚠ URL dokumen TTE wajib diisi','err'); return; }
   if (!url.startsWith('http')) { toast('⚠ URL tidak valid — harus diawali https://','err'); return; }
 
-  // Inject nilai ke rv_urlPDF dan rv_catatan agar reviewSOP dapat membacanya
-  // (reviewSOP membaca dari elemen DOM dengan id tersebut)
-  var fakeUrl = document.getElementById('rv_urlPDF') || document.createElement('input');
-  fakeUrl.id = 'rv_urlPDF'; fakeUrl.value = url;
-  if (!document.getElementById('rv_urlPDF')) document.body.appendChild(fakeUrl);
+  if (!_sopLoaded) await fbLoadSOPs();
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan','err'); return; }
 
-  var fakeCat = document.getElementById('rv_catatan') || document.createElement('input');
-  fakeCat.id = 'rv_catatan'; fakeCat.value = catatan;
-  if (!document.getElementById('rv_catatan')) document.body.appendChild(fakeCat);
+  var userEmp  = S.emps_cache_me();
+  var adminSOP = getAdminSOP();
+  var now      = new Date().toISOString();
 
-  await reviewSOP(sopId, 'upload_tte');
+  // Update Firestore
+  sop.status       = 'tte_uploaded';
+  sop.urlTTE       = url;
+  sop.catatanTTE   = catatan;
+  sop.tuAdminNip   = userEmp ? userEmp.nip  : '';
+  sop.tuAdminNama  = userEmp ? userEmp.name : (S.user ? S.user.name : '');
+  sop.tglUploadTTE = now;
+
+  try {
+    await fbSaveSOP(sop);
+  } catch(e) {
+    toast('❌ Gagal simpan ke Firestore: ' + e.message, 'err');
+    return;
+  }
+
+  // Kirim notifikasi email ke Admin SOP
+  if (adminSOP && adminSOP.email) {
+    try {
+      await fetch(WORKER_URL + '/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action  : 'sendEmail',
+          toEmail : adminSOP.email,
+          subject : '🔏 TTE Diupload — Perlu Verifikasi: ' + (sop.namaSOP||sop.judul||''),
+          userName: adminSOP.name || 'Admin SOP',
+          tanggal : new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+          topics  : [
+            'Dokumen TTE sudah diupload oleh TU Admin SOP: ' + (userEmp?userEmp.name:''),
+            'SOP: ' + (sop.namaSOP||sop.judul||''),
+            'Link TTE: ' + url,
+            catatan ? 'Catatan: ' + catatan : ''
+          ].filter(Boolean),
+          sopList:[{title:sop.namaSOP||sop.judul||'', unit:sop.unitEselon4||'', linkFinal:url}]
+        })
+      });
+    } catch(e) { console.warn('Email Admin SOP error:', e); }
+  }
+
+  closeModal('mSOPBuilder');
+  closeModal('mSOPInbox');
+  toast('📋 Dokumen TTE berhasil disubmit! Admin SOP akan memverifikasi.');
+  addMsg('📋 **TTE Berhasil Disubmit!**\n\n📋 **'+(sop.namaSOP||sop.judul||'')+'**\n\n🔗 Link TTE: '+url+'\n\n'+(adminSOP?'📧 Admin SOP **'+adminSOP.name+'** akan memverifikasi dan mengaktifkan SOP.':'⚠ Admin SOP belum dikonfigurasi.'), false);
+  updateInboxBadge();
 }
 
 // ── Render HTML dokumen SOP untuk export ──
