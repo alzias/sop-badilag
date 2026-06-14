@@ -1518,45 +1518,98 @@ function togglePelaksana(stepIdx, pelIdx, checked) {
 function exportDocPDF() {
   const element = document.querySelector('.sop-preview-container');
   if (!element) { toast('Buka tab Preview Dokumen terlebih dahulu','err'); return; }
-  if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
-  var tglEfStrP = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
-  var nomorClP  = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
-  var namaClP   = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
-  const filename = nomorClP + (tglEfStrP?'_'+tglEfStrP:'') + '_' + namaClP + '.pdf';
-  toast('⏳ Membuat PDF dokumen...');
 
-  // Buat wrapper untuk PDF — clone preview + inject TTE & Footnote
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'background:#fff;font-family:Arial,sans-serif;';
-  wrapper.innerHTML = element.innerHTML;
-
-  // Cek apakah TTE & Footnote sudah ada di preview
-  // Jika belum (karena SOP belum disahkan), tetap inject Footnote saja
+  // Inject TTE & Footnote ke clone untuk print
+  const clone = element.cloneNode(true);
   const e2idPDF = getE2TargetFromState();
-  const hasTTE  = wrapper.querySelector('img[alt^="TTE"]');
-  const hasFN   = wrapper.querySelector('img[alt="Footnote BSrE"]');
-
+  const hasTTE  = clone.querySelector('img[alt^="TTE"]');
+  const hasFN   = clone.querySelector('img[alt="Footnote BSrE"]');
   if (e2idPDF && !hasTTE) {
-    const tteDiv = document.createElement('div');
-    tteDiv.innerHTML = getTTEBlock(e2idPDF, f.disahkanOleh);
-    wrapper.appendChild(tteDiv);
+    const d = document.createElement('div');
+    d.innerHTML = getTTEBlock(e2idPDF, f.disahkanOleh);
+    clone.appendChild(d);
   }
   if (!hasFN) {
-    const fnDiv = document.createElement('div');
-    fnDiv.innerHTML = getFootnoteHTML();
-    wrapper.appendChild(fnDiv);
+    const d = document.createElement('div');
+    d.innerHTML = getFootnoteHTML();
+    clone.appendChild(d);
   }
 
-  document.body.appendChild(wrapper);
-  html2pdf().set({
-    margin:[5,5,5,5], filename,
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2,useCORS:true,logging:false},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-  }).from(wrapper).save()
-    .then(()=>{ document.body.removeChild(wrapper); toast('✅ PDF dokumen berhasil diunduh!'); })
-    .catch(e=>{ if(wrapper.parentNode) document.body.removeChild(wrapper); toast('❌ Gagal: '+e.message,'err'); });
+  // Buka window print khusus
+  const tglEf  = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+  const noCl   = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+  const nmCl   = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
+  const filename= noCl + (tglEf?'_'+tglEf:'') + '_' + nmCl;
+
+  const win = window.open('','_blank','width=1200,height=850');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${filename}</title>
+    <style>
+      @page { size:A4 landscape; margin:8mm 8mm 8mm 8mm; }
+      @media print {
+        html,body { margin:0; padding:0; width:100%; }
+        .no-print { display:none!important; }
+        table { page-break-inside:auto; }
+        tr    { page-break-inside:avoid; }
+        thead { display:table-header-group; }
+      }
+      * { box-sizing:border-box; }
+      body {
+        font-family:Arial,sans-serif;
+        font-size:10pt;
+        color:#000;
+        background:#fff;
+        padding:0;
+        margin:0;
+      }
+      table { border-collapse:collapse; width:100%; }
+      td,th { border:1px solid #000; padding:3px 5px; font-size:9pt; vertical-align:top; }
+      th    { background:#f0f0f0; font-weight:700; text-align:center; }
+      b, strong { font-weight:700; }
+
+      /* Tombol print - disembunyikan saat print */
+      #printBar {
+        display:flex; gap:8px; padding:10px 14px;
+        background:#1a1a2e; border-bottom:2px solid #00f5d4;
+        position:sticky; top:0; z-index:100;
+      }
+      #printBar button {
+        padding:8px 20px; border-radius:8px; cursor:pointer;
+        font-size:13px; font-weight:700; border:none;
+      }
+      #btnPrint { background:#00f5d4; color:#000; }
+      #btnClose { background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2)!important; }
+      #printContent { padding:10px; }
+    </style>
+  </head><body>
+    <div id="printBar" class="no-print">
+      <button id="btnPrint" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button id="btnClose" onclick="window.close()">✕ Tutup</button>
+      <span style="color:#aaa;font-size:12px;margin-left:8px;align-self:center;">
+        Gunakan "Save as PDF" di dialog Print browser untuk menyimpan file PDF
+      </span>
+    </div>
+    <div id="printContent">
+      ${clone.outerHTML}
+    </div>
+  </body></html>`);
+  win.document.close();
+
+  // Auto-trigger print setelah semua gambar load
+  win.onload = function() {
+    // Tunggu gambar render
+    const imgs = win.document.querySelectorAll('img');
+    let loaded = 0;
+    if (!imgs.length) { return; }
+    imgs.forEach(function(img) {
+      if (img.complete) { loaded++; if(loaded===imgs.length) {} }
+      else { img.onload = function(){ loaded++; }; }
+    });
+  };
+
+  toast('📄 Preview PDF terbuka di tab baru — klik Print/Save as PDF');
 }
 
 // ══ EXPORT PDF DARI FLOWCHART ══
@@ -2427,8 +2480,8 @@ function renderDocPreview(f) {
     const clean = (items||[]).filter(x=>x&&x.length>2);
     if (!clean.length) return '';
     return `<table style="width:100%;border-collapse:collapse;margin-bottom:3px;">
-      <tr><th colspan="2" style="border:1px solid #000;background:#e8e8e8;padding:4px 6px;text-align:left;font-size:10px;font-weight:700;">${title}</th></tr>
-      ${clean.map((it,i)=>`<tr><td style="border:1px solid #000;padding:3px 5px;width:22px;font-size:9px;vertical-align:top;">${i+1}.</td><td style="border:1px solid #000;padding:3px 5px;font-size:9px;">${esc2(it)}</td></tr>`).join('')}
+      <tr><th colspan="2" style="border:1px solid #000;background:#e8e8e8;padding:4px 6px;text-align:left;font-size:11px;font-weight:700;">${title}</th></tr>
+      ${clean.map((it,i)=>`<tr><td style="border:1px solid #000;padding:4px 6px;width:24px;font-size:10px;vertical-align:top;">${i+1}.</td><td style="border:1px solid #000;padding:4px 6px;font-size:10px;">${esc2(it)}</td></tr>`).join('')}
     </table>`;
   }
 
@@ -2440,34 +2493,34 @@ function renderDocPreview(f) {
   // Flowchart SVG inline (kecil)
   const svgFlow = renderFlowchartSVG(f);
 
-  return `<div id="previewDoc" class="sop-preview-container" style="background:#fff;color:#000;font-family:Arial,sans-serif;padding:14px;font-size:10px;line-height:1.4;max-width:100%;box-sizing:border-box;">
+  return `<div id="previewDoc" class="sop-preview-container" style="background:#fff;color:#000;font-family:Arial,sans-serif;padding:14px;font-size:11px;line-height:1.5;max-width:100%;box-sizing:border-box;">
 
     <!-- HEADER KEMENTERIAN -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:4px;">
       <tr>
-        <td style="width:20%;border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;">
-          <img src="${LOGO_MA}" style="width:72px;height:72px;object-fit:contain;mix-blend-mode:multiply;border-radius:50%;">
+        <td style="width:20%;border:1px solid #000;padding:8px;text-align:center;vertical-align:middle;">
+          <img src="${LOGO_MA}" style="width:76px;height:76px;object-fit:contain;mix-blend-mode:multiply;border-radius:50%;">
         </td>
-        <td style="border:1px solid #000;padding:8px;text-align:center;vertical-align:middle;">
-          <div style="font-size:13px;font-weight:900;letter-spacing:.5px;line-height:1.5;">
+        <td style="border:1px solid #000;padding:10px;text-align:center;vertical-align:middle;">
+          <div style="font-size:14px;font-weight:900;letter-spacing:.5px;line-height:1.6;">
             DIREKTORAT JENDERAL<br>BADAN PERADILAN AGAMA<br>MAHKAMAH AGUNG RI
           </div>
-          ${f.eselon3?`<div style="font-size:10px;margin-top:4px;">${esc2(f.eselon3)}</div>`:''}
-          <div style="font-size:9px;margin-top:3px;color:#444;">${esc2(f.alamat||'')}</div>
+          ${f.eselon3?`<div style="font-size:11px;margin-top:4px;">${esc2(f.eselon3)}</div>`:''}
+          <div style="font-size:10px;margin-top:3px;color:#444;">${esc2(f.alamat||'')}</div>
         </td>
       </tr>
     </table>
 
     <!-- IDENTITAS SOP -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:3px;font-size:9px;">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:4px;font-size:10px;">
       <tr>
-        <td style="border:1px solid #000;padding:3px 6px;width:50%;vertical-align:top;">
+        <td style="border:1px solid #000;padding:4px 7px;width:50%;vertical-align:top;">
           <div><b>Nomor SOP</b> : ${esc2(f.nomorSOP||'—')}</div>
           <div><b>Nama SOP</b>  : ${esc2(f.namaSOP||'—')}</div>
           <div><b>Unit E-III</b>: ${esc2(f.eselon3||'—')}</div>
           <div><b>Unit E-IV</b> : ${esc2(f.eselon4||'—')}</div>
         </td>
-        <td style="border:1px solid #000;padding:3px 6px;vertical-align:top;">
+        <td style="border:1px solid #000;padding:4px 7px;vertical-align:top;">
           <div><b>Tgl Pembuatan</b> : ${fmt(f.tglPembuatan)}</div>
           <div><b>Tgl Revisi</b>    : ${fmt(f.tglRevisi)}</div>
           <div><b>Tgl Efektif</b>   : ${fmt(f.tglEfektif)}</div>
