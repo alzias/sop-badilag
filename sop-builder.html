@@ -1539,32 +1539,32 @@ function exportDocPDF() {
   // ── Halaman 1: Header + Info ──
   let h1 = '';
 
-  // Header MA
-  h1 += `<table class="tbl" style="margin-bottom:0;">
+  // Header MA - border tunggal
+  h1 += `<table class="tbl" style="margin-bottom:0;border:2px solid #000;">
     <tr>
-      <td style="width:22%;text-align:center;padding:10px;vertical-align:middle;">
-        <img src="${LOGO_MA}" style="width:80px;height:80px;object-fit:contain;">
+      <td style="width:20%;border:none;border-right:2px solid #000;padding:12px 8px;text-align:center;vertical-align:middle;">
+        <img src="${LOGO_MA}" style="width:90px;height:90px;object-fit:contain;">
       </td>
-      <td style="text-align:center;padding:10px;vertical-align:middle;">
-        <div style="font-size:15pt;font-weight:900;line-height:1.6;letter-spacing:.3px;">
+      <td style="border:none;padding:12px;text-align:center;vertical-align:middle;">
+        <div style="font-size:16pt;font-weight:900;line-height:1.7;letter-spacing:.5px;">
           DIREKTORAT JENDERAL<br>BADAN PERADILAN AGAMA<br>MAHKAMAH AGUNG RI
         </div>
-        <div style="font-size:10pt;margin-top:4px;">${esc(f.eselon3||'')}</div>
-        <div style="font-size:9pt;color:#333;margin-top:2px;">${esc(f.alamat||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat')}</div>
+        <div style="font-size:11pt;margin-top:5px;">${esc(f.eselon3||'')}</div>
+        <div style="font-size:9pt;margin-top:3px;color:#333;">${esc(f.alamat||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat')}</div>
       </td>
     </tr>
   </table>`;
 
   // Identitas SOP
-  h1 += `<table class="tbl" style="margin-top:-1px;">
+  h1 += `<table class="tbl" style="margin-top:-2px;">
     <tr>
-      <td style="width:50%;padding:6px 8px;vertical-align:top;">
+      <td style="width:55%;padding:6px 8px;vertical-align:top;font-size:10pt;">
         <div><b>Nomor SOP</b> : ${esc(f.nomorSOP||'—')}</div>
         <div><b>Nama SOP</b>  : ${esc(f.namaSOP||'—')}</div>
         <div><b>Unit E-III</b>: ${esc(f.eselon3||'—')}</div>
         <div><b>Unit E-IV</b> : ${esc(f.eselon4||'—')}</div>
       </td>
-      <td style="padding:6px 8px;vertical-align:top;">
+      <td style="padding:6px 8px;vertical-align:top;font-size:10pt;">
         <div><b>Tgl Pembuatan</b> : ${fmtDate(f.tglPembuatan)}</div>
         <div><b>Tgl Revisi</b>    : ${fmtDate(f.tglRevisi)}</div>
         <div><b>Tgl Efektif</b>   : ${fmtDate(f.tglEfektif)}</div>
@@ -1573,22 +1573,17 @@ function exportDocPDF() {
     </tr>
   </table>`;
 
-  // Helper tabel info 1 kolom
-  function secBlock(title, items) {
-    if (!items.length) return '';
-    let rows = items.map((x,i) => `<tr><td style="width:28px;padding:4px 6px;">${i+1}.</td><td style="padding:4px 6px;">${esc(x)}</td></tr>`).join('');
-    return `<table class="tbl" style="margin-top:-1px;">
-      <tr><th colspan="2" style="text-align:left;padding:5px 7px;background:#f5f5f5;font-size:10pt;">${title}</th></tr>
-      ${rows}
-    </table>`;
-  }
-
-  // Tabel info 3x2 (Dasar Hukum + Kualifikasi | Keterkaitan + Peralatan | Peringatan + Pencatatan)
+  // Helper tabel info 2 kolom
   function sec2col(t1,items1,t2,items2) {
     function col(title, items) {
-      if (!items.length) return `<td style="padding:0;border:none;vertical-align:top;width:50%;"><table class="tbl" style="width:100%;"><tr><th style="text-align:left;padding:5px 7px;background:#f5f5f5;">${title}</th></tr><tr><td style="padding:4px 6px;">—</td></tr></table></td>`;
-      let rows = items.map((x,i) => `<tr><td style="width:24px;padding:3px 5px;">${i+1}.</td><td style="padding:3px 5px;">${esc(x)}</td></tr>`).join('');
-      return `<td style="padding:0;border:none;vertical-align:top;width:50%;"><table class="tbl" style="width:100%;margin-top:-1px;"><tr><th colspan="2" style="text-align:left;padding:5px 7px;background:#f5f5f5;">${title}</th></tr>${rows}</table></td>`;
+      const rows = items.length
+        ? items.map((x,i) => `<tr><td style="width:26px;padding:4px 5px;font-size:9.5pt;">${i+1}.</td><td style="padding:4px 6px;font-size:9.5pt;">${esc(x)}</td></tr>`).join('')
+        : `<tr><td colspan="2" style="padding:4px 6px;font-size:9.5pt;">—</td></tr>`;
+      return `<td style="padding:0;border:none;vertical-align:top;width:50%;">
+        <table class="tbl" style="width:100%;margin-top:-1px;">
+          <tr><th colspan="2" style="text-align:left;padding:5px 8px;background:#f0f0f0;font-size:10pt;">${title}</th></tr>
+          ${rows}
+        </table></td>`;
     }
     return `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;"><tr>${col(t1,items1)}${col(t2,items2)}</tr></table>`;
   }
@@ -1640,16 +1635,135 @@ function exportDocPDF() {
     </tbody>
   </table>`;
 
-  // ── Halaman 3: Flowchart ──
-  const svgEl = document.querySelector('#previewPanel svg');
+  // ── Halaman 3: Flowchart — generate dari data (bukan dari DOM) ──
   let h3 = '';
-  if (svgEl) {
-    h3 = `<div style="text-align:center;font-weight:700;font-size:11pt;margin-bottom:12px;">
-      FLOWCHART PROSES — ${esc(f.namaSOP||'SOP')}
-    </div>
-    <div style="display:flex;justify-content:center;">
-      ${svgEl.outerHTML.replace(/width="[^"]*"/, 'width="100%"').replace(/height="[^"]*"/, 'height="auto"')}
-    </div>`;
+  if (f.pelaksana && f.pelaksana.length && f.langkah && f.langkah.length) {
+    // Generate SVG flowchart dengan ukuran besar untuk print
+    const pelFlow = (f.pelaksana||[]).filter(p=>p);
+    const lkFlow  = (f.langkah||[]).filter(l=>l&&l.aktivitas);
+    if (pelFlow.length && lkFlow.length) {
+      // Dimensi landscape A4: ~780 x 500 pt usable
+      const nPelF  = pelFlow.length;
+      const COL_WF = Math.max(120, Math.floor(760 / nPelF));
+      const BOX_WF = COL_WF - 24;
+      const BOX_HF = 60;
+      const ROW_HF = 95;
+      const PAD_XF = 20;
+      const PAD_YF = 50;
+      const totW   = PAD_XF*2 + nPelF * COL_WF;
+      const totH   = PAD_YF + 60 + lkFlow.length * ROW_HF + 90;
+      const colCXF = pi => PAD_XF + pi*COL_WF + COL_WF/2;
+      const rowYF  = i  => PAD_YF + 60 + i * ROW_HF;
+      const COLORS_F = [
+        {fill:'#dbeafe',stroke:'#3b82f6',text:'#1e3a8a'},
+        {fill:'#d1fae5',stroke:'#10b981',text:'#065f46'},
+        {fill:'#fef3c7',stroke:'#f59e0b',text:'#78350f'},
+        {fill:'#fce7f3',stroke:'#ec4899',text:'#831843'},
+        {fill:'#ede9fe',stroke:'#8b5cf6',text:'#4c1d95'},
+      ];
+
+      let svgF = `<svg xmlns="http://www.w3.org/2000/svg" width="${totW}" height="${totH}" viewBox="0 0 ${totW} ${totH}" style="max-width:100%;height:auto;font-family:Arial,sans-serif;">
+        <defs>
+          <marker id="arrF" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+            <path d="M0,0 L0,8 L10,4 z" fill="#555"/>
+          </marker>
+          <filter id="shF" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/>
+          </filter>
+        </defs>`;
+
+      // Header kolom
+      pelFlow.forEach((p,pi) => {
+        const cx = colCXF(pi);
+        const col = COLORS_F[pi % COLORS_F.length];
+        svgF += `<rect x="${PAD_XF + pi*COL_WF}" y="${PAD_YF}" width="${COL_WF}" height="44"
+          fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.2"/>`;
+        const words = p.split(' ');
+        const line1 = words.slice(0, Math.ceil(words.length/2)).join(' ');
+        const line2 = words.slice(Math.ceil(words.length/2)).join(' ');
+        svgF += `<text x="${cx}" y="${PAD_YF+16}" text-anchor="middle" font-size="11" font-weight="700" fill="${col.text}">${line1}</text>`;
+        if (line2) svgF += `<text x="${cx}" y="${PAD_YF+30}" text-anchor="middle" font-size="11" font-weight="700" fill="${col.text}">${line2}</text>`;
+      });
+
+      // MULAI
+      const startPi = Math.min(lkFlow[0].pelaksana||0, nPelF-1);
+      const startCX = colCXF(startPi);
+      svgF += `<rect x="${startCX-36}" y="${PAD_YF+44}" width="72" height="22" rx="11" fill="#1f2937"/>
+        <text x="${startCX}" y="${PAD_YF+59}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">MULAI</text>
+        <line x1="${startCX}" y1="${PAD_YF+66}" x2="${startCX}" y2="${rowYF(0)-2}" stroke="#555" stroke-width="1.5" marker-end="url(#arrF)"/>`;
+
+      // Langkah
+      lkFlow.forEach((l, i) => {
+        const pelArr = Array.isArray(l.pelaksana) ? l.pelaksana : [l.pelaksana||0];
+        const pi0    = Math.min(pelArr[0]||0, nPelF-1);
+        const cx     = colCXF(pi0);
+        const cy     = rowYF(i);
+        const col    = COLORS_F[pi0 % COLORS_F.length];
+
+        svgF += `<rect x="${cx-BOX_WF/2}" y="${cy}" width="${BOX_WF}" height="${BOX_HF}"
+          rx="8" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5" filter="url(#shF)"/>`;
+        svgF += `<circle cx="${cx-BOX_WF/2+14}" cy="${cy+14}" r="11" fill="${col.stroke}"/>`;
+        svgF += `<text x="${cx-BOX_WF/2+14}" y="${cy+18}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">${i+1}</text>`;
+
+        // Teks aktivitas - wrap 3 baris
+        const words = l.aktivitas.split(' ');
+        const baris1 = words.slice(0, Math.ceil(words.length/3)).join(' ');
+        const baris2 = words.slice(Math.ceil(words.length/3), Math.ceil(words.length*2/3)).join(' ');
+        const baris3 = words.slice(Math.ceil(words.length*2/3)).join(' ');
+        svgF += `<text x="${cx}" y="${cy+22}" text-anchor="middle" font-size="9" fill="${col.text}">${baris1}</text>`;
+        if (baris2) svgF += `<text x="${cx}" y="${cy+33}" text-anchor="middle" font-size="9" fill="${col.text}">${baris2}</text>`;
+        if (baris3) svgF += `<text x="${cx}" y="${cy+44}" text-anchor="middle" font-size="9" fill="${col.text}">${baris3}</text>`;
+        if (l.waktu) svgF += `<text x="${cx}" y="${cy+56}" text-anchor="middle" font-size="8" fill="${col.stroke}">⏱ ${l.waktu}</text>`;
+
+        // Multi-pelaksana koordinasi
+        pelArr.slice(1).forEach(epi0 => {
+          const epi = Math.min(epi0||0, nPelF-1);
+          if (epi === pi0) return;
+          const ecx = colCXF(epi);
+          const ecol= COLORS_F[epi % COLORS_F.length];
+          svgF += `<rect x="${ecx-BOX_WF/2}" y="${cy}" width="${BOX_WF}" height="${BOX_HF}"
+            rx="8" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.5" stroke-dasharray="6,3"/>`;
+          svgF += `<text x="${ecx}" y="${cy-6}" text-anchor="middle" font-size="8" fill="${ecol.stroke}" font-style="italic">koordinasi</text>`;
+          const lx1 = pi0 < epi ? cx+BOX_WF/2 : cx-BOX_WF/2;
+          const lx2 = pi0 < epi ? ecx-BOX_WF/2 : ecx+BOX_WF/2;
+          svgF += `<line x1="${lx1}" y1="${cy+BOX_HF/2}" x2="${lx2}" y2="${cy+BOX_HF/2}"
+            stroke="${ecol.stroke}" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arrF)"/>`;
+        });
+
+        // Panah ke langkah berikut
+        if (i < lkFlow.length - 1) {
+          const nextPi = Math.min((lkFlow[i+1].pelaksana||0), nPelF-1);
+          const nextArr = Array.isArray(lkFlow[i+1].pelaksana)?lkFlow[i+1].pelaksana:[lkFlow[i+1].pelaksana||0];
+          const npi0 = Math.min(nextArr[0]||0, nPelF-1);
+          const ncx  = colCXF(npi0);
+          const ncy  = rowYF(i+1);
+          if (Math.abs(cx - ncx) < 5) {
+            svgF += `<line x1="${cx}" y1="${cy+BOX_HF}" x2="${cx}" y2="${ncy-2}" stroke="#555" stroke-width="1.5" marker-end="url(#arrF)"/>`;
+          } else {
+            const midY = cy + BOX_HF + (ncy - cy - BOX_HF)/2;
+            svgF += `<path d="M ${cx} ${cy+BOX_HF} L ${cx} ${midY} L ${ncx} ${midY} L ${ncx} ${ncy-2}"
+              fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arrF)"/>`;
+          }
+        }
+      });
+
+      // SELESAI
+      const lastPi = Math.min((lkFlow[lkFlow.length-1].pelaksana||0), nPelF-1);
+      const lastCX = colCXF(lastPi);
+      const endY   = rowYF(lkFlow.length) + 14;
+      svgF += `<polygon points="${lastCX-38},${endY-14} ${lastCX+38},${endY-14} ${lastCX+38},${endY+4} ${lastCX},${endY+18} ${lastCX-38},${endY+4}"
+        fill="#1f2937"/>
+        <text x="${lastCX}" y="${endY+6}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">SELESAI</text>`;
+
+      svgF += '</svg>';
+
+      h3 = `<div style="text-align:center;font-weight:700;font-size:11pt;margin-bottom:14px;">
+        FLOWCHART PROSES — ${esc(f.namaSOP||'SOP')}
+      </div>
+      <div style="display:flex;justify-content:center;overflow:visible;">
+        ${svgF}
+      </div>`;
+    }
   }
 
   // ── Footnote BSrE ──
