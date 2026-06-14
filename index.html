@@ -4952,10 +4952,8 @@ async function openVerifikasiTTEPanel(sopId) {
   // Download
   h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
   h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:8px;">UNDUH DOKUMEN SOP</div>';
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  h += '<button onclick="exportTTEWord(\''+sopId+'\')" style="padding:9px;background:rgba(29,78,216,.12);border:1px solid rgba(29,78,216,.25);color:#7b9fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Word</button>';
-  h += '<button onclick="exportTTEPDF(\''+sopId+'\')" style="padding:9px;background:rgba(185,28,28,.12);border:1px solid rgba(185,28,28,.25);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 PDF</button>';
-  h += '</div></div>';
+  h += '<button onclick="openSOPBuilderForExport(\''+sopId+'\')" style="width:100%;padding:10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📄 Buka Dokumen SOP & Export</button>';
+  h += '</div>';
   // Link Drive SOP Final
   h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
   h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:6px;">LINK FINAL UNTUK DOKUMEN SOP</div>';
@@ -5191,10 +5189,8 @@ async function openTTEPanel(sopId) {
   // Download
   h += '<div style="border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:12px;">';
   h += '<div style="font-size:10px;font-weight:700;color:var(--mu);letter-spacing:.8px;margin-bottom:8px;">UNDUH DOKUMEN SOP</div>';
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  h += '<button onclick="exportTTEWord(\''+sopId+'\')" style="padding:9px;background:rgba(29,78,216,.12);border:1px solid rgba(29,78,216,.25);color:#7b9fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📄 Word</button>';
-  h += '<button onclick="exportTTEPDF(\''+sopId+'\')" style="padding:9px;background:rgba(185,28,28,.12);border:1px solid rgba(185,28,28,.25);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">📑 PDF</button>';
-  h += '</div></div>';
+  h += '<button onclick="openSOPBuilderForExport(\''+sopId+'\')" style="width:100%;padding:10px;background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.25);color:var(--cyan);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📄 Buka Dokumen SOP & Export</button>';
+  h += '</div>';
   // Upload TTE
   h += '<div style="border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 14px;">';
   h += '<div style="font-size:10px;font-weight:700;color:#38bdf8;letter-spacing:.8px;margin-bottom:8px;">UPLOAD DOKUMEN TTE</div>';
@@ -5288,8 +5284,31 @@ function _exportViaBuilder(sopId, format) {
   }, 5000);
 }
 
-async function exportTTEWord(sopId) { _exportViaBuilder(sopId, 'word'); }
-async function exportTTEPDF(sopId)  { _exportViaBuilder(sopId, 'pdf');  }
+// ── Buka Builder di tab baru untuk export Word/PDF ──
+// Data SOP sudah tersimpan di sessionStorage, Builder langsung tampil Preview
+function openSOPBuilderForExport(sopId) {
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('SOP tidak ditemukan','err'); return; }
+
+  // Simpan SOP ke sessionStorage — Builder akan baca ini saat load
+  try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
+
+  // Buka Builder di tab baru dengan mode=preview
+  // Builder otomatis load data dari sessionStorage → tab Preview Dokumen → tersedia tombol Export
+  var params = new URLSearchParams({
+    mode  : 'preview',
+    nip   : sop.createdByNIP || sop.dibuatOleh || '',
+    nama  : sop.createdBy    || sop.namaPembuat || '',
+    deptId: sop.deptId       || ''
+  });
+  var url = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
+  window.open(url, '_blank');
+  toast('📄 Builder terbuka di tab baru — gunakan tombol Export Word/PDF di sana');
+}
+
+// ── Fungsi lama (dipertahankan untuk kompatibilitas) ──
+async function exportTTEWord(sopId) { openSOPBuilderForExport(sopId); }
+async function exportTTEPDF(sopId)  { openSOPBuilderForExport(sopId); }
 
 
 
