@@ -5005,23 +5005,11 @@ async function aktivasiSOP(sopId, tindakan) {
   sop.adminAktivasiNip=S.user?S.user.nip:''; sop.adminAktivasiNama=S.user?S.user.name:'';
   await fbSaveSOP(sop);
 
-  // Buat drive entry yang benar untuk SOPI
-  var existDr = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId); });
-  var driveObj = {
-    id          : existDr ? existDr.id : 'dr_sop_'+(sop.id||sop.draftId||Date.now()),
-    sopDraftId  : sop.id||sop.draftId||'',
-    deptId      : sop.deptId||'',
-    eselon2Id   : sop.eselon2Id||'',
-    eselon3Id   : sop.eselon3Id||'',
-    title       : sop.namaSOP||sop.judul||'',
-    nomor       : sop.nomorSOP||sop.nomorDokumen||'',
-    tanggal     : sop.tglEfektif||sop.tglPembuatan||new Date().toISOString().slice(0,10),
-    status      : 'Aktif',
-    link        : urlFinal,
-    linkFinal   : urlFinal,
-    desc        : sop.deskripsi||(sop.namaSOP||sop.judul||''),
-    content     : kontenTeks,
-  };
+  // Buat drive entry LENGKAP via buildDriveFromSOP (field sama dengan manual)
+  sop.content = kontenTeks;
+  var driveObj = buildDriveFromSOP(sop, kontenTeks);
+  driveObj.link = urlFinal; driveObj.linkFinal = urlFinal;
+  var existDr = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveObj.id; });
   if (existDr) { Object.assign(existDr, driveObj); } else { S.drives.push(driveObj); }
   await fbSaveDrive(driveObj);
   // Reload S.drives
@@ -5169,18 +5157,10 @@ function generateKontenTeks(sop) {
 async function fbSaveDrive(sop, kontenTeks) {
   if (!db) return false;
   try {
-    var driveData = {
-      id:sop.id||sop.draftId, draftId:sop.draftId||sop.id,
-      namaSOP:sop.namaSOP||sop.judul||'', nomorSOP:sop.nomorSOP||sop.nomorDokumen||'',
-      eselon3:sop.eselon3||'', eselon4:sop.unitEselon4||sop.eselon4||'',
-      deptId:sop.deptId||sop.unitEselon4Id||'',
-      urlTTE:sop.urlTTE||sop.urlPDFSigned||'',
-      tglAktif:new Date().toISOString(), tglEfektif:sop.tglEfektif||'',
-      disahkanOleh:sop.disahkanOleh||'', approverE2Nama:sop.approverE2Nama||'',
-      createdBy:sop.createdBy||sop.namaPembuat||'',
-      createdByNIP:sop.createdByNIP||sop.dibuatOleh||'',
-      kontenTeks:kontenTeks, updatedAt:new Date().toISOString()
-    };
+    // Gunakan buildDriveFromSOP untuk konsistensi field dengan manual
+    var driveData = buildDriveFromSOP(sop, kontenTeks);
+    var urlF = sop.urlTTE || sop.urlPDFSigned || '';
+    driveData.link = urlF; driveData.linkFinal = urlF;
     await db.collection('drives').doc(driveData.id).set(driveData);
     return true;
   } catch(e) { console.error('fbSaveDrive error:',e); return false; }
@@ -5299,6 +5279,84 @@ async function submitTTE(sopId) {
   updateInboxBadge();
 }
 // expose ke global scope (insurance untuk onclick di innerHTML)
+// ══════════════════════════════════════════════════════════════
+// buildDriveFromSOP — menghasilkan driveData lengkap dari SOP Builder
+// Field SAMA dengan format manual (saveDrive) agar SOPI bisa baca
+// ══════════════════════════════════════════════════════════════
+function buildDriveFromSOP(sop, kontenTeks) {
+  // Normalisasi field Builder → string
+  var norm = normalizeBuilderFields(sop);
+
+  // Resolve eselon info dari ESELON2/ESELON3/ESELON4 arrays
+  var e2obj  = ESELON2.find(function(e){ return e.id === sop.eselon2Id || e.id === sop.e2TargetId; }) || null;
+  var e3obj  = ESELON3 ? ESELON3.find(function(e){ return e.id === sop.eselon3Id; }) : null;
+  var e4obj  = ESELON4 ? ESELON4.find(function(e){ return e.id === sop.eselon4Id; }) : null;
+
+  // Fallback ke string dari SOP langsung
+  var e2Name = (e2obj && e2obj.name)  || sop.eselon2   || '';
+  var e3Name = (e3obj && e3obj.nama)  || sop.eselon3   || norm.eselon3 || '';
+  var e4Name = (e4obj && e4obj.nama)  || sop.eselon4   || norm.unitEselon4 || sop.unitEselon4 || '';
+
+  // Resolve deptId — cari dari S.depts berdasarkan nama unit E4 atau E3
+  var deptId = sop.deptId || '';
+  if (!deptId && e4Name) {
+    var deptMatch = S.depts.find(function(d){
+      return d.name.toLowerCase() === e4Name.toLowerCase();
+    });
+    if (deptMatch) deptId = deptMatch.id;
+  }
+  if (!deptId && e3Name) {
+    var deptMatch3 = S.depts.find(function(d){
+      return d.name.toLowerCase() === e3Name.toLowerCase();
+    });
+    if (deptMatch3) deptId = deptMatch3.id;
+  }
+
+  // Cek apakah sudah ada drive entry untuk SOP ini
+  var existingDrive = S.drives.find(function(d){
+    return d.sopDraftId === (sop.id||sop.draftId) || d.id === (sop.id||sop.draftId);
+  });
+
+  var urlFinal = sop.urlTTE || sop.urlPDFSigned || '';
+  var teks     = kontenTeks || generateKontenTeks(sop);
+
+  return {
+    // ── ID ──
+    id          : existingDrive ? existingDrive.id : ('dr_' + (sop.id||sop.draftId||Date.now())),
+    sopDraftId  : sop.id || sop.draftId || '',
+
+    // ── Field WAJIB yang dibaca SOPI & tampil di Dokumen SOP ──
+    title       : norm.namaSOP || sop.namaSOP || sop.judul || '',
+    nomor       : norm.nomorSOP || sop.nomorSOP || sop.nomorDokumen || '',
+    tanggal     : sop.tglEfektif || sop.tglPembuatan || new Date().toISOString().slice(0,10),
+    status      : 'Aktif',
+    desc        : sop.deskripsi || norm.namaSOP || '',
+    content     : teks,          // ← FIELD UTAMA UNTUK SOPI (d.content)
+
+    // ── Link PDF (sama dengan TTE) ──
+    link        : urlFinal,      // Link folder (sama dengan PDF final untuk SOP Builder)
+    linkFinal   : urlFinal,      // Link PDF final ★ untuk SOPI & publik
+
+    // ── Hierarki unit ──
+    eselon1     : 'Direktorat Jenderal Badan Peradilan Agama MA RI',
+    eselon2     : e2Name,
+    eselon2Id   : sop.eselon2Id || sop.e2TargetId || '',
+    eselon3     : e3Name,
+    eselon3Id   : sop.eselon3Id || '',
+    eselon4     : e4Name,
+    eselon4Id   : sop.eselon4Id || '',
+    deptId      : deptId,
+
+    // ── Metadata ──
+    disahkanOleh  : sop.disahkanOleh || norm.disahkanOleh || '',
+    approverE2Nama: sop.approverE2Nama || '',
+    createdBy     : sop.createdBy || sop.namaPembuat || '',
+    createdByNIP  : sop.createdByNIP || sop.dibuatOleh || '',
+    tuAdminNama   : sop.tuAdminNama || '',
+    updatedAt     : new Date().toISOString(),
+  };
+}
+
 window.submitTTE           = submitTTE;
 window.openTTEPanel        = openTTEPanel;
 window.openVerifikasiTTEPanel = openVerifikasiTTEPanel;
@@ -5350,34 +5408,12 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
   sop.adminAktivasiNama = S.user ? S.user.name : '';
   await fbSaveSOP(sop);
 
-  // ── Buat/update entry di S.drives (Dokumen SOP) ──
-  // Cek apakah sudah ada entry drives untuk SOP ini
-  var existingDrive = S.drives.find(function(d){
-    return d.sopDraftId === sopId || d.sopDraftId === (sop.draftId||sop.id);
-  });
-
-  var driveData = {
-    id           : existingDrive ? existingDrive.id : 'dr_sop_' + (sop.id||sop.draftId||Date.now()),
-    sopDraftId   : sop.id || sop.draftId || '',
-    deptId       : sop.deptId || '',
-    eselon2Id    : sop.eselon2Id || '',
-    eselon3Id    : sop.eselon3Id || '',
-    title        : sop.namaSOP || sop.judul || '',
-    nomor        : sop.nomorSOP || sop.nomorDokumen || '',
-    tanggal      : sop.tglEfektif || sop.tglPembuatan || new Date().toISOString().slice(0,10),
-    status       : 'Aktif',
-    link         : urlDrive,      // Link folder/PDF utama
-    linkFinal    : urlDrive,      // Link PDF final (sama dengan TTE)
-    desc         : sop.deskripsi || (sop.namaSOP||sop.judul||''),
-    content      : kontenTeks,    // ← KONTEN UNTUK SOPI — field yang dibaca AI
-  };
-
-  // Update atau tambah ke S.drives
-  if (existingDrive) {
-    Object.assign(existingDrive, driveData);
-  } else {
-    S.drives.push(driveData);
-  }
+  // Buat drive entry LENGKAP via buildDriveFromSOP
+  sop.content = kontenTeks;
+  var driveData = buildDriveFromSOP(sop, kontenTeks);
+  driveData.link = urlDrive; driveData.linkFinal = urlDrive;
+  var existingDrive = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveData.id; });
+  if (existingDrive) { Object.assign(existingDrive, driveData); } else { S.drives.push(driveData); }
   await fbSaveDrive(driveData); // fbSaveDrive hanya butuh 1 arg (object)
 
   // Reload drives dari Firestore
