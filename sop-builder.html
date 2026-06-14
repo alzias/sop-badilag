@@ -546,15 +546,21 @@ function readURLContext() {
     }, 100);
   }
 
-  // ── Mode Preview: load data SOP dari sessionStorage langsung ke tab Preview ──
+  // ── Mode Preview / Export: load data SOP dari sessionStorage ──
   if (mode === 'preview') {
-    // Tambah class ke body agar CSS preview-mode aktif
     document.body.classList.add('preview-mode');
+
+    var autoExportMode = p.get('autoExport') || '';
 
     try {
       var raw = sessionStorage.getItem('sopi_preview_sop');
       if (raw) {
         var sop = JSON.parse(raw);
+        function toArr(val, fallback) {
+          if (Array.isArray(val)) return val;
+          if (val) return [val];
+          return fallback || [''];
+        }
         var mapped = {
           nomorSOP    : sop.nomorSOP    || sop.nomorDokumen || '',
           namaSOP     : sop.namaSOP     || sop.judul        || '',
@@ -567,24 +573,52 @@ function readURLContext() {
           tglEfektif  : sop.tglEfektif  || '',
           disahkanOleh: sop.disahkanOleh|| '',
           deskripsi   : sop.deskripsi   || '',
-          dasarHukum  : Array.isArray(sop.dasarHukum) ? sop.dasarHukum : (sop.dasarHukum ? [sop.dasarHukum] : ['']),
-          kualifikasiPelaksana: Array.isArray(sop.kualifikasiPelaksana) ? sop.kualifikasiPelaksana : [sop.kualifikasiPelaksana||sop.kualifikasi||''],
-          keterkaitan : Array.isArray(sop.keterkaitan) ? sop.keterkaitan : [sop.keterkaitan||''],
-          peralatan   : Array.isArray(sop.peralatan)   ? sop.peralatan   : [sop.peralatan||''],
-          peringatan  : Array.isArray(sop.peringatan)  ? sop.peringatan  : [sop.peringatan||''],
-          pencatatan  : Array.isArray(sop.pencatatan)  ? sop.pencatatan  : [sop.pencatatan||''],
-          pelaksana   : Array.isArray(sop.pelaksana)   ? sop.pelaksana   : [],
-          langkah     : Array.isArray(sop.langkah)     ? sop.langkah     : [],
+          dasarHukum  : toArr(sop.dasarHukum),
+          kualifikasiPelaksana: toArr(sop.kualifikasiPelaksana || sop.kualifikasi),
+          keterkaitan : toArr(sop.keterkaitan),
+          peralatan   : toArr(sop.peralatan),
+          peringatan  : toArr(sop.peringatan),
+          pencatatan  : toArr(sop.pencatatan),
+          pelaksana   : Array.isArray(sop.pelaksana) ? sop.pelaksana : [],
+          langkah     : Array.isArray(sop.langkah)   ? sop.langkah   : [],
         };
         state.form = Object.assign({}, state.form, mapped);
-        // Buka langsung ke tab Preview Dokumen setelah render
-        setTimeout(function() {
-          setTab(1);
-          // Beritahu SOPI bahwa preview sudah siap
-          try { window.parent.postMessage({type:'PREVIEW_READY'}, '*'); } catch(e){}
-        }, 300);
+
+        if (autoExportMode === 'word') {
+          // Export Word: render tab preview dulu, lalu export
+          setTimeout(function() {
+            setTab(1);
+            // Tunggu render selesai baru export
+            setTimeout(function() {
+              exportToWord();
+              // Beritahu parent setelah export selesai (estimasi 5 detik)
+              setTimeout(function() {
+                try { window.parent.postMessage({type:'EXPORT_DONE',format:'word'}, '*'); } catch(e){}
+              }, 5000);
+            }, 1500);
+          }, 600);
+        } else if (autoExportMode === 'pdf') {
+          // Export PDF: render tab preview dulu, lalu export
+          setTimeout(function() {
+            setTab(1);
+            // Tunggu render selesai baru export
+            setTimeout(function() {
+              exportDocPDF();
+              // Beritahu parent setelah export selesai (estimasi 8 detik)
+              setTimeout(function() {
+                try { window.parent.postMessage({type:'EXPORT_DONE',format:'pdf'}, '*'); } catch(e){}
+              }, 8000);
+            }, 1800);
+          }, 600);
+        } else {
+          // Mode preview normal
+          setTimeout(function() {
+            setTab(1);
+            try { window.parent.postMessage({type:'PREVIEW_READY'}, '*'); } catch(e){}
+          }, 300);
+        }
       }
-    } catch(e) { console.warn('Preview load error:', e); }
+    } catch(e) { console.warn('Preview/export load error:', e); }
   }
 }
 
@@ -1375,7 +1409,13 @@ async function exportToWord() {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = (f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-') + ' - ' + (f.namaSOP||'SOP').slice(0,50) + '.docx';
+    var tglEfStr = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+    var nomorCl  = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+    var namaCl   = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
+    var tglEf = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+    var noCl = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+    var nmCl = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
+    a.download = noCl + (tglEf?'_'+tglEf:'') + '_' + nmCl + '.docx';
     a.click();
     URL.revokeObjectURL(url);
     toast('✅ File Word berhasil diunduh!');
@@ -1472,7 +1512,10 @@ function exportDocPDF() {
   if (!element) { toast('Buka tab Preview Dokumen terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
-  const filename = ((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40)+' - '+(f.namaSOP||'SOP').slice(0,30)+'.pdf');
+  var tglEfStrP = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+  var nomorClP  = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+  var namaClP   = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
+  const filename = nomorClP + (tglEfStrP?'_'+tglEfStrP:'') + '_' + namaClP + '.pdf';
   toast('⏳ Membuat PDF dokumen...');
 
   // Buat wrapper untuk PDF — clone preview + inject TTE & Footnote
@@ -1519,7 +1562,10 @@ function exportFlowPDF() {
   wrapper.innerHTML = `<div style="text-align:center;font-family:Arial;font-size:12px;font-weight:700;margin-bottom:8px;">FLOWCHART — ${(f.namaSOP||'SOP').toUpperCase()}</div>`;
   wrapper.appendChild(svgEl.cloneNode(true));
   document.body.appendChild(wrapper);
-  const filename = 'Flowchart - '+((f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40))+'.pdf';
+  var tglEfP = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+  var noClP = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+  var nmClP = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
+  const filename = noClP + (tglEfP?'_'+tglEfP:'') + '_' + nmClP + '.pdf';
   toast('⏳ Membuat PDF flowchart...');
   html2pdf().set({
     margin:[5,5,5,5], filename,
