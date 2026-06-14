@@ -5277,8 +5277,88 @@ async function submitTTE(sopId) {
   updateInboxBadge();
 }
 // expose ke global scope (insurance untuk onclick di innerHTML)
-window.submitTTE    = submitTTE;
-window.openTTEPanel = openTTEPanel;
+window.submitTTE           = submitTTE;
+window.openTTEPanel        = openTTEPanel;
+window.openVerifikasiTTEPanel = openVerifikasiTTEPanel;
+window.aktivasiSOP         = aktivasiSOP;
+
+// ── aktivasiSOPDirect — langsung aktifkan/kembalikan dari Manage SOP tanpa buka panel ──
+window.aktivasiSOPDirect = async function(sopId, tindakan) {
+  if (!_sopLoaded) await fbLoadSOPs();
+  var sop = _sopDrafts.find(function(s){ return s.id===sopId||s.draftId===sopId; });
+  if (!sop) { toast('⚠ SOP tidak ditemukan','err'); return; }
+
+  if (tindakan === 'kembalikan') {
+    if (!confirm('Kembalikan TTE ke TU Admin SOP untuk upload ulang?')) return;
+    sop.status = 'pending_tte';
+    sop.catatanTTE = 'TTE dikembalikan oleh Admin SOP dari panel Manage SOP';
+    await fbSaveSOP(sop);
+    var tuAdmin = S.emps.find(function(e){ return e.role==='tu_admin_sop'; });
+    if (tuAdmin && tuAdmin.email) {
+      fetch(WORKER_URL+'/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'sendEmail',toEmail:tuAdmin.email,
+          subject:'↩️ TTE Dikembalikan — Upload Ulang: '+(sop.namaSOP||''),
+          userName:tuAdmin.name||'TU Admin SOP',
+          tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+          topics:['TTE dikembalikan dari panel Admin, silakan upload ulang','SOP: '+(sop.namaSOP||sop.judul||'')],
+          sopList:[{title:sop.namaSOP||sop.judul||'',unit:sop.unitEselon4||'',linkFinal:''}]
+        })
+      }).catch(function(){});
+    }
+    toast('↩️ TTE dikembalikan ke TU Admin SOP');
+    fbLoadSOPs().then(function(){ renderAdmin(); updateInboxBadge(); if(window._updateSOPAdminBadge) window._updateSOPAdminBadge(); });
+    return;
+  }
+
+  // ── AKTIFKAN — auto ambil urlTTE, generate konten SOPI ──
+  if (!confirm('Aktifkan SOP "'+( sop.namaSOP||sop.judul||'')+'"? Pastikan dokumen TTE sudah benar.')) return;
+
+  var urlDrive = sop.urlTTE || sop.urlPDFSigned || '';
+  var kontenTeks = generateKontenTeks(sop);
+
+  sop.status        = 'signed';
+  sop.urlPDFSigned  = urlDrive;
+  sop.tglSigned     = new Date().toISOString();
+  sop.kontenTeks    = kontenTeks;  // ← auto-extract untuk SOPI
+  sop.adminAktivasiNip  = S.user ? S.user.nip  : '';
+  sop.adminAktivasiNama = S.user ? S.user.name : '';
+
+  await fbSaveSOP(sop);
+  await fbSaveDrive(sop, kontenTeks);
+
+  // Reload drives
+  if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return Object.assign({id:d.id},d.data());}); } catch(e){} }
+
+  // Email ke pembuat
+  var makerEmp = S.emps.find(function(e){ return e.nip===(sop.dibuatOleh||sop.createdByNIP); });
+  if (makerEmp && makerEmp.email) {
+    fetch(WORKER_URL+'/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'sendEmail',toEmail:makerEmp.email,
+        subject:'🏛️ SOP Resmi Aktif: '+(sop.namaSOP||sop.judul||''),
+        userName:makerEmp.name||'Bapak/Ibu',
+        tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
+        topics:[
+          'SOP Anda telah resmi aktif di SOPI Badilag',
+          'Nama SOP: '+(sop.namaSOP||sop.judul||''),
+          'Nomor SOP: '+(sop.nomorSOP||'-'),
+          'Disahkan oleh: '+(sop.approverE2Nama||sop.disahkanOleh||'-'),
+          urlDrive ? '📄 Link: '+urlDrive : ''
+        ].filter(Boolean),
+        sopList:[{title:sop.namaSOP||sop.judul||'',unit:sop.unitEselon4||'',linkFinal:urlDrive}]
+      })
+    }).catch(function(){});
+  }
+
+  toast('🏛️ SOP "'+( sop.namaSOP||sop.judul||'')+'" resmi aktif!');
+  addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: Resmi & Aktif\n🤖 SOPI sudah dapat menjawab pertanyaan tentang SOP ini.\n\n'+(urlDrive?'📄 '+urlDrive:''), false);
+  fbLoadSOPs().then(function(){ renderAdmin(); updateInboxBadge(); if(window._updateSOPAdminBadge) window._updateSOPAdminBadge(); });
+};
+
+// ── Scroll ke section TTE di Manage SOP ──
+window.scrollToTTESection = function() {
+  var el = document.getElementById('tteSectionAnchor');
+  if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+};
 
 // ── Render HTML dokumen SOP untuk export ──
 // ── Render HTML SOP lengkap untuk export PDF ──
@@ -6053,7 +6133,21 @@ function rSOPAdmin(c) {
   var rejected= (grouped['rejected_e3']||[]).length + (grouped['rejected_admin']||[]).length;
 
   var h = '';
+
+  // ── Badge notifikasi TTE Verifikasi (jika ada) ──
+  if (nTTEVerif > 0) {
+    h += '<div onclick="scrollToTTESection()" style="cursor:pointer;background:linear-gradient(135deg,rgba(56,189,248,.15),rgba(99,102,241,.1));border:1.5px solid rgba(56,189,248,.4);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">';
+    h += '<div style="background:rgba(56,189,248,.2);border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔏</div>';
+    h += '<div style="flex:1;">';
+    h += '<div style="font-weight:800;font-size:13px;color:#38bdf8;">'+nTTEVerif+' SOP Siap Diaktifkan</div>';
+    h += '<div style="font-size:11px;color:var(--mu2);margin-top:2px;">TTE sudah diupload — klik untuk verifikasi & aktifkan</div>';
+    h += '</div>';
+    h += '<div style="font-size:18px;">→</div>';
+    h += '</div>';
+  }
+
   h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">';
+  var nTTEVerif = (grouped['tte_uploaded']||[]).length;
   var statItems = [
     ['📝', 'Draft',          (grouped['draft']||[]).length,         'var(--mu2)'],
     ['🔍', 'Review Es. III', (grouped['pending_e3']||[]).length,    'var(--amber)'],
@@ -6074,6 +6168,30 @@ function rSOPAdmin(c) {
 
   h += '<div style="font-size:11px;color:var(--mu);margin-bottom:12px;">Total: <strong style="color:var(--tx);">'+total+' SOP</strong> · Disahkan: <strong style="color:var(--green);">'+signed+'</strong> · Menunggu: <strong style="color:var(--amber);">'+pending+'</strong></div>';
 
+  // ── Section TTE Verifikasi — prioritas di atas list biasa ──
+  var tteSops = (grouped['tte_uploaded']||[]);
+  if (tteSops.length > 0) {
+    h += '<div id="tteSectionAnchor" style="border:1.5px solid rgba(56,189,248,.3);border-radius:14px;padding:14px;margin-bottom:16px;background:rgba(56,189,248,.04);">';
+    h += '<div style="font-size:10px;font-weight:800;color:#38bdf8;letter-spacing:1px;margin-bottom:10px;">🔏 TTE DIUPLOAD — PERLU AKTIVASI ('+tteSops.length+')</div>';
+    tteSops.forEach(function(sop) {
+      var kontenPreview = sop.kontenTeks ? sop.kontenTeks.substring(0,100)+'...' : (sop.deskripsi||'Auto-generate saat diaktifkan');
+      h += '<div style="background:var(--card2);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px;margin-bottom:8px;">';
+      h += '<div style="font-weight:700;font-size:13px;color:var(--tx);margin-bottom:4px;">'+escapeHtml(sop.namaSOP||sop.judul||'—')+'</div>';
+      h += '<div style="font-size:11px;color:var(--mu2);margin-bottom:6px;">📐 '+escapeHtml(sop.unitEselon4||'—')+' · 📋 TU: '+escapeHtml(sop.tuAdminNama||'—')+(sop.tglUploadTTE?' · '+formatTglShort(sop.tglUploadTTE):'')+'</div>';
+      if (sop.urlTTE) {
+        h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#38bdf8;text-decoration:none;margin-bottom:8px;">🔗 Buka Dokumen TTE ↗</a><br>';
+      }
+      h += '<div style="font-size:10px;color:var(--mu);margin-bottom:8px;font-style:italic;">📝 '+escapeHtml(kontenPreview)+'</div>';
+      h += '<div style="display:flex;gap:8px;">';
+      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'kembalikan\')" style="flex:1;padding:8px;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);color:var(--red);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">↩️ Kembalikan</button>';
+      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'aktifkan\')" style="flex:2;padding:8px;background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit;">✅ Aktifkan SOP</button>';
+      h += '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // ── Semua SOP ──
   _sopDrafts.forEach(function(sop) {
     var st = SOP_STATUS[sop.status] || SOP_STATUS.draft;
     h += '<div class="sop-card">';
@@ -6089,14 +6207,16 @@ function rSOPAdmin(c) {
     if (sop.status === 'signed') {
       h += '<button class="sop-act-btn primary" onclick="adminPublishSOP(\''+sop.id+'\')">📢 Lihat di Drive</button>';
     }
+    if (sop.status === 'tte_uploaded') {
+      h += '<button class="sop-act-btn success" onclick="window.openVerifikasiTTEPanel(\''+escapeAttr(sop.id||sop.draftId)+'\')">🔏 Verifikasi TTE</button>';
+    }
     if (sop.status === 'pending_e3' || sop.status === 'pending_admin' || sop.status === 'pending_e2') {
       h += '<span style="font-size:11px;color:var(--amber);">⏳ Sedang diproses</span>';
     }
     h += '</div>';
     h += '</div>';
   });
-
-  if (!total) h += '<div style="text-align:center;padding:32px;color:var(--mu);">Belum ada SOP yang dibuat.</div>';
+if (!total) h += '<div style="text-align:center;padding:32px;color:var(--mu);">Belum ada SOP yang dibuat.</div>';
 
   c.innerHTML = h;
 }
@@ -6145,6 +6265,16 @@ function injectSOPAdminTab() {
     t.id = 'tabSop';
     t.textContent = '🗂️ Manage SOP';
     t.onclick = function(){ switchTab('sop'); };
+    // Update badge TTE di tab jika ada
+    window._updateSOPAdminBadge = function() {
+      var nTTE = _sopDrafts.filter(function(s){ return s.status==='tte_uploaded'; }).length;
+      if (nTTE > 0) {
+        t.innerHTML = '🗂️ Manage SOP <span style="background:#38bdf8;color:#000;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:4px;">'+nTTE+'</span>';
+      } else {
+        t.textContent = '🗂️ Manage SOP';
+      }
+    };
+    window._updateSOPAdminBadge();
     tabsEl.appendChild(t);
   }
 }
