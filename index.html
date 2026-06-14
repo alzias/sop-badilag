@@ -4999,11 +4999,31 @@ async function aktivasiSOP(sopId, tindakan) {
   var btn = document.querySelector('#mSOPBuilder button[onclick*="aktifkan"]');
   if (btn) { btn.textContent='⏳ Mengaktifkan...'; btn.disabled=true; }
   var kontenTeks = generateKontenTeks(sop);
-  sop.status='signed'; sop.urlPDFSigned=urlDrive||sop.urlTTE||'';
+  var urlFinal = urlDrive || sop.urlTTE || '';
+  sop.status='signed'; sop.urlPDFSigned=urlFinal;
   sop.tglSigned=new Date().toISOString();
   sop.adminAktivasiNip=S.user?S.user.nip:''; sop.adminAktivasiNama=S.user?S.user.name:'';
   await fbSaveSOP(sop);
-  await fbSaveDrive(sop, kontenTeks);
+
+  // Buat drive entry yang benar untuk SOPI
+  var existDr = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId); });
+  var driveObj = {
+    id          : existDr ? existDr.id : 'dr_sop_'+(sop.id||sop.draftId||Date.now()),
+    sopDraftId  : sop.id||sop.draftId||'',
+    deptId      : sop.deptId||'',
+    eselon2Id   : sop.eselon2Id||'',
+    eselon3Id   : sop.eselon3Id||'',
+    title       : sop.namaSOP||sop.judul||'',
+    nomor       : sop.nomorSOP||sop.nomorDokumen||'',
+    tanggal     : sop.tglEfektif||sop.tglPembuatan||new Date().toISOString().slice(0,10),
+    status      : 'Aktif',
+    link        : urlFinal,
+    linkFinal   : urlFinal,
+    desc        : sop.deskripsi||(sop.namaSOP||sop.judul||''),
+    content     : kontenTeks,
+  };
+  if (existDr) { Object.assign(existDr, driveObj); } else { S.drives.push(driveObj); }
+  await fbSaveDrive(driveObj);
   // Reload S.drives
   if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return Object.assign({id:d.id},d.data());}); } catch(e){} }
   // Email ke pembuat
@@ -5092,44 +5112,46 @@ function normalizeBuilderFields(sop) {
 // ── Modal TTE Panel untuk TU Admin SOP ──
 // ── Generate konten teks SOP untuk SOPI AI ──
 function generateKontenTeks(sop) {
+  // Normalisasi field dari Builder (array/object) ke string
+  var norm = normalizeBuilderFields(sop);
   var lines = [];
-  lines.push('NAMA SOP: ' + (sop.namaSOP||sop.judul||''));
-  lines.push('NOMOR SOP: ' + (sop.nomorSOP||sop.nomorDokumen||'-'));
-  lines.push('UNIT: ' + (sop.unitEselon4||sop.eselon4||'-'));
-  lines.push('UNIT E-III: ' + (sop.eselon3||'-'));
-  lines.push('TANGGAL EFEKTIF: ' + (sop.tglEfektif||'-'));
-  lines.push('DISAHKAN OLEH: ' + (sop.disahkanOleh||'-'));
+  lines.push('NAMA SOP: ' + (norm.namaSOP||norm.judul||norm.namaSOP||sop.judul||''));
+  lines.push('NOMOR SOP: ' + (norm.nomorSOP||norm.nomorDokumen||'-'));
+  lines.push('UNIT: ' + (norm.unitEselon4||norm.eselon4||'-'));
+  lines.push('UNIT E-III: ' + (norm.eselon3||'-'));
+  lines.push('TANGGAL EFEKTIF: ' + (norm.tglEfektif||'-'));
+  lines.push('DISAHKAN OLEH: ' + (norm.disahkanOleh||'-'));
   lines.push('');
-  if (sop.dasarHukum) {
+  if (norm.dasarHukum) {
     lines.push('DASAR HUKUM:');
-    var dh = Array.isArray(sop.dasarHukum)?sop.dasarHukum:[sop.dasarHukum];
+    var dh = Array.isArray(norm.dasarHukum)?norm.dasarHukum:[norm.dasarHukum];
     dh.forEach(function(d,i){ if(d) lines.push((i+1)+'. '+d); });
     lines.push('');
   }
-  if (sop.kualifikasiPelaksana||sop.kualifikasi) {
+  if (norm.kualifikasiPelaksana||norm.kualifikasi) {
     lines.push('KUALIFIKASI PELAKSANA:');
-    var kq = sop.kualifikasiPelaksana||sop.kualifikasi;
+    var kq = norm.kualifikasiPelaksana||norm.kualifikasi;
     var arr = Array.isArray(kq)?kq:[kq];
     arr.forEach(function(k,i){ if(k) lines.push((i+1)+'. '+k); });
     lines.push('');
   }
-  if (sop.peringatan) {
-    var pw = Array.isArray(sop.peringatan)?sop.peringatan.filter(Boolean):[sop.peringatan];
+  if (norm.peringatan) {
+    var pw = Array.isArray(norm.peringatan)?norm.peringatan.filter(Boolean):[norm.peringatan];
     if (pw.length) { lines.push('PERINGATAN: '+pw.join('; ')); lines.push(''); }
   }
-  if (sop.pelaksana && sop.pelaksana.length) {
-    var pel = Array.isArray(sop.pelaksana)?sop.pelaksana.filter(Boolean):[];
+  if (norm.pelaksana && norm.pelaksana.length) {
+    var pel = Array.isArray(norm.pelaksana)?norm.pelaksana.filter(Boolean):[];
     if (pel.length) { lines.push('PELAKSANA: '+pel.join(', ')); lines.push(''); }
   }
-  if (sop.langkah && sop.langkah.length) {
+  if (norm.langkah && norm.langkah.length) {
     lines.push('LANGKAH PROSEDUR:');
-    var langkah = Array.isArray(sop.langkah)?sop.langkah:[];
+    var langkah = Array.isArray(norm.langkah)?norm.langkah:[];
     langkah.forEach(function(l,i) {
       if (!l) return;
       var aktivitas = typeof l==='string'?l:(l.aktivitas||'');
       var pelaksana = '';
-      if (typeof l==='object' && Array.isArray(sop.pelaksana) && typeof l.pelaksana==='number') {
-        pelaksana = sop.pelaksana[l.pelaksana]||'';
+      if (typeof l==='object' && Array.isArray(norm.pelaksana) && typeof l.pelaksana==='number') {
+        pelaksana = norm.pelaksana[l.pelaksana]||'';
       }
       var parts = [(i+1)+'. '+aktivitas];
       if (pelaksana) parts.push('Pelaksana: '+pelaksana);
@@ -5139,7 +5161,7 @@ function generateKontenTeks(sop) {
     });
     lines.push('');
   }
-  if (sop.deskripsi) lines.push('DESKRIPSI: '+sop.deskripsi);
+  if (norm.deskripsi) lines.push('DESKRIPSI: '+norm.deskripsi);
   return lines.join('\n').trim();
 }
 
@@ -5310,26 +5332,63 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
     return;
   }
 
-  // ── AKTIFKAN — auto ambil urlTTE, generate konten SOPI ──
-  if (!confirm('Aktifkan SOP "'+( sop.namaSOP||sop.judul||'')+'"? Pastikan dokumen TTE sudah benar.')) return;
+  // ── AKTIFKAN ──
+  // Tampilkan konfirmasi dengan link TTE agar Admin bisa cek dulu
+  var urlTTE = sop.urlTTE || '';
+  var konfirmMsg = 'Aktifkan SOP "' + (sop.namaSOP||sop.judul||'') + '"?\n\n';
+  konfirmMsg += urlTTE ? 'Link TTE: ' + urlTTE + '\n\nPastikan dokumen TTE sudah benar sebelum mengaktifkan.' : '⚠ Link TTE tidak ditemukan! Pastikan TU sudah upload dokumen TTE.';
+  if (!confirm(konfirmMsg)) return;
 
-  var urlDrive = sop.urlTTE || sop.urlPDFSigned || '';
+  var urlDrive = urlTTE; // link PDF final = link TTE yang sudah diupload TU
   var kontenTeks = generateKontenTeks(sop);
 
-  sop.status        = 'signed';
-  sop.urlPDFSigned  = urlDrive;
-  sop.tglSigned     = new Date().toISOString();
-  sop.kontenTeks    = kontenTeks;  // ← auto-extract untuk SOPI
+  // ── Update SOP di Firestore ──
+  sop.status           = 'signed';
+  sop.urlPDFSigned     = urlDrive;
+  sop.tglSigned        = new Date().toISOString();
   sop.adminAktivasiNip  = S.user ? S.user.nip  : '';
   sop.adminAktivasiNama = S.user ? S.user.name : '';
-
   await fbSaveSOP(sop);
-  await fbSaveDrive(sop, kontenTeks);
 
-  // Reload drives
-  if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return Object.assign({id:d.id},d.data());}); } catch(e){} }
+  // ── Buat/update entry di S.drives (Dokumen SOP) ──
+  // Cek apakah sudah ada entry drives untuk SOP ini
+  var existingDrive = S.drives.find(function(d){
+    return d.sopDraftId === sopId || d.sopDraftId === (sop.draftId||sop.id);
+  });
 
-  // Email ke pembuat
+  var driveData = {
+    id           : existingDrive ? existingDrive.id : 'dr_sop_' + (sop.id||sop.draftId||Date.now()),
+    sopDraftId   : sop.id || sop.draftId || '',
+    deptId       : sop.deptId || '',
+    eselon2Id    : sop.eselon2Id || '',
+    eselon3Id    : sop.eselon3Id || '',
+    title        : sop.namaSOP || sop.judul || '',
+    nomor        : sop.nomorSOP || sop.nomorDokumen || '',
+    tanggal      : sop.tglEfektif || sop.tglPembuatan || new Date().toISOString().slice(0,10),
+    status       : 'Aktif',
+    link         : urlDrive,      // Link folder/PDF utama
+    linkFinal    : urlDrive,      // Link PDF final (sama dengan TTE)
+    desc         : sop.deskripsi || (sop.namaSOP||sop.judul||''),
+    content      : kontenTeks,    // ← KONTEN UNTUK SOPI — field yang dibaca AI
+  };
+
+  // Update atau tambah ke S.drives
+  if (existingDrive) {
+    Object.assign(existingDrive, driveData);
+  } else {
+    S.drives.push(driveData);
+  }
+  await fbSaveDrive(driveData); // fbSaveDrive hanya butuh 1 arg (object)
+
+  // Reload drives dari Firestore
+  if (db) {
+    try {
+      var ds = await db.collection('drives').get();
+      S.drives = ds.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    } catch(e) { console.warn('Reload drives error:', e); }
+  }
+
+  // ── Email ke pembuat ──
   var makerEmp = S.emps.find(function(e){ return e.nip===(sop.dibuatOleh||sop.createdByNIP); });
   if (makerEmp && makerEmp.email) {
     fetch(WORKER_URL+'/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -5338,23 +5397,51 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
         userName:makerEmp.name||'Bapak/Ibu',
         tanggal:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),
         topics:[
-          'SOP Anda telah resmi aktif di SOPI Badilag',
+          'SOP Anda telah resmi aktif dan tersedia di SOPI Badilag',
           'Nama SOP: '+(sop.namaSOP||sop.judul||''),
           'Nomor SOP: '+(sop.nomorSOP||'-'),
           'Disahkan oleh: '+(sop.approverE2Nama||sop.disahkanOleh||'-'),
-          urlDrive ? '📄 Link: '+urlDrive : ''
+          urlDrive ? '📄 Link Dokumen: '+urlDrive : ''
         ].filter(Boolean),
         sopList:[{title:sop.namaSOP||sop.judul||'',unit:sop.unitEselon4||'',linkFinal:urlDrive}]
       })
     }).catch(function(){});
   }
 
-  toast('🏛️ SOP "'+( sop.namaSOP||sop.judul||'')+'" resmi aktif!');
-  addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: Resmi & Aktif\n🤖 SOPI sudah dapat menjawab pertanyaan tentang SOP ini.\n\n'+(urlDrive?'📄 '+urlDrive:''), false);
-  fbLoadSOPs().then(function(){ renderAdmin(); updateInboxBadge(); if(window._updateSOPAdminBadge) window._updateSOPAdminBadge(); });
+  toast('🏛️ SOP "' + (sop.namaSOP||sop.judul||'') + '" resmi aktif! SOPI siap menjawab pertanyaan.');
+  addMsg('🏛️ **SOP Resmi Aktif!**\n\n📋 **'+escapeHtml(sop.namaSOP||sop.judul||'')+'**\n✅ Status: Resmi & Aktif\n🤖 SOPI sudah dapat menjawab pertanyaan tentang SOP ini.\n\n'+(urlDrive?'📄 Link: '+urlDrive:''), false);
+  fbLoadSOPs().then(function(){
+    renderAdmin();
+    updateInboxBadge();
+    if(window._updateSOPAdminBadge) window._updateSOPAdminBadge();
+    // ── Otomatis pindah ke tab Dokumen SOP agar Admin langsung lihat hasilnya ──
+    setTimeout(function(){
+      if (typeof switchTab === 'function') switchTab('drive');
+    }, 800);
+  });
 };
 
 // ── Scroll ke section TTE di Manage SOP ──
+// ── Jump dari Manage SOP ke Dokumen SOP dan highlight SOP yang baru aktif ──
+window._jumpToDokumenSOP = function(sopDraftId) {
+  // Cari drive entry yang terhubung ke SOP ini
+  var drive = S.drives.find(function(d){ return d.sopDraftId === sopDraftId; });
+  // Switch ke tab Dokumen SOP (tab default = 'drives')
+  if (typeof switchTab === 'function') switchTab('drives');
+  // Atau cari tab Dokumen SOP di admin panel
+  var tabs = document.querySelectorAll('.atab');
+  tabs.forEach(function(t) {
+    if (t.textContent.indexOf('Dokumen') >= 0 || t.textContent.indexOf('SOP') >= 0) {
+      if (t.id !== 'tabSop') t.click();
+    }
+  });
+  if (drive) {
+    setTimeout(function() {
+      toast('📂 SOP "'+escapeHtml(drive.title||'—')+'" sudah aktif di Dokumen SOP');
+    }, 300);
+  }
+};
+
 window.scrollToTTESection = function() {
   var el = document.getElementById('tteSectionAnchor');
   if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
@@ -6182,9 +6269,12 @@ function rSOPAdmin(c) {
         h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#38bdf8;text-decoration:none;margin-bottom:8px;">🔗 Buka Dokumen TTE ↗</a><br>';
       }
       h += '<div style="font-size:10px;color:var(--mu);margin-bottom:8px;font-style:italic;">📝 '+escapeHtml(kontenPreview)+'</div>';
-      h += '<div style="display:flex;gap:8px;">';
-      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'kembalikan\')" style="flex:1;padding:8px;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);color:var(--red);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">↩️ Kembalikan</button>';
-      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'aktifkan\')" style="flex:2;padding:8px;background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit;">✅ Aktifkan SOP</button>';
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+      if (sop.urlTTE) {
+        h += '<a href="'+escapeHtml(sop.urlTTE)+'" target="_blank" style="flex:1;min-width:120px;padding:8px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#38bdf8;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;text-align:center;text-decoration:none;display:block;">🔍 Cek Dok. TTE</a>';
+      }
+      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'kembalikan\')" style="flex:1;min-width:90px;padding:8px;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);color:var(--red);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">↩️ Kembalikan</button>';
+      h += '<button onclick="window.aktivasiSOPDirect(\''+escapeAttr(sop.id||sop.draftId)+'\',\'aktifkan\')" style="flex:2;min-width:120px;padding:8px;background:rgba(6,214,160,.15);border:1px solid rgba(6,214,160,.3);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit;">✅ Aktifkan SOP</button>';
       h += '</div>';
       h += '</div>';
     });
@@ -6205,7 +6295,12 @@ function rSOPAdmin(c) {
     h += '<div class="sop-card-acts">';
     h += '<button class="sop-act-btn danger" onclick="adminDeleteSOP(\''+sop.id+'\')">🗑</button>';
     if (sop.status === 'signed') {
-      h += '<button class="sop-act-btn primary" onclick="adminPublishSOP(\''+sop.id+'\')">📢 Lihat di Drive</button>';
+      var drv = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId); });
+      var pdfUrl = sop.urlPDFSigned || (drv && drv.linkFinal) || '';
+      if (pdfUrl) {
+        h += '<a href="'+escapeHtml(pdfUrl)+'" target="_blank" class="sop-act-btn primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📄 Buka PDF</a>';
+      }
+      h += '<button class="sop-act-btn success" onclick="window._jumpToDokumenSOP(\''+escapeAttr(sop.id||sop.draftId)+'\')">📂 Dok. SOP</button>';
     }
     if (sop.status === 'tte_uploaded') {
       h += '<button class="sop-act-btn success" onclick="window.openVerifikasiTTEPanel(\''+escapeAttr(sop.id||sop.draftId)+'\')">🔏 Verifikasi TTE</button>';
