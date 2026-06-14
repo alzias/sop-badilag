@@ -1707,7 +1707,7 @@ function exportDocPDF() {
       const BOX_H = Math.min(72, Math.max(60, ROW_H - 24));
 
       const totW   = PAD_X*2 + nPelF*COL_WF;
-      const totH   = PAD_Y + 60 + lkFlow.length*ROW_H + 70;
+      const totH   = PAD_Y + 60 + 16 + lkFlow.length*ROW_H + 70;  // +16 untuk gap MULAI
       const colCX  = pi => PAD_X + pi*COL_WF + COL_WF/2;
       const rowY   = i  => PAD_Y + 60 + i*ROW_H;
       const COLS   = [
@@ -1764,10 +1764,10 @@ function exportDocPDF() {
         svgF += fobText(x, PAD_Y, COL_WF, 44, `<b>${esc(p)}</b>`, col.text, 10);
       });
 
-      // MULAI
+      // MULAI — beri jarak 16px di bawah header kolom agar tidak terpotong
       const startPi = Math.min(Array.isArray(lkFlow[0].pelaksana)?lkFlow[0].pelaksana[0]:lkFlow[0].pelaksana||0, nPelF-1);
       const sCX = colCX(startPi);
-      const sCY = PAD_Y+44;
+      const sCY = PAD_Y + 44 + 16;  // 16px gap setelah header
       svgF += `<rect x="${sCX-34}" y="${sCY}" width="68" height="24" rx="12" fill="#1f2937"/>`;
       svgF += `<text x="${sCX}" y="${sCY+16}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">MULAI</text>`;
       svgF += `<line x1="${sCX}" y1="${sCY+24}" x2="${sCX}" y2="${rowY(0)-2}" stroke="#555" stroke-width="1.5" marker-end="url(#arF)"/>`;
