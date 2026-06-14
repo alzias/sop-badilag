@@ -48,6 +48,9 @@ body.preview-mode #tab3{display:none!important;}
 body.preview-mode #previewToolbar{display:none!important;}
 body.preview-mode .tabs{background:rgba(8,17,31,.98);border-bottom:1px solid rgba(0,245,212,.15);padding:6px 10px;position:sticky;top:0;z-index:200;}
 body.preview-mode .tab-btn{font-size:12px;padding:6px 14px;}
+/* Export bar di preview-mode */
+#previewExportBar{display:none;}
+body.preview-mode #previewExportBar{display:flex;gap:8px;padding:6px 10px;background:rgba(8,17,31,.95);border-bottom:1px solid rgba(0,245,212,.1);position:sticky;top:44px;z-index:199;}
 .hd-badges{margin-left:auto;display:flex;gap:6px;}
 .badge{background:rgba(0,245,212,.1);border:1px solid rgba(0,245,212,.2);color:var(--cyan);
   border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:.5px;}
@@ -375,6 +378,11 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
   <button class="tab-btn amber" id="tab1" onclick="setTab(1)">👁️ Preview Dokumen</button>
   <button class="tab-btn green" id="tab2" onclick="setTab(2)">🔀 Flowchart</button>
   <button class="tab-btn purple" id="tab3" onclick="setTab(3)">📋 SOP Saya</button>
+</div>
+<!-- Export bar — hanya tampil di mode preview (via CSS) -->
+<div id="previewExportBar">
+  <button onclick="exportToWord()" style="flex:1;padding:8px;background:rgba(29,78,216,.18);border:1px solid rgba(29,78,216,.35);color:#7b9fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📄 Export Word</button>
+  <button onclick="exportDocPDF()" style="flex:1;padding:8px;background:rgba(185,28,28,.18);border:1px solid rgba(185,28,28,.35);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">📑 Export PDF</button>
 </div>
 
 <!-- MAIN -->
