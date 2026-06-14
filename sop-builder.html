@@ -1540,77 +1540,120 @@ function exportDocPDF() {
   let h1 = '';
 
   // Header MA - border tunggal
-  h1 += `<table class="tbl" style="margin-bottom:0;border:2px solid #000;">
+  h1 += `<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;">
     <tr>
-      <td style="width:20%;border:none;border-right:2px solid #000;padding:12px 8px;text-align:center;vertical-align:middle;">
-        <img src="${LOGO_MA}" style="width:120px;height:120px;object-fit:contain;display:block;margin:0 auto;">
+      <td style="width:20%;border-right:1.5px solid #000;padding:10px 8px;text-align:center;vertical-align:middle;">
+        <img src="${LOGO_MA}" style="width:110px;height:110px;object-fit:contain;display:block;margin:0 auto;">
       </td>
-      <td style="border:none;padding:12px;text-align:center;vertical-align:middle;">
-        <div style="font-size:16pt;font-weight:900;line-height:1.7;letter-spacing:.5px;">
+      <td style="padding:10px 14px;text-align:center;vertical-align:middle;">
+        <div style="font-size:15pt;font-weight:900;line-height:1.8;letter-spacing:.3px;">
           DIREKTORAT JENDERAL<br>BADAN PERADILAN AGAMA<br>MAHKAMAH AGUNG RI
         </div>
-        <div style="font-size:11pt;margin-top:5px;">${esc(f.eselon3||'')}</div>
-        <div style="font-size:9pt;margin-top:3px;color:#333;">${esc(f.alamat||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat')}</div>
+        <div style="font-size:10.5pt;margin-top:4px;">${esc(f.eselon3||'')}</div>
+        <div style="font-size:8.5pt;margin-top:2px;color:#333;">${esc(f.alamat||'Jl. Jenderal Ahmad Yani Kav.58 Gedung Sekretariat MA RI Lt. 6-8 Jakarta Pusat')}</div>
       </td>
     </tr>
   </table>`;
 
-  // Identitas SOP
-  h1 += `<table class="tbl" style="margin-top:-2px;">
+  // Identitas SOP — layout sesuai screenshot: kiri info, kanan 4 baris tgl dengan border
+  h1 += `<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;border-top:none;">
     <tr>
-      <td style="width:55%;padding:6px 8px;vertical-align:top;font-size:10pt;">
-        <div><b>Nomor SOP</b> : ${esc(f.nomorSOP||'—')}</div>
-        <div><b>Nama SOP</b>  : ${esc(f.namaSOP||'—')}</div>
-        <div><b>Unit E-III</b>: ${esc(f.eselon3||'—')}</div>
+      <td style="width:55%;padding:5px 8px;vertical-align:top;font-size:9.5pt;border-right:1.5px solid #000;">
+        <div style="margin-bottom:3px;"><b>Nomor SOP</b> : ${esc(f.nomorSOP||'—')}</div>
+        <div style="margin-bottom:3px;"><b>Nama SOP</b>  : ${esc(f.namaSOP||'—')}</div>
+        <div style="margin-bottom:3px;"><b>Unit E-III</b>: ${esc(f.eselon3||'—')}</div>
         <div><b>Unit E-IV</b> : ${esc(f.eselon4||'—')}</div>
       </td>
-      <td style="padding:6px 8px;vertical-align:top;font-size:10pt;">
-        <div><b>Tgl Pembuatan</b> : ${fmtDate(f.tglPembuatan)}</div>
-        <div><b>Tgl Revisi</b>    : ${fmtDate(f.tglRevisi)}</div>
-        <div><b>Tgl Efektif</b>   : ${fmtDate(f.tglEfektif)}</div>
-        <div><b>Disahkan Oleh</b> : ${esc(f.disahkanOleh||'—')}</div>
+      <td style="padding:0;vertical-align:top;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:4px 8px;font-size:9.5pt;border-bottom:1px solid #000;"><b>Tgl Pembuatan</b> : ${fmtDate(f.tglPembuatan)}</td></tr>
+          <tr><td style="padding:4px 8px;font-size:9.5pt;border-bottom:1px solid #000;"><b>Tgl Revisi</b>    : ${fmtDate(f.tglRevisi)}</td></tr>
+          <tr><td style="padding:4px 8px;font-size:9.5pt;border-bottom:1px solid #000;"><b>Tgl Efektif</b>   : ${fmtDate(f.tglEfektif)}</td></tr>
+          <tr><td style="padding:4px 8px;font-size:9.5pt;"><b>Disahkan</b>      : ${esc(f.disahkanOleh||'—')}</td></tr>
+        </table>
       </td>
     </tr>
   </table>`;
 
-  // Helper tabel info 2 kolom
-  function sec2col(t1,items1,t2,items2) {
-    function col(title, items) {
-      const rows = items.length
-        ? items.map((x,i) => `<tr><td style="width:26px;padding:4px 5px;font-size:9.5pt;">${i+1}.</td><td style="padding:4px 6px;font-size:9.5pt;">${esc(x)}</td></tr>`).join('')
-        : `<tr><td colspan="2" style="padding:4px 6px;font-size:9.5pt;">—</td></tr>`;
-      return `<td style="padding:0;border:none;vertical-align:top;width:50%;">
-        <table class="tbl" style="width:100%;margin-top:-1px;">
-          <tr><th colspan="2" style="text-align:left;padding:5px 8px;background:#f0f0f0;font-size:10pt;">${title}</th></tr>
-          ${rows}
-        </table></td>`;
-    }
-    return `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;"><tr>${col(t1,items1)}${col(t2,items2)}</tr></table>`;
+  // ── Tabel 3-kolom besar sesuai format dokumen asli ──
+  // Kolom 1: Dasar Hukum (full height)
+  // Kolom 2: Kualifikasi Pelaksana + Keterkaitan (stacked)
+  // Kolom 3: Peralatan/Perlengkapan + Peringatan + Pencatatan (stacked)
+
+  function listRows(items) {
+    if (!items || !items.length) return `<tr><td style="padding:3px 6px;font-size:9pt;">—</td></tr>`;
+    return items.map((x,i) => `<tr>
+      <td style="width:22px;padding:3px 5px;font-size:9pt;vertical-align:top;">${i+1}.</td>
+      <td style="padding:3px 5px;font-size:9pt;vertical-align:top;">${esc(x)}</td>
+    </tr>`).join('');
+  }
+  function secHeader(title) {
+    return `<tr><th colspan="2" style="text-align:left;padding:5px 7px;background:#f0f0f0;font-size:9.5pt;font-weight:700;border-bottom:1px solid #999;">${title}</th></tr>`;
   }
 
-  h1 += sec2col('Dasar Hukum', dasarHukum, 'Kualifikasi Pelaksana', kualifikasi);
-  h1 += sec2col('Keterkaitan', keterkaitan, 'Peralatan / Perlengkapan', peralatan);
-  h1 += sec2col('Peringatan', peringatan, 'Pencatatan dan Pendataan', pencatatan);
+  h1 += `<table class="tbl-info" style="width:100%;border-collapse:collapse;border:1.5px solid #000;border-top:none;table-layout:fixed;">
+    <colgroup>
+      <col style="width:34%;">
+      <col style="width:33%;">
+      <col style="width:33%;">
+    </colgroup>
+    <tr>
+      <!-- KOLOM 1: Dasar Hukum -->
+      <td style="padding:0;vertical-align:top;border-right:1px solid #000;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${secHeader('Dasar Hukum')}
+          ${listRows(dasarHukum)}
+        </table>
+      </td>
+      <!-- KOLOM 2: Kualifikasi + Keterkaitan -->
+      <td style="padding:0;vertical-align:top;border-right:1px solid #000;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${secHeader('Kualifikasi Pelaksana')}
+          ${listRows(kualifikasi)}
+          <tr><td colspan="2" style="padding:0;border-top:1px solid #000;"></td></tr>
+          ${secHeader('Keterkaitan')}
+          ${listRows(keterkaitan)}
+        </table>
+      </td>
+      <!-- KOLOM 3: Peralatan + Peringatan + Pencatatan -->
+      <td style="padding:0;vertical-align:top;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${secHeader('Peralatan / Perlengkapan')}
+          ${listRows(peralatan)}
+          <tr><td colspan="2" style="padding:0;border-top:1px solid #000;"></td></tr>
+          ${secHeader('Peringatan')}
+          ${listRows(peringatan)}
+          <tr><td colspan="2" style="padding:0;border-top:1px solid #000;"></td></tr>
+          ${secHeader('Pencatatan dan Pendataan')}
+          ${listRows(pencatatan)}
+        </table>
+      </td>
+    </tr>
+  </table>`;
 
   // ── Halaman 2: Tabel Prosedur ──
   let h2 = '';
   const nPel = Math.max(pelaksana.length, 1);
   const pelW = Math.max(5, Math.floor(32 / nPel)); // % width per kolom pelaksana
 
-  h2 += `<table class="tbl proc-tbl">
+  // Hitung lebar kolom pelaksana — maks 4 kolom terlihat rapi
+  const pelColW = nPel <= 4 ? Math.floor(28/nPel) : Math.floor(28/nPel);
+  const restW   = 100 - 4 - 25 - (pelColW*nPel) - 14 - 8 - 12 - 5; // sisa untuk Uraian
+
+  h2 += `<table class="tbl proc-tbl" style="font-size:9pt;">
     <thead>
-      <tr>
-        <th rowspan="2" style="width:3%;">No</th>
-        <th rowspan="2" style="width:22%;">Uraian Kegiatan</th>
-        <th colspan="${nPel}" style="width:${pelW*nPel}%;">Pelaksana</th>
-        <th colspan="3" style="width:26%;">Mutu Baku</th>
-        <th rowspan="2" style="width:6%;">Ket</th>
+      <tr style="background:#f0f0f0;">
+        <th rowspan="2" style="width:4%;text-align:center;vertical-align:middle;font-size:9pt;">No</th>
+        <th rowspan="2" style="width:25%;text-align:center;vertical-align:middle;font-size:9pt;">Uraian Kegiatan</th>
+        <th colspan="${nPel}" style="text-align:center;font-size:9pt;">Pelaksana</th>
+        <th colspan="3" style="text-align:center;font-size:9pt;">Mutu Baku</th>
+        <th rowspan="2" style="width:5%;text-align:center;vertical-align:middle;font-size:9pt;">Ket</th>
       </tr>
-      <tr>
-        ${pelaksana.map(p=>`<th style="font-size:8pt;width:${pelW}%;word-break:break-word;">${esc(p)}</th>`).join('')}
-        <th style="width:12%;">Persyaratan</th>
-        <th style="width:7%;">Waktu</th>
-        <th style="width:10%;">Output</th>
+      <tr style="background:#f0f0f0;">
+        ${pelaksana.map(p=>`<th style="font-size:8pt;width:${pelColW}%;word-break:break-word;text-align:center;">${esc(p)}</th>`).join('')}
+        <th style="width:14%;font-size:8.5pt;text-align:center;">Persyaratan</th>
+        <th style="width:8%;font-size:8.5pt;text-align:center;">Waktu</th>
+        <th style="width:12%;font-size:8.5pt;text-align:center;">Output</th>
       </tr>
     </thead>
     <tbody>
@@ -1622,14 +1665,19 @@ function exportDocPDF() {
         const output      = typeof l==='object'?(l.output||''):'';
         const pelIdx      = typeof l==='object'?l.pelaksana:-1;
         const pelArr      = Array.isArray(pelIdx)?pelIdx:[pelIdx];
+        // Persyaratan: bisa berupa array atau string — tampilkan sebagai bullet list jika array
+        const persyaratanArr = Array.isArray(persyaratan) ? persyaratan : (persyaratan ? [persyaratan] : []);
+        const persyaratanHTML = persyaratanArr.length > 1
+          ? persyaratanArr.map(p => `<div style="margin-bottom:2px;">• ${esc(p)}</div>`).join('')
+          : esc(persyaratan);
         return `<tr>
-          <td style="text-align:center;">${i+1}</td>
-          <td>${esc(aktivitas)}</td>
-          ${pelaksana.map((_,pi) => `<td style="text-align:center;">${pelArr.indexOf(pi)>=0?'✓':''}</td>`).join('')}
-          <td style="font-size:8pt;">${esc(persyaratan)}</td>
-          <td style="text-align:center;font-size:9pt;">${esc(waktu)}</td>
-          <td style="font-size:8pt;">${esc(output)}</td>
-          <td></td>
+          <td style="text-align:center;vertical-align:top;padding:4px 3px;">${i+1}.</td>
+          <td style="vertical-align:top;padding:4px 5px;">${esc(aktivitas)}</td>
+          ${pelaksana.map((_,pi) => `<td style="text-align:center;vertical-align:middle;font-size:11pt;padding:2px;">${pelArr.indexOf(pi)>=0?'✓':''}</td>`).join('')}
+          <td style="font-size:8.5pt;vertical-align:top;padding:4px 5px;">${persyaratanHTML}</td>
+          <td style="text-align:center;vertical-align:top;font-size:9pt;padding:4px 3px;white-space:nowrap;">${esc(waktu)}</td>
+          <td style="font-size:8.5pt;vertical-align:top;padding:4px 5px;">${esc(output)}</td>
+          <td style="padding:4px 3px;"></td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -1683,6 +1731,20 @@ function exportDocPDF() {
           </marker>
         </defs>`;
 
+      // Lane background (warna muda di seluruh kolom sesuai screenshot)
+      pelFlow.forEach((p,pi) => {
+        const x  = PAD_X + pi*COL_WF;
+        const col= COLS[pi%COLS.length];
+        // Background lane seluruh tinggi
+        svgF += `<rect x="${x}" y="${PAD_Y}" width="${COL_WF}" height="${totH - PAD_Y}"
+          fill="${col.fill}" opacity="0.25"/>`;
+        // Garis vertikal dashed sebagai pemisah lane
+        if (pi > 0) {
+          svgF += `<line x1="${x}" y1="${PAD_Y}" x2="${x}" y2="${totH}"
+            stroke="#aaa" stroke-width="1" stroke-dasharray="4,3"/>`;
+        }
+      });
+
       // Header kolom
       pelFlow.forEach((p,pi) => {
         const x  = PAD_X + pi*COL_WF;
@@ -1723,24 +1785,26 @@ function exportDocPDF() {
           svgF += `<text x="${cx}" y="${cy+BOX_H-4}" text-anchor="middle" font-size="8" fill="${col.stroke}">⏱ ${esc(l.waktu)}</text>`;
         }
 
-        // Kotak koordinasi (di dalam area kolom pelaksana lain, bukan di atas kotak)
+        // Kotak koordinasi — sejajar vertikal dengan kotak utama (di kolom pelaksana lain)
         pelArr.slice(1).forEach(epi0 => {
           const epi  = Math.min(epi0||0, nPelF-1);
           if (epi===pi0) return;
           const ecx  = colCX(epi);
-          const ebx  = ecx - BOX_W/2;
           const ecol = COLS[epi%COLS.length];
-          // Kotak koordinasi ditaruh di tengah-tengah tinggi kotak utama (cy + BOX_H/2 - CORD_H/2)
-          const coy  = cy + BOX_H/2 - CORD_H/2;
-          svgF += `<rect x="${ebx}" y="${coy}" width="${BOX_W}" height="${CORD_H}"
-            rx="6" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.2" stroke-dasharray="6,3"/>`;
-          svgF += fobText(ebx, coy, BOX_W, CORD_H, '<i>koordinasi</i>', ecol.text, 8);
-          // Panah
+          // Kotak koordinasi: tinggi sama dengan BOX_H, posisi y sama dengan cy (sejajar)
+          const CBW  = BOX_W;
+          const CBH  = BOX_H;
+          const cbx  = ecx - CBW/2;
+          const cby  = cy;  // sejajar dengan kotak utama
+          svgF += `<rect x="${cbx}" y="${cby}" width="${CBW}" height="${CBH}"
+            rx="8" fill="${ecol.fill}" stroke="${ecol.stroke}" stroke-width="1.5" stroke-dasharray="8,4" opacity="0.85"/>`;
+          svgF += fobText(cbx, cby, CBW, CBH, '<i>koordinasi</i>', ecol.text, 9);
+          // Panah horizontal dari kotak utama ke kotak koordinasi
           const lx1 = pi0<epi ? bx+BOX_W : bx;
-          const lx2 = pi0<epi ? ebx : ebx+BOX_W;
-          const ly   = cy + BOX_H/2;
-          svgF += `<line x1="${lx1}" y1="${ly}" x2="${lx2}" y2="${coy+CORD_H/2}"
-            stroke="${ecol.stroke}" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arF)"/>`;
+          const lx2 = pi0<epi ? cbx : cbx+CBW;
+          const ly   = cy + CBH/2;
+          svgF += `<line x1="${lx1}" y1="${ly}" x2="${lx2}" y2="${ly}"
+            stroke="${ecol.stroke}" stroke-width="1.2" stroke-dasharray="6,3" marker-end="url(#arF)"/>`;
         });
 
         // Panah ke langkah berikut
@@ -1770,10 +1834,10 @@ function exportDocPDF() {
 
       svgF += '</svg>';
 
-      h3 = `<div style="text-align:center;font-weight:700;font-size:12pt;margin-bottom:16px;line-height:1.5;">
-        FLOWCHART PROSES — ${esc(f.namaSOP||'SOP')}
+      h3 = `<div style="text-align:center;font-weight:700;font-size:10.5pt;margin-bottom:12px;line-height:1.5;font-family:Arial,sans-serif;">
+        FLOWCHART PROSES &mdash; ${esc(f.namaSOP||'SOP')}
       </div>
-      <div style="display:flex;justify-content:center;">${svgF}</div>`;
+      <div style="overflow-x:auto;">${svgF}</div>`;
     }
   }
   // ── Footnote BSrE ──
@@ -1821,7 +1885,12 @@ function exportDocPDF() {
       .tbl td, .tbl th { border:1px solid #000; vertical-align:top; padding:4px 6px; font-size:9pt; }
       .tbl th { background:#f0f0f0; font-weight:700; text-align:center; }
       .proc-tbl td, .proc-tbl th { font-size:8.5pt; padding:3px 5px; }
+      .proc-tbl th { background:#f0f0f0 !important; font-weight:700; text-align:center; vertical-align:middle; }
+      .proc-tbl td { vertical-align:top; }
       b { font-weight:700; }
+      .tbl-info td { padding:0; }
+      .tbl-info th { padding:5px 7px; font-size:9.5pt; text-align:left; background:#f0f0f0 !important; font-weight:700; }
+      .tbl-info tr td, .tbl-info tr th { border:none; }
 
       /* Print bar */
       #printBar { display:flex;gap:10px;padding:10px 16px;background:#111827;border-bottom:2px solid #00f5d4;align-items:center; }
