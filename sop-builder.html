@@ -1706,10 +1706,15 @@ function exportDocPDF() {
       // BOX_H = ROW_H - gap (min 28px untuk teks)
       const BOX_H = Math.min(72, Math.max(60, ROW_H - 24));
 
+      // Layout vertikal:
+      // PAD_Y → header (44px) → gap(10px) → MULAI(24px) → gap(16px) → langkah-langkah → SELESAI(60px)
+      const HEADER_H = 44;
+      const START_Y  = PAD_Y + HEADER_H + 10;        // y posisi MULAI
+      const ROWS_Y   = START_Y + 24 + 16;             // y posisi langkah pertama
       const totW   = PAD_X*2 + nPelF*COL_WF;
-      const totH   = PAD_Y + 60 + 16 + lkFlow.length*ROW_H + 70;  // +16 untuk gap MULAI
+      const totH   = ROWS_Y + lkFlow.length*ROW_H + 60;
       const colCX  = pi => PAD_X + pi*COL_WF + COL_WF/2;
-      const rowY   = i  => PAD_Y + 60 + i*ROW_H;
+      const rowY   = i  => ROWS_Y + i*ROW_H;
       const COLS   = [
         {fill:'#dbeafe',stroke:'#3b82f6',text:'#1e3a8a'},
         {fill:'#d1fae5',stroke:'#10b981',text:'#065f46'},
@@ -1749,7 +1754,7 @@ function exportDocPDF() {
           fill="${col.fill}" opacity="0.25"/>`;
         // Garis vertikal dashed sebagai pemisah lane
         if (pi > 0) {
-          svgF += `<line x1="${x}" y1="${PAD_Y}" x2="${x}" y2="${totH}"
+          svgF += `<line x1="${x}" y1="${PAD_Y+HEADER_H}" x2="${x}" y2="${totH}"
             stroke="#aaa" stroke-width="1" stroke-dasharray="4,3"/>`;
         }
       });
@@ -1759,18 +1764,17 @@ function exportDocPDF() {
         const x  = PAD_X + pi*COL_WF;
         const cx = colCX(pi);
         const col= COLS[pi%COLS.length];
-        svgF += `<rect x="${x}" y="${PAD_Y}" width="${COL_WF}" height="44"
+        svgF += `<rect x="${x}" y="${PAD_Y}" width="${COL_WF}" height="${HEADER_H}"
           fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.2"/>`;
-        svgF += fobText(x, PAD_Y, COL_WF, 44, `<b>${esc(p)}</b>`, col.text, 10);
+        svgF += fobText(x, PAD_Y, COL_WF, HEADER_H, `<b>${esc(p)}</b>`, col.text, 10);
       });
 
-      // MULAI — beri jarak 16px di bawah header kolom agar tidak terpotong
+      // MULAI — posisi tepat setelah header, sebelum langkah pertama
       const startPi = Math.min(Array.isArray(lkFlow[0].pelaksana)?lkFlow[0].pelaksana[0]:lkFlow[0].pelaksana||0, nPelF-1);
       const sCX = colCX(startPi);
-      const sCY = PAD_Y + 44 + 16;  // 16px gap setelah header
-      svgF += `<rect x="${sCX-34}" y="${sCY}" width="68" height="24" rx="12" fill="#1f2937"/>`;
-      svgF += `<text x="${sCX}" y="${sCY+16}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">MULAI</text>`;
-      svgF += `<line x1="${sCX}" y1="${sCY+24}" x2="${sCX}" y2="${rowY(0)-2}" stroke="#555" stroke-width="1.5" marker-end="url(#arF)"/>`;
+      svgF += `<rect x="${sCX-34}" y="${START_Y}" width="68" height="24" rx="12" fill="#1f2937"/>`;
+      svgF += `<text x="${sCX}" y="${START_Y+16}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">MULAI</text>`;
+      svgF += `<line x1="${sCX}" y1="${START_Y+24}" x2="${sCX}" y2="${rowY(0)-2}" stroke="#555" stroke-width="1.5" marker-end="url(#arF)"/>`;
 
       // Langkah-langkah
       lkFlow.forEach((l,i) => {
