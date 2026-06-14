@@ -1840,19 +1840,19 @@ function exportDocPDF() {
       <div style="overflow-x:auto;">${svgF}</div>`;
     }
   }
-  // ── Footnote BSrE ──
-  const footnoteHTML = `<div style="margin-top:20px;padding-top:10px;border-top:1px solid #ccc;">
+  // ── Footnote BSrE — mepet bawah setiap halaman ──
+  const footnoteHTML = `<div class="bsre-footer">
     <img src="${FOOTNOTE_BSRE_IMG}" style="width:100%;max-width:560px;height:auto;" alt="Footnote BSrE">
   </div>`;
 
-  // ── TTE (jika ada) ──
+  // ── TTE — ditampilkan di Hal 1 dan Hal 3 (Flowchart), rata kanan ──
   let tteHTML = '';
   const e2id = getE2TargetFromState();
   if (e2id) {
     const tte = (typeof TTE_IMAGES !== 'undefined') ? TTE_IMAGES[e2id] : null;
     if (tte && tte.src) {
-      tteHTML = `<div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <img src="${tte.src}" style="width:280px;height:auto;" alt="TTE">
+      tteHTML = `<div style="display:flex;justify-content:flex-end;margin-top:20px;margin-bottom:8px;">
+        <img src="${tte.src}" style="width:320px;height:auto;max-width:45%;" alt="TTE ${e2id}">
       </div>`;
     }
   }
@@ -1874,13 +1874,29 @@ function exportDocPDF() {
         html,body  { margin:0; padding:0; }
         .no-print  { display:none!important; }
         .page-break{ page-break-before:always; }
+        .page-wrap { page-break-after:always; }
         table      { page-break-inside:auto; }
         tr         { page-break-inside:avoid; page-break-after:auto; }
         thead      { display:table-header-group; }
         tfoot      { display:table-footer-group; }
+        .bsre-footer { position:fixed; bottom:0; left:0; right:0; padding:0 14mm; }
       }
       * { box-sizing:border-box; }
       body { font-family:Arial,sans-serif; font-size:10pt; color:#000; background:#fff; margin:0; padding:0; }
+      /* Layout halaman — footer BSrE selalu di bawah */
+      .page-wrap {
+        min-height:247mm; /* A4 - margin top/bot 14mm*2 = ~267mm content */
+        display:flex; flex-direction:column;
+        padding-bottom:48px; /* ruang untuk footnote */
+        position:relative;
+      }
+      .page-content { flex:1; }
+      .bsre-footer {
+        margin-top:auto;
+        padding-top:8px;
+        border-top:1px solid #bbb;
+        position:absolute; bottom:0; left:0; right:0;
+      }
       .tbl { border-collapse:collapse; width:100%; }
       .tbl td, .tbl th { border:1px solid #000; vertical-align:top; padding:4px 6px; font-size:9pt; }
       .tbl th { background:#f0f0f0; font-weight:700; text-align:center; }
@@ -1907,20 +1923,24 @@ function exportDocPDF() {
       <span class="hint">Di dialog Print → pilih "Save as PDF" → kertas A4 Portrait</span>
     </div>
     <div id="content">
-      <!-- HALAMAN 1: Info SOP + TTE + Footnote -->
-      <div>
-        ${h1}
-        ${tteHTML}
+      <!-- HALAMAN 1: Info SOP + TTE + Footnote BSrE di bawah -->
+      <div class="page-wrap">
+        <div class="page-content">
+          ${h1}
+          ${tteHTML}
+        </div>
         ${footnoteHTML}
       </div>
-      <!-- HALAMAN 2: Prosedur + Footnote -->
-      <div class="page-break">
-        <div style="font-weight:700;font-size:10pt;margin-bottom:6px;">Prosedur</div>
-        ${h2}
+      <!-- HALAMAN 2: Prosedur + Footnote BSrE di bawah -->
+      <div class="page-wrap page-break">
+        <div class="page-content">
+          <div style="font-weight:700;font-size:10pt;margin-bottom:6px;">Prosedur</div>
+          ${h2}
+        </div>
         ${footnoteHTML}
       </div>
-      <!-- HALAMAN 3: Flowchart + TTE + Footnote -->
-      ${h3 ? `<div class="page-break">${h3}${tteHTML}${footnoteHTML}</div>` : ''}
+      <!-- HALAMAN 3: Flowchart + TTE + Footnote BSrE di bawah -->
+      ${h3 ? `<div class="page-wrap page-break"><div class="page-content">${h3}${tteHTML}</div>${footnoteHTML}</div>` : ''}
     </div>
   </body></html>`);
   win.document.close();
@@ -2771,17 +2791,29 @@ function getFootnoteHTML() {
 
 // ── Helper: dapatkan e2TargetId dari state (saat preview setelah disetujui) ──
 function getE2TargetFromState() {
-  // Cek apakah ada draftId yang sedang aktif di SOP Saya
+  // Prioritas 1: dari draft aktif (SOP sudah disahkan via workflow)
   if (state._editingDraftId) {
     var draft = state.draftList.find(function(d){ return (d.draftId||d.id) === state._editingDraftId; });
     if (draft && draft.e2TargetId) return draft.e2TargetId;
     if (draft && draft.approverE2Nip) {
-      // Fallback: cek dari approverE2Nip
       if (draft.approverE2Nip === '196809041993031004') return 'e2_sek';
       if (draft.approverE2Nip === '197302171992031001') return 'e2_adm';
     }
+    if (draft && draft.e2TargetId) return draft.e2TargetId;
   }
-  return null; // belum disahkan — tidak tampilkan TTE
+  // Prioritas 2: dari form (Builder standalone — unit eselon3 / disahkanOleh)
+  var f = state.form;
+  if (f) {
+    var sah = (f.disahkanOleh||'').toLowerCase();
+    var e3  = (f.eselon3||'').toLowerCase();
+    // Sekretariat → TTE Sekretaris Dirjen
+    if (sah.indexOf('sekretari') >= 0 || e3.indexOf('sekretari') >= 0) return 'e2_sek';
+    // Direktorat Pembinaan Administrasi → TTE Direktur
+    if (sah.indexOf('direktur') >= 0 || e3.indexOf('direktur') >= 0 || e3.indexOf('administrasi') >= 0) return 'e2_adm';
+    // Default: jika ada nama SOP / unit → tampilkan Sekretaris sebagai default
+    if (f.namaSOP || f.nomorSOP) return 'e2_sek';
+  }
+  return null;
 }
 
 function renderDocPreview(f) {
