@@ -3233,7 +3233,6 @@ window.addEventListener('message', function(e) {
   // Load data SOP ke form (mode preview dari reviewer)
   if (e.data.type === 'LOAD_SOP_DATA' && e.data.sopData) {
     const sop = e.data.sopData;
-    // Merge data SOP ke state.form
     const mapped = {
       nomorSOP    : sop.nomorSOP    || sop.nomorDokumen || '',
       namaSOP     : sop.namaSOP     || sop.judul        || '',
@@ -3256,7 +3255,32 @@ window.addEventListener('message', function(e) {
       langkah     : Array.isArray(sop.langkah)      ? sop.langkah      : [],
     };
     state.form = Object.assign({}, state.form, mapped);
-    // Langsung buka tab Preview Dokumen
+
+    // ── autoExport: langsung export tanpa interaksi user ──
+    if (e.data.autoExport === 'word') {
+      // Render dulu ke tab preview agar state siap, lalu export
+      setTab(1);
+      setTimeout(function() {
+        exportToWord();
+        // Beritahu parent bahwa export selesai
+        setTimeout(function() {
+          try { window.parent.postMessage({type:'EXPORT_DONE', format:'word'}, '*'); } catch(err){}
+        }, 3000);
+      }, 800);
+      return;
+    }
+    if (e.data.autoExport === 'pdf') {
+      setTab(1);
+      setTimeout(function() {
+        exportDocPDF();
+        setTimeout(function() {
+          try { window.parent.postMessage({type:'EXPORT_DONE', format:'pdf'}, '*'); } catch(err){}
+        }, 5000);
+      }, 1000);
+      return;
+    }
+
+    // Mode normal: buka tab Preview
     setTab(1);
     toast('📄 Dokumen SOP dimuat — lihat Preview dan Flowchart');
     return;
