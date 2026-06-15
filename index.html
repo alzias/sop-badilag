@@ -887,7 +887,7 @@ async function loadFromFirebase() {
     ]);
     if (!deptsSnap.empty) S.depts  = deptsSnap.docs.map(d=>({id:d.id,...d.data()}));
     if (!empsSnap.empty)  S.emps   = empsSnap.docs.map(d=>({id:d.id,...d.data()}));
-    if (!drivesSnap.empty) S.drives = drivesSnap.docs.map(d=>({id:d.id,...d.data()}));
+    if (!drivesSnap.empty) S.drives = drivesSnap.docs.map(d=>normalizeDriveDoc({id:d.id,...d.data()}));
     fbLoaded = true;
   } catch(e) {
     console.warn('Firebase load error, fallback to local:', e.message);
@@ -5013,7 +5013,7 @@ async function aktivasiSOP(sopId, tindakan) {
   if (existDr) { Object.assign(existDr, driveObj); } else { S.drives.push(driveObj); }
   await fbSaveDrive(driveObj);
   // Reload S.drives
-  if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return Object.assign({id:d.id},d.data());}); } catch(e){} }
+  if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return normalizeDriveDoc(Object.assign({id:d.id},d.data()));}); } catch(e){} }
   // Email ke pembuat
   var makerEmp = S.emps.find(function(e){ return e.nip===(sop.dibuatOleh||sop.createdByNIP); });
   if (makerEmp&&makerEmp.email) {
@@ -5278,6 +5278,22 @@ async function submitTTE(sopId) {
   addMsg('📋 **TTE Berhasil Disubmit!**\n\n📋 **'+(sop.namaSOP||sop.judul||'')+'**\n\n🔗 Link TTE: '+url+'\n\n'+(adminSOP?'📧 Admin SOP **'+adminSOP.name+'** akan memverifikasi dan mengaktifkan SOP.':'⚠ Admin SOP belum dikonfigurasi.'), false);
   updateInboxBadge();
 }
+// ── normalizeDriveDoc — auto fix field Builder lama saat load dari Firestore ──
+function normalizeDriveDoc(doc) {
+  // Builder lama simpan konten di 'kontenTeks', SOPI baca 'content'
+  if (!doc.content && doc.kontenTeks) doc.content = doc.kontenTeks;
+  // Builder lama simpan judul di 'namaSOP', SOPI baca 'title'
+  if (!doc.title && doc.namaSOP) doc.title = doc.namaSOP;
+  // Builder lama simpan nomor di 'nomorSOP', bukan 'nomor'
+  if (!doc.nomor && doc.nomorSOP) doc.nomor = doc.nomorSOP;
+  // link kosong → pakai urlTTE
+  if (!doc.link && doc.urlTTE) doc.link = doc.urlTTE;
+  if (!doc.linkFinal && doc.urlTTE) doc.linkFinal = doc.urlTTE;
+  // status default Aktif jika tidak ada
+  if (!doc.status) doc.status = 'Aktif';
+  return doc;
+}
+
 // expose ke global scope (insurance untuk onclick di innerHTML)
 // ══════════════════════════════════════════════════════════════
 // buildDriveFromSOP — menghasilkan driveData lengkap dari SOP Builder
@@ -5357,6 +5373,33 @@ function buildDriveFromSOP(sop, kontenTeks) {
   };
 }
 
+// ── patchFirestoreDrives — perbaiki drive yang sudah tersimpan dengan field salah ──
+// Dipanggil sekali, kemudian tidak perlu lagi setelah data benar
+window.patchFirestoreDrives = async function() {
+  if (!db) { toast('Firestore tidak tersedia','err'); return; }
+  var patched = 0;
+  for (var d of S.drives) {
+    var needPatch = false;
+    var updates = {};
+    if (!d.content && d.kontenTeks) { updates.content = d.kontenTeks; needPatch = true; }
+    if (!d.title && d.namaSOP)      { updates.title = d.namaSOP; needPatch = true; }
+    if (!d.nomor && d.nomorSOP)     { updates.nomor = d.nomorSOP; needPatch = true; }
+    if (!d.link && d.urlTTE)        { updates.link = d.urlTTE; needPatch = true; }
+    if (!d.linkFinal && d.urlTTE)   { updates.linkFinal = d.urlTTE; needPatch = true; }
+    if (needPatch) {
+      try {
+        await db.collection('drives').doc(d.id).update(updates);
+        Object.assign(d, updates);
+        patched++;
+        console.log('Patched drive:', d.id, updates);
+      } catch(e) { console.error('Patch error:', d.id, e); }
+    }
+  }
+  toast('✅ Patched ' + patched + ' drive dokumen di Firestore');
+  renderAdmin();
+  return patched;
+};
+
 window.submitTTE           = submitTTE;
 window.openTTEPanel        = openTTEPanel;
 window.openVerifikasiTTEPanel = openVerifikasiTTEPanel;
@@ -5420,7 +5463,7 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
   if (db) {
     try {
       var ds = await db.collection('drives').get();
-      S.drives = ds.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+      S.drives = ds.docs.map(function(d){ return normalizeDriveDoc(Object.assign({id:d.id}, d.data())); });
     } catch(e) { console.warn('Reload drives error:', e); }
   }
 
