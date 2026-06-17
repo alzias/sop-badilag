@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+=<!DOCTYPE html>
 <html lang="id">
 <head>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
@@ -82,7 +82,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));border:none;border-radius:12px;color:#05080f;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all .25s;letter-spacing:.5px;}
 .lbtn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,245,212,.35);}
 .lbtn:active{transform:translateY(0);}
-.admin-link{text-align:center;margin-top:14px;font-size:12px;color:var(--mu);cursor:pointer;transition:color .2s;letter-spacing:.3px;}
+.admin-link{text-align:center;margin-top:16px;margin-bottom:4px;font-size:12px;color:var(--mu);cursor:pointer;transition:color .2s;letter-spacing:.3px;padding:8px 0;}
 .admin-link:hover{color:var(--cyan);}
 
 /* ICON PICKER */
@@ -255,22 +255,31 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 <!-- ══ MODALS (fixed, z:900, always on top) ══ -->
 
 <!-- Admin Login -->
-<div class="modal" id="mAdminLogin">
+<div class="modal" id="mAdminLogin" style="display:none;">
   <div class="mbox" style="max-width:320px;" id="adminLoginBox">
     <div class="mhd" style="background:linear-gradient(135deg,rgba(255,183,3,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(255,183,3,.2);">
       <div class="mhd-t" style="color:var(--amber);">🔐 Admin Login</div>
       <button class="mclose" id="btnCloseAdminLogin">✕</button>
     </div>
     <div class="mbody">
+      <!-- Honeypot untuk cegah browser autofill -->
+      <input type="text" style="display:none;" aria-hidden="true" tabindex="-1">
+      <input type="password" style="display:none;" aria-hidden="true" tabindex="-1">
       <div style="text-align:center;margin-bottom:18px;">
         <div style="font-size:44px;margin-bottom:8px;">🛡️</div>
         <div style="font-size:12px;color:var(--mu);">Akses terbatas — masukkan kredensial admin</div>
       </div>
       <label class="flabel">Email Admin</label>
-      <input class="finput" id="aUser" type="email" placeholder="Email admin..." autocomplete="off" />
+      <input class="finput" id="aUser" type="text" placeholder="Email admin..."
+        autocomplete="new-password" readonly
+        onfocus="this.removeAttribute('readonly')"
+        style="-webkit-text-security:none;" />
       <label class="flabel">Password</label>
       <div style="position:relative;">
-        <input class="finput" id="aPass" type="password" placeholder="Password..." style="padding-right:46px;margin-bottom:0;" autocomplete="off" />
+        <input class="finput" id="aPass" type="password" placeholder="Password..."
+          style="padding-right:46px;margin-bottom:0;"
+          autocomplete="new-password" readonly
+          onfocus="this.removeAttribute('readonly')" />
         <button id="eyeBtn" onclick="togglePass()" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;line-height:1;">👁</button>
       </div>
       <div id="aErr" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--red);margin-top:12px;text-align:center;"></div>
@@ -544,7 +553,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 </div>
 
 <!-- ══ LOGIN ══ -->
-<div id="loginScreen">
+<div id="loginScreen" style="display:flex;">
   <div class="lglow"></div>
   <div class="llogo">⚖️</div>
   <div class="ltitle">SOP Intelligence</div>
@@ -3808,11 +3817,17 @@ window.addEventListener('load', async ()=>{
   const btnDoAdminLogin = document.getElementById('btnDoAdminLogin');
   if(btnDoAdminLogin) btnDoAdminLogin.onclick = doAdminLogin;
   const btnAdminLink = document.getElementById('btnAdminLink');
-  if(btnAdminLink) btnAdminLink.onclick = openAdminLogin;
+  if(btnAdminLink) btnAdminLink.onclick = function(e) {
+    e.stopPropagation();
+    openAdminLogin();
+  };
   const btnClose = document.getElementById('btnCloseAdminLogin');
   if(btnClose) btnClose.onclick = closeAdminLogin;
   const btnGuest = document.getElementById('btnGuestLogin');
-  if(btnGuest) btnGuest.onclick = loginGuest;
+  if(btnGuest) btnGuest.onclick = function(e) {
+    e.stopPropagation();
+    loginGuest();
+  };
   const loginNIP = document.getElementById('loginNIP');
   if(loginNIP) loginNIP.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
   const aUser = document.getElementById('aUser');
