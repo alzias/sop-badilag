@@ -1,4 +1,4 @@
-=<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
@@ -35,11 +35,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .fselect option{background:#0d1117;color:var(--tx);}
 
 /* MODALS — fixed so they always sit above everything */
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2500;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
 /* Modal yang muncul di atas modal lain */
-#mSOPReview{z-index:2300;}
-#mSOPBuilder{z-index:2300;}
-#mConfirm{z-index:2400;}
+#mSOPReview{z-index:2600;}
+#mSOPBuilder{z-index:2600;}
+#mConfirm{z-index:2700;}
 .modal.on{display:flex;}
 .mbox{background:rgba(12,18,30,.98);border:1px solid var(--b2);border-radius:20px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
@@ -255,7 +255,7 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 <!-- ══ MODALS (fixed, z:900, always on top) ══ -->
 
 <!-- Admin Login -->
-<div class="modal" id="mAdminLogin" style="display:none;">
+<div class="modal" id="mAdminLogin">
   <div class="mbox" style="max-width:320px;" id="adminLoginBox">
     <div class="mhd" style="background:linear-gradient(135deg,rgba(255,183,3,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(255,183,3,.2);">
       <div class="mhd-t" style="color:var(--amber);">🔐 Admin Login</div>
@@ -271,20 +271,17 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
       </div>
       <label class="flabel">Email Admin</label>
       <input class="finput" id="aUser" type="text" placeholder="Email admin..."
-        autocomplete="new-password" readonly
-        onfocus="this.removeAttribute('readonly')"
-        style="-webkit-text-security:none;" />
+        autocomplete="new-password" />
       <label class="flabel">Password</label>
       <div style="position:relative;">
         <input class="finput" id="aPass" type="password" placeholder="Password..."
           style="padding-right:46px;margin-bottom:0;"
-          autocomplete="new-password" readonly
-          onfocus="this.removeAttribute('readonly')" />
+          autocomplete="new-password" />
         <button id="eyeBtn" onclick="togglePass()" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;line-height:1;">👁</button>
       </div>
       <div id="aErr" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--red);margin-top:12px;text-align:center;"></div>
       <div class="mrow">
-        <button class="mbtn cancel" id="btnCloseAdminLogin">Batal</button>
+        <button class="mbtn cancel" id="btnCancelAdminLogin" onclick="closeAdminLogin()">Batal</button>
         <button class="mbtn ok" style="background:linear-gradient(135deg,var(--amber),#d4920a);color:#1a0f00;" id="btnDoAdminLogin">Masuk →</button>
       </div>
     </div>
@@ -937,6 +934,7 @@ function toast(msg) { const el=document.getElementById('toast'); el.textContent=
 function openModal(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  el.style.display = '';   // hapus inline display:none agar .modal.on bisa bekerja
   el.classList.add('on');
   // Saat buka Review/Builder/Detail di atas Inbox — sembunyikan Inbox sementara
   if (id === 'mSOPReview' || id === 'mSOPBuilder') {
@@ -967,8 +965,8 @@ function openAdminLogin() {
   const aPass = document.getElementById('aPass');
   const eyeBtn = document.getElementById('eyeBtn');
   const aErr = document.getElementById('aErr');
-  if(aUser) aUser.value='';
-  if(aPass){ aPass.value=''; aPass.type='password'; }
+  if(aUser){ aUser.value=''; aUser.removeAttribute('readonly'); }
+  if(aPass){ aPass.value=''; aPass.type='password'; aPass.removeAttribute('readonly'); }
   if(eyeBtn) eyeBtn.textContent='👁';
   if(aErr) aErr.style.display='none';
   openModal('mAdminLogin');
@@ -3806,34 +3804,63 @@ async function fbDeleteDrive(id) {
 }
 
 // ══ INIT ══
-window.addEventListener('load', async ()=>{
-  // ══ BIND SEMUA EVENT DULU — sebelum await apapun ══
-  // Ini kunci: onclick harus aktif SEBELUM Firebase load
-  const btnDoLogin = document.getElementById('btnDoLogin');
-  if(btnDoLogin) {
+
+// ── SAFETY NET: bind tombol kritis SEGERA saat script jalan (tidak tunggu 'load') ──
+// Mencegah tombol tidak responsif jika 'load' listener gagal di tengah jalan
+function bindCriticalButtons() {
+  var btnAdminLink = document.getElementById('btnAdminLink');
+  if (btnAdminLink && !btnAdminLink._bound) {
+    btnAdminLink._bound = true;
+    btnAdminLink.onclick = function(e) { e.stopPropagation(); openAdminLogin(); };
+  }
+  var btnGuest = document.getElementById('btnGuestLogin');
+  if (btnGuest && !btnGuest._bound) {
+    btnGuest._bound = true;
+    btnGuest.onclick = function(e) { e.stopPropagation(); loginGuest(); };
+  }
+  var btnDoLogin = document.getElementById('btnDoLogin');
+  if (btnDoLogin && !btnDoLogin._bound) {
+    btnDoLogin._bound = true;
     btnDoLogin.onclick = doLogin;
     btnDoLogin.disabled = false;
   }
+}
+// Jalankan segera jika DOM sudah siap, atau tunggu DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindCriticalButtons);
+} else {
+  bindCriticalButtons();
+}
+
+window.addEventListener('load', async ()=>{
+  bindCriticalButtons(); // pastikan tombol kritis ter-bind (idempotent — aman dipanggil ulang)
+
+  // ── Bind elemen TAMBAHAN yang tidak dicover bindCriticalButtons ──
   const btnDoAdminLogin = document.getElementById('btnDoAdminLogin');
-  if(btnDoAdminLogin) btnDoAdminLogin.onclick = doAdminLogin;
-  const btnAdminLink = document.getElementById('btnAdminLink');
-  if(btnAdminLink) btnAdminLink.onclick = function(e) {
-    e.stopPropagation();
-    openAdminLogin();
-  };
+  if(btnDoAdminLogin && !btnDoAdminLogin._bound) {
+    btnDoAdminLogin._bound = true;
+    btnDoAdminLogin.onclick = doAdminLogin;
+  }
   const btnClose = document.getElementById('btnCloseAdminLogin');
-  if(btnClose) btnClose.onclick = closeAdminLogin;
-  const btnGuest = document.getElementById('btnGuestLogin');
-  if(btnGuest) btnGuest.onclick = function(e) {
-    e.stopPropagation();
-    loginGuest();
-  };
+  if(btnClose && !btnClose._bound) {
+    btnClose._bound = true;
+    btnClose.onclick = closeAdminLogin;
+  }
   const loginNIP = document.getElementById('loginNIP');
-  if(loginNIP) loginNIP.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  if(loginNIP && !loginNIP._boundKeydown) {
+    loginNIP._boundKeydown = true;
+    loginNIP.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  }
   const aUser = document.getElementById('aUser');
-  if(aUser) aUser.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  if(aUser && !aUser._boundKeydown) {
+    aUser._boundKeydown = true;
+    aUser.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  }
   const aPass = document.getElementById('aPass');
-  if(aPass) aPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  if(aPass && !aPass._boundKeydown) {
+    aPass._boundKeydown = true;
+    aPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+  }
 
   // Init Firebase
   try {
