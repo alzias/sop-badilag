@@ -1874,8 +1874,24 @@ function openSidebar(){document.getElementById('sidebar').classList.add('on');do
 function closeSidebar(){document.getElementById('sidebar').classList.remove('on');document.getElementById('overlay').classList.remove('on');}
 
 // ══ ADMIN ══
-function openAdmin(){document.getElementById('adminPanel').style.display='flex';document.getElementById('adminPanel').style.flexDirection='column';renderAdmin();}
-function closeAdmin(){document.getElementById('adminPanel').style.display='none';populateDepts();}
+function openAdmin(){
+  const loginEl = document.getElementById('loginScreen');
+  if (loginEl) loginEl.style.display = 'none';
+  document.getElementById('adminPanel').style.display='flex';
+  document.getElementById('adminPanel').style.flexDirection='column';
+  renderAdmin();
+}
+function closeAdmin(){
+  document.getElementById('adminPanel').style.display='none';
+  // Kembali ke loginScreen jika belum login sebagai pegawai/guest, atau ke chat jika sudah
+  const chatEl = document.getElementById('chatWrapper');
+  const isInChat = chatEl && chatEl.style.display === 'flex';
+  if (!isInChat) {
+    const loginEl = document.getElementById('loginScreen');
+    if (loginEl) loginEl.style.display = 'flex';
+  }
+  populateDepts();
+}
 function switchTab(tab){
   S.tab=tab;
   ['dept','emp','drive','qr','backup','role'].forEach(t=>{
