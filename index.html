@@ -288,6 +288,42 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
   </div>
 </div>
 
+<!-- Verifikasi Login Pegawai (kode 4 digit) -->
+<div class="modal" id="mLoginVerify">
+  <div class="mbox" style="max-width:320px;" id="loginVerifyBox">
+    <div class="mhd" style="background:linear-gradient(135deg,rgba(0,245,212,.12),rgba(67,97,238,.12));border-bottom:1px solid rgba(0,245,212,.2);">
+      <div class="mhd-t" style="color:var(--cyan);">🔐 Verifikasi Identitas</div>
+      <button class="mclose" id="btnCloseLoginVerify" onclick="closeLoginVerify()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:44px;margin-bottom:8px;">🛡️</div>
+        <div id="lvName" style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px;"></div>
+        <div style="font-size:12px;color:var(--mu);">Masukkan kode verifikasi untuk melanjutkan</div>
+      </div>
+      <div id="lvCodeRow" style="display:flex;gap:10px;justify-content:center;margin-bottom:6px;">
+        <input class="lv-digit" maxlength="1" inputmode="numeric" autocomplete="off"
+          style="width:46px;height:54px;text-align:center;font-size:22px;font-weight:800;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:10px;color:var(--tx);outline:none;" />
+        <input class="lv-digit" maxlength="1" inputmode="numeric" autocomplete="off"
+          style="width:46px;height:54px;text-align:center;font-size:22px;font-weight:800;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:10px;color:var(--tx);outline:none;" />
+        <input class="lv-digit" maxlength="1" inputmode="numeric" autocomplete="off"
+          style="width:46px;height:54px;text-align:center;font-size:22px;font-weight:800;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:10px;color:var(--tx);outline:none;" />
+        <input class="lv-digit" maxlength="1" inputmode="numeric" autocomplete="off"
+          style="width:46px;height:54px;text-align:center;font-size:22px;font-weight:800;background:rgba(255,255,255,.05);border:1px solid var(--b2);border-radius:10px;color:var(--tx);outline:none;" />
+      </div>
+      <div id="lvErr" style="display:none;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--red);margin-top:12px;text-align:center;"></div>
+      <div id="lvNoCodeBox" style="display:none;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:10px;padding:12px 14px;margin-top:6px;text-align:center;">
+        <div style="font-size:12px;color:var(--amber);font-weight:700;margin-bottom:4px;">⚠ Kode verifikasi belum tersedia</div>
+        <div style="font-size:11.5px;color:var(--mu2);line-height:1.5;">Silakan hubungi admin Subbag Ketatalaksanaan untuk pengaktifan kode verifikasi akun Anda.</div>
+      </div>
+      <div class="mrow">
+        <button class="mbtn cancel" id="btnCancelLoginVerify" onclick="closeLoginVerify()">Batal</button>
+        <button class="mbtn ok" id="btnDoLoginVerify" onclick="doLoginVerify()">Masuk →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Form (add/edit) -->
 <div class="modal" id="mForm">
   <div class="mbox">
@@ -1046,6 +1082,9 @@ function loginGuest() {
   showChat();
 }
 
+// Menyimpan kandidat pegawai yang lolos cek NIP, menunggu verifikasi kode
+var _loginPending = null;
+
 function doLogin() {
   const nipEl = document.getElementById('loginNIP');
   const errEl = document.getElementById('loginErr');
@@ -1095,6 +1134,74 @@ function doLogin() {
     }
   }
 
+  // Simpan kandidat, lanjut ke tahap verifikasi kode (bukan langsung login)
+  _loginPending = { found, dept };
+  openLoginVerify(found);
+}
+
+// ══ VERIFIKASI KODE 4 DIGIT (tahap 2 login) ══
+function openLoginVerify(found) {
+  const nameEl = document.getElementById('lvName');
+  const errEl  = document.getElementById('lvErr');
+  const noCodeBox = document.getElementById('lvNoCodeBox');
+  const codeRow = document.getElementById('lvCodeRow');
+  const okBtn = document.getElementById('btnDoLoginVerify');
+  if(nameEl) nameEl.textContent = found.name || '';
+  if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
+
+  const hasCode = !!(found.telepon && String(found.telepon).replace(/\D/g,'').length >= 4);
+
+  // Reset digit inputs
+  const digits = document.querySelectorAll('#lvCodeRow .lv-digit');
+  digits.forEach(d=>{ d.value=''; });
+
+  if(hasCode) {
+    if(codeRow) codeRow.style.display='flex';
+    if(noCodeBox) noCodeBox.style.display='none';
+    if(okBtn) okBtn.style.display='';
+  } else {
+    if(codeRow) codeRow.style.display='none';
+    if(noCodeBox) noCodeBox.style.display='block';
+    if(okBtn) okBtn.style.display='none';
+  }
+
+  openModal('mLoginVerify');
+  if(hasCode) setTimeout(()=>{ if(digits[0]) digits[0].focus(); }, 150);
+}
+
+function closeLoginVerify() {
+  closeModal('mLoginVerify');
+  _loginPending = null;
+}
+
+function doLoginVerify() {
+  const errEl = document.getElementById('lvErr');
+  function showErr(msg){ if(errEl){ errEl.textContent=msg; errEl.style.display='block'; } }
+
+  if(!_loginPending){ closeLoginVerify(); return; }
+  const { found, dept } = _loginPending;
+
+  const digits = document.querySelectorAll('#lvCodeRow .lv-digit');
+  const inputCode = Array.from(digits).map(d=>d.value.trim()).join('');
+
+  if(inputCode.length < 4){
+    showErr('⚠ Masukkan 4 digit kode verifikasi');
+    return;
+  }
+
+  const telDigits = String(found.telepon||'').replace(/\D/g,'');
+  const realCode = telDigits.slice(-4);
+
+  if(!realCode || inputCode !== realCode){
+    showErr('❌ Kode verifikasi salah');
+    const box = document.getElementById('loginVerifyBox');
+    if(box){ box.style.animation='none'; requestAnimationFrame(()=>{ box.style.animation='shake .4s ease'; }); }
+    digits.forEach(d=>{ d.value=''; });
+    if(digits[0]) digits[0].focus();
+    return;
+  }
+
+  // Kode cocok → lanjutkan login
   S.user = {
     name: found.name,
     nip: found.nip,
@@ -1104,11 +1211,29 @@ function doLogin() {
   };
   S.mode = 'pegawai';
   S.history = [];
-  // Simpan info lengkap dari data pegawai
   S.user.eselon2 = found.eselon2 || '';
   S.user.subbag  = found.subbag  || '';
+
+  _loginPending = null;
+  closeModal('mLoginVerify');
   showChat();
 }
+
+// Auto-advance antar kotak digit + submit on Enter
+document.addEventListener('input', function(e){
+  if(!e.target.classList || !e.target.classList.contains('lv-digit')) return;
+  e.target.value = e.target.value.replace(/\D/g,'').slice(0,1);
+  if(e.target.value && e.target.nextElementSibling && e.target.nextElementSibling.classList.contains('lv-digit')){
+    e.target.nextElementSibling.focus();
+  }
+});
+document.addEventListener('keydown', function(e){
+  if(!e.target.classList || !e.target.classList.contains('lv-digit')) return;
+  if(e.key === 'Backspace' && !e.target.value && e.target.previousElementSibling && e.target.previousElementSibling.classList.contains('lv-digit')){
+    e.target.previousElementSibling.focus();
+  }
+  if(e.key === 'Enter') doLoginVerify();
+});
 // ══ TRIGGER GEMINI CLOSING — pantun + logout ══
 async function triggerGeminiClosing(skipEmail) {
   const namaUser = S.mode==='guest' ? (S.guestName||'Bapak/Ibu') : (S.user?S.user.name:'Bapak/Ibu');
