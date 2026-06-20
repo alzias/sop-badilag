@@ -2744,7 +2744,8 @@ function rQR(c) {
       h += '<div style="font-size:10px;color:var(--mu);letter-spacing:1px;font-weight:700;margin:14px 0 8px;text-transform:uppercase;">' + dept.icon + ' ' + dept.name + '</div>';
       dd.forEach((d, i) => {
         const qid = 'qr_' + d.id;
-        const safeTitle = d.title.split('"').join('&quot;');
+        const titleStr = d.title || d.namaSOP || d.judul || 'SOP Tanpa Judul';
+        const safeTitle = titleStr.split('"').join('&quot;');
         h += '<div class="acard" style="flex-direction:column;align-items:flex-start;gap:10px;">';
         h += '<div style="display:flex;align-items:center;gap:10px;width:100%;">';
         h += '<span style="font-size:22px;">📋</span>';
