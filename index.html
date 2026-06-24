@@ -2975,6 +2975,44 @@ function triggerBackupInput() {
   var el = document.getElementById('backupFileInput');
   if(el) el.click();
 }
+function exportPegawaiCSV() {
+  if (!S.emps || !S.emps.length) { toast('❌ Data pegawai belum tersedia'); return; }
+
+  // Header kolom — sama urutan dengan template import agar bisa re-import
+  const HEADERS = ['No','Nama','NIP','Golongan','Jabatan','Eselon II','Bagian','Sub Bagian/Kasi','No Telp','Role','Dept ID'];
+
+  const rows = S.emps.map((e, i) => [
+    i + 1,
+    e.name     || '',
+    e.nip      || '',
+    e.golongan || '',
+    e.jabatan  || '',
+    e.eselon2  || '',
+    e.bagian   || '',
+    e.subbag   || '',
+    e.telepon  || '',
+    e.role     || '',
+    e.deptId   || ''
+  ].map(v => {
+    // Escape nilai yang mengandung koma/kutip/newline agar CSV valid
+    const s = String(v);
+    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(','));
+
+  const csvContent = '\uFEFF' + HEADERS.join(',') + '\n' + rows.join('\n'); // \uFEFF = BOM agar Excel baca UTF-8 dgn benar
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const tgl  = new Date().toISOString().split('T')[0];
+  a.href     = url;
+  a.download = 'data_pegawai_badilag_' + tgl + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ ' + S.emps.length + ' data pegawai berhasil diexport');
+}
+
 function exportBackup() {
   const backup = {
     _meta: {
