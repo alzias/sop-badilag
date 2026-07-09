@@ -1665,15 +1665,14 @@ async function sendMsg(){
     // isMyUnit: gunakan canUserAccessDrive yang sudah proven 6 cara matching
     const isMyUnit = !isGuest && canUserAccessDrive(d);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
-    if(d.nomor) info += ' (No: '+d.nomor+')';
-    if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,300);
-    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,1500);
-    // Link folder utama: HANYA untuk unit sendiri
-    if(isMyUnit && d.link) info += '\n   Link Folder Utama (unit sendiri): '+d.link;
-    // Link Folder SOP Final: semua pegawai login
-    if(!isGuest && d.linkFinal) info += '\n   Link Folder SOP Final: '+d.linkFinal;
-    // Link View Dokumen per-file: semua termasuk tamu
-    if(d.urlDokumen) info += '\n   Link View Dokumen SOP: '+d.urlDokumen;
+    if(d.nomor)        info += '\n   Nomor SOP: '+d.nomor;
+    if(d.tanggal)      info += '\n   Tanggal: '+d.tanggal;
+    if(d.disahkanOleh) info += '\n   Disahkan Oleh: '+d.disahkanOleh;
+    if(d.eselon3||d.eselon3Id) info += '\n   Unit Eselon III: '+(d.eselon3||d.eselon3Id);
+    if(d.desc)         info += '\n   Deskripsi: '+d.desc.slice(0,300);
+    if(d.content)      info += '\n   Isi SOP: '+d.content.slice(0,1500);
+    // Chat AI hanya dapat urlDokumen — Folder Utama & Final hanya via card Drive
+    if(d.urlDokumen)   info += '\n   Link View Dokumen SOP: '+d.urlDokumen;
     return info;
   }).join('\n\n') || 'Belum ada SOP yang tersedia di sistem.';
   // Ambil 8 pesan terakhir untuk konteks lebih panjang
@@ -1692,9 +1691,8 @@ async function sendMsg(){
   const sopUnitInfo = sopUnit.length ? sopUnit.map((d,i)=>{
     let info = (i+1)+'. "'+d.title+'" [UNIT SENDIRI]';
     if(d.desc) info += ' — '+d.desc.slice(0,150);
-    if(d.link) info += ' | Folder Utama: '+d.link;
-    if(d.linkFinal) info += ' | Folder SOP Final: '+d.linkFinal;
-    if(d.urlDokumen) info += ' | View Dokumen: '+d.urlDokumen;
+    // Chat AI hanya dapat urlDokumen — Folder Utama & Final hanya via card Drive
+    if(d.urlDokumen) info += ' | Link View Dokumen SOP: '+d.urlDokumen;
     return info;
   }).join('\n') : '';
 
@@ -1955,9 +1953,9 @@ async function sendMsg(){
     sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
     sopOtherUnit.length && !isGuest ? 'SOP UNIT LAIN (hanya PDF Final yang boleh ditampilkan, DILARANG sebut folder utama):\n' + sopOtherUnit.slice(0,6).map((d,i)=>{
       const dept=S.depts.find(x=>x.id===d.deptId);
-      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.linkFinal?' | Folder SOP Final: '+d.linkFinal:'')+  (d.urlDokumen?' | View Dokumen: '+d.urlDokumen:' | View Dokumen: belum tersedia');
+      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.urlDokumen?' | Link View Dokumen SOP: '+d.urlDokumen:'');
     }).join('\n') : '',
-    !isGuest ? '\nATURAN AKSES LINK SOP — 3 JENIS LINK (WAJIB DIPATUHI):\n1. Folder Utama: HANYA untuk SOP berlabel [UNIT SENDIRI] — DILARANG berikan ke unit lain\n2. Folder SOP Final: BOLEH untuk semua pegawai login, DILARANG untuk tamu\n3. View Dokumen SOP: BOLEH untuk SEMUA pegawai DAN tamu — tidak ada batasan\n- Jika link ada di data → WAJIB tampilkan langsung, JANGAN bilang belum tersedia\n- Jika memang tidak ada di data → sampaikan sopan link belum tersedia\n- JANGAN mengarang atau memodifikasi link' : '\nATURAN AKSES LINK SOP UNTUK TAMU:\n- View Dokumen SOP (Link View Dokumen): BOLEH ditampilkan ke tamu\n- Folder Utama & Folder SOP Final: DILARANG untuk tamu\n- Jika link View Dokumen ada di data → tampilkan langsung',
+    '\nATURAN TAMPILAN LINK DI CHAT (WAJIB DIPATUHI):\n- Saat user TANYA SOP SPESIFIK via chat: HANYA tampilkan "Link View Dokumen SOP" saja — JANGAN tampilkan Folder Utama maupun Folder SOP Final di chat\n- Folder Utama & Folder Final HANYA tersedia via tombol Drive (bukan dari chat AI)\n- Jika "Link View Dokumen SOP" ada di data → tampilkan langsung dengan label singkat misal "📄 Lihat Dokumen SOP"\n- Jika "Link View Dokumen SOP" kosong/tidak ada → sampaikan sopan link dokumen belum tersedia, sarankan hubungi unit terkait\n- JANGAN menampilkan Folder Utama atau Folder Final dalam respons chat, meskipun data tersedia\n- JANGAN mengarang atau memodifikasi link — gunakan persis dari data',
     'SOP SISTEM (semua unit):\n' + sopInfo,
     hierarchyInfo ? '\nDATAR SOP BERDASARKAN UNIT YANG DIMINTA:\n' + hierarchyInfo : '',
     relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
@@ -5599,10 +5597,16 @@ function normalizeDriveDoc(doc) {
   if (!doc.content && doc.kontenTeks) doc.content = doc.kontenTeks;
   // Builder lama simpan judul di 'namaSOP', SOPI baca 'title'
   if (!doc.title && doc.namaSOP) doc.title = doc.namaSOP;
-  // Ekstrak title dari content jika masih kosong (format: "NAMA SOP: xxx")
-  if (!doc.title && doc.content) {
-    var m = doc.content.match(/NAMA SOP:\s*(.+)/);
-    if (m && m[1] && m[1].trim() !== '-') doc.title = m[1].trim();
+  // Ekstrak field dari content jika field langsung kosong
+  // Format content: "NAMA SOP: xxx\nNOMOR SOP: xxx\nUNIT: xxx\n..."
+  if (doc.content) {
+    var c = doc.content;
+    var ex = function(pat) { var m=c.match(pat); return (m&&m[1]&&m[1].trim()!=='-')?m[1].trim():''; };
+    if (!doc.title)        { var t=ex(/NAMA SOP:\s*(.+)/);   if(t) doc.title = t; }
+    if (!doc.nomor)        { var n=ex(/NOMOR SOP:\s*(.+)/);  if(n) doc.nomor = n; }
+    if (!doc.tanggal)      { var tg=ex(/TANGGAL EFEKTIF:\s*(.+)/); if(tg) doc.tanggal = tg; }
+    if (!doc.disahkanOleh) { var dh=ex(/DISAHKAN OLEH:\s*(.+)/);   if(dh) doc.disahkanOleh = dh; }
+    if (!doc.eselon4 && !doc.unit) { var u=ex(/UNIT:\s*(.+)/); if(u) doc.eselon4=u; }
   }
   // Builder lama simpan nomor di 'nomorSOP', bukan 'nomor'
   if (!doc.nomor && doc.nomorSOP) doc.nomor = doc.nomorSOP;
