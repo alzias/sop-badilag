@@ -1651,15 +1651,18 @@ async function sendMsg(){
   // Semua pegawai login NIP bisa akses konten & link PDF semua SOP
   // Hanya drive utama (folder) yang dibatasi per unit — bukan konten/link final
   const myDrives = S.drives.filter(d => d.status !== 'Tidak Aktif');
+  const myDeptId = !isGuest ? (S.user?.dept?.id || '') : '';
   const sopInfo = myDrives.slice(0,8).map((d,i)=>{ // Batasi 8 SOP untuk hemat token
     const dept=S.depts.find(x=>x.id===d.deptId);
+    const isMyUnit = !isGuest && d.deptId === myDeptId;
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
     if(d.nomor) info += ' (No: '+d.nomor+')';
     if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,300);
-    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,1500); // Hemat token
-    // Unit sendiri: tampilkan folder utama + PDF final
-    if(d.link) info += '\n   Link Drive (Folder Utama): '+d.link;
-    if(d.linkFinal) info += '\n   Link PDF Final: '+d.linkFinal;
+    if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,1500);
+    // Link folder utama: HANYA untuk unit sendiri
+    if(isMyUnit && d.link) info += '\n   Link Drive Folder Utama (unit sendiri): '+d.link;
+    // Link PDF Final: boleh untuk semua unit (pegawai login)
+    if(!isGuest && d.linkFinal) info += '\n   Link PDF Final: '+d.linkFinal;
     return info;
   }).join('\n\n') || 'Belum ada SOP yang tersedia di sistem.';
   // Ambil 8 pesan terakhir untuk konteks lebih panjang
@@ -1716,8 +1719,8 @@ async function sendMsg(){
         lines.push('📁 '+e3.nama+':');
         sopE4.forEach(d => {
           const dept = S.depts.find(x=>x.id===d.deptId);
-          const link = d.linkFinal ? ' → '+d.linkFinal : '';
-          lines.push('  📄 '+d.title+' ['+( dept?dept.name:'?')+']'+link);
+          const link = d.linkFinal ? ' [PDF Final: '+d.linkFinal+']' : ' [PDF Final: belum tersedia]';
+          lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+link);
         });
       }
     });
@@ -1735,7 +1738,7 @@ async function sendMsg(){
       const lines = ['SOP di '+mentionedE3.nama+':'];
       sopE4.forEach(d => {
         const dept = S.depts.find(x=>x.id===d.deptId);
-        const link = d.linkFinal ? ' → '+d.linkFinal : '';
+        const link = d.linkFinal ? ' [PDF Final: '+d.linkFinal+']' : ' [PDF Final: belum tersedia]';
         lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+link);
       });
       hierarchyInfo = lines.join('\n');
@@ -1744,7 +1747,7 @@ async function sendMsg(){
 
   const relatedInfo = relatedSop.length ? relatedSop.map(d=>{
     const dept = S.depts.find(x=>x.id===d.deptId);
-    const linkInfo = d.linkFinal ? ' | PDF Final: '+d.linkFinal : '';
+    const linkInfo = d.linkFinal ? ' | PDF Final: '+d.linkFinal : ' | PDF Final: belum tersedia';
     return '• "'+d.title+'" ['+(dept?dept.name:'?')+']'+linkInfo;
   }).join('\n') : '';
 
@@ -1935,7 +1938,7 @@ async function sendMsg(){
     sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT KERJA ' + unitKerja + ':\n' + sopUnitInfo : '',
-    !isGuest ? '\nAKSES SOP & DRIVE (ATURAN KETAT):\n- PDF Final semua SOP: BOLEH diakses semua pegawai login (lintas unit)\n- Link FOLDER UTAMA: HANYA boleh diberikan jika SOP berasal dari unit kerja pegawai itu sendiri\n- DILARANG memberikan link folder utama unit lain meskipun diminta — cukup berikan link PDF Final-nya\n- "Tampilkan drive saya": berikan link FOLDER UTAMA unit sendiri\n- SOP unit lain: berikan LINK PDF FINAL saja, jelaskan folder utamanya tidak dapat diakses\n- Tampilan per Eselon III/II: kelompokkan per unit, hanya PDF Final' : '',
+    !isGuest ? '\nAKSES SOP & DRIVE (ATURAN KETAT):\n- Link PDF Final: ADA di data jika field "Link PDF Final" terisi → WAJIB tampilkan link tersebut langsung, JANGAN katakan belum tersedia atau sedang integrasi\n- Link PDF Final: BOLEH diberikan ke semua pegawai login lintas unit\n- Link FOLDER UTAMA: HANYA untuk SOP unit kerja pegawai sendiri (sudah ditandai "unit sendiri" di data)\n- DILARANG memberikan link folder utama unit lain — cukup PDF Final\n- Jika field "Link PDF Final" KOSONG/tidak ada di data → baru boleh sampaikan link belum tersedia\n- JANGAN pernah mengarang atau menebak link — gunakan persis dari data sistem' : '',
     'SOP SISTEM (semua unit):\n' + sopInfo,
     hierarchyInfo ? '\nDATAR SOP BERDASARKAN UNIT YANG DIMINTA:\n' + hierarchyInfo : '',
     relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
