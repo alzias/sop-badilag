@@ -996,6 +996,23 @@ async function loadFromFirebase() {
     if (!empsSnap.empty)  S.emps   = empsSnap.docs.map(d=>({id:d.id,...d.data()}));
     if (!drivesSnap.empty) S.drives = drivesSnap.docs.map(d=>normalizeDriveDoc({id:d.id,...d.data()}));
     fbLoaded = true;
+    // Enrich drives dari sop_drafts: isi field kosong (nomor, tanggal, disahkanOleh, title, urlDokumen)
+    // menggunakan sopDraftId sebagai kunci relasi
+    try {
+      var draftsSnap = await db.collection('sop_drafts').get();
+      var draftsMap = {};
+      draftsSnap.docs.forEach(d => { draftsMap[d.id] = d.data(); });
+      S.drives.forEach(function(drive) {
+        var draft = draftsMap[drive.sopDraftId] || draftsMap[drive.id];
+        if (!draft) return;
+        if (!drive.title && draft.namaSOP)       drive.title       = draft.namaSOP;
+        if (!drive.nomor && draft.nomorSOP)      drive.nomor       = draft.nomorSOP;
+        if (!drive.tanggal && draft.tglEfektif)  drive.tanggal     = draft.tglEfektif;
+        if (!drive.disahkanOleh && draft.disahkanOleh) drive.disahkanOleh = draft.disahkanOleh;
+        if (!drive.urlDokumen && draft.urlTTE)   drive.urlDokumen  = draft.urlTTE;
+        if (!drive.desc && draft.deskripsi)      drive.desc        = draft.deskripsi;
+      });
+    } catch(e) { console.warn('Enrich drives error:', e); }
   } catch(e) {
     console.warn('Firebase load error, fallback to local:', e.message);
   }
@@ -5326,7 +5343,7 @@ async function aktivasiSOP(sopId, tindakan) {
   driveObj.urlDokumen = urlFinal; // link per-file PDF TTE dari Builder
   var existDr = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveObj.id; });
   if (existDr) { Object.assign(existDr, driveObj); } else { S.drives.push(driveObj); }
-  await fbSaveDrive(driveObj);
+  await fbSaveDriveDoc(driveObj);
   // Reload S.drives
   if (db) { try { var ds=await db.collection('drives').get(); S.drives=ds.docs.map(function(d){return normalizeDriveDoc(Object.assign({id:d.id},d.data()));}); } catch(e){} }
   // Email ke pembuat
@@ -5469,7 +5486,7 @@ function generateKontenTeks(sop) {
 }
 
 // ── Simpan SOP aktif ke koleksi drives ──
-async function fbSaveDrive(sop, kontenTeks) {
+async function fbSaveDriveFromSOP(sop, kontenTeks) {
   if (!db) return false;
   try {
     // Gunakan buildDriveFromSOP untuk konsistensi field dengan manual
@@ -5785,7 +5802,7 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
   delete driveData.link; delete driveData.linkFinal;
   var existingDrive = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveData.id; });
   if (existingDrive) { Object.assign(existingDrive, driveData); } else { S.drives.push(driveData); }
-  await fbSaveDrive(driveData); // fbSaveDrive hanya butuh 1 arg (object)
+  await fbSaveDriveDoc(driveData);
 
   // Reload drives dari Firestore
   if (db) {
