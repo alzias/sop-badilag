@@ -1361,7 +1361,7 @@ async function sendRekapEmail(toEmail) {
     return haystack.includes(d.title.toLowerCase());
   }).slice(0, 10).map(d => {
     const dept = S.depts.find(x => x.id === d.deptId);
-    return { title: d.title, unit: dept ? dept.name : '', link: d.link, linkFinal: d.linkFinal };
+    return { title: d.title, unit: dept ? dept.name : '', link: d.link, linkFinal: d.linkFinal, urlDokumen: d.urlDokumen||'' };
   });
 
   const now = new Date();
@@ -1429,6 +1429,11 @@ function showChat() {
     setEl('hdrDept','textContent',S.user.dept.icon+' '+S.user.dept.name+(S.user.jabatan?' · '+S.user.jabatan.split(' ').slice(0,3).join(' '):''));
   }
   setEl('stTag','textContent', S.mode==='guest' ? '🌐 Publik' : S.user.dept.name);
+  // Quick chip Drive & Buat SOP: sembunyikan untuk tamu
+  var qDrive = document.getElementById('qchipDrive');
+  var qBuat2 = document.getElementById('qchipBuat');
+  if(qDrive) qDrive.style.display = S.mode==='guest' ? 'none' : '';
+  if(qBuat2) qBuat2.style.display = S.mode==='guest' ? 'none' : '';
   setEl('sbAv','textContent',S.user.dept.icon);
   setEl('sbName','textContent',S.user.name);
   setEl('sbNIP','textContent','NIP: '+S.user.nip);
@@ -1504,11 +1509,14 @@ function addMsg(text,isOut,card=null) {
     if(own) {
       // Unit sendiri: tombol Drive + PDF jika ada
       let btns = `<a class="dlink" href="${card.link}" target="_blank">📂 Buka Drive</a>`;
-      if(hasPdf) btns += ` <a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📄 PDF Final</a>`;
+      if(hasPdf) btns += ` <a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📁 Folder Final</a>`;
+      if(card.urlDokumen) btns += ` <a class="dlink" style="background:rgba(6,214,160,.12);border-color:rgba(6,214,160,.3);color:var(--green);" href="${card.urlDokumen}" target="_blank">📄 View Dokumen</a>`;
       w.innerHTML=`<div class="dcard"><div class="dcard-hd ok">📂 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''} ${btns}</div></div><div class="bmeta">${now()}</div>`;
     } else if(hasPdf) {
       // Unit lain tapi ada PDF Final: hanya tombol PDF
-      w.innerHTML=`<div class="dcard"><div class="dcard-hd" style="background:rgba(255,183,3,.08);border-left:3px solid var(--amber);">📄 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''}<a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📄 Buka PDF Final</a></div></div><div class="bmeta">${now()}</div>`;
+      const docBtn8c = card.urlDokumen ? `<a class="dlink" style="background:rgba(6,214,160,.12);border-color:rgba(6,214,160,.3);color:var(--green);" href="${card.urlDokumen}" target="_blank">📄 View Dokumen</a>` : '';
+      const pdfBtn8c = hasPdf ? `<a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="${card.linkFinal}" target="_blank">📁 Folder Final</a>` : '';
+      w.innerHTML=`<div class="dcard"><div class="dcard-hd" style="background:rgba(255,183,3,.08);border-left:3px solid var(--amber);">📄 ${card.title}<span class="dpill">${dn}</span></div><div class="dcard-bd">${card.desc?`<p>${card.desc}</p>`:''} ${pdfBtn8c}${docBtn8c}</div></div><div class="bmeta">${now()}</div>`;
     } else {
       // Unit lain tanpa PDF: tidak tampilkan card sama sekali
       w.style.display='none';
@@ -1661,8 +1669,10 @@ async function sendMsg(){
     if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,1500);
     // Link folder utama: HANYA untuk unit sendiri
     if(isMyUnit && d.link) info += '\n   Link Drive Folder Utama (unit sendiri): '+d.link;
-    // Link PDF Final: boleh untuk semua unit (pegawai login)
-    if(!isGuest && d.linkFinal) info += '\n   Link PDF Final: '+d.linkFinal;
+    // Link PDF Final: hanya pegawai login
+    if(!isGuest && d.linkFinal) info += '\n   Link PDF Final (folder): '+d.linkFinal;
+    // Link View Dokumen: boleh semua termasuk tamu
+    if(d.urlDokumen) info += '\n   Link View Dokumen SOP: '+d.urlDokumen;
     return info;
   }).join('\n\n') || 'Belum ada SOP yang tersedia di sistem.';
   // Ambil 8 pesan terakhir untuk konteks lebih panjang
@@ -1682,7 +1692,8 @@ async function sendMsg(){
     let info = (i+1)+'. "'+d.title+'" [UNIT SENDIRI]';
     if(d.desc) info += ' — '+d.desc.slice(0,150);
     if(d.link) info += ' | Folder Utama: '+d.link;
-    if(d.linkFinal) info += ' | PDF Final: '+d.linkFinal;
+    if(d.linkFinal) info += ' | Folder SOP Final: '+d.linkFinal;
+    if(d.urlDokumen) info += ' | View Dokumen: '+d.urlDokumen;
     return info;
   }).join('\n') : '';
 
@@ -1943,9 +1954,9 @@ async function sendMsg(){
     sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
     sopOtherUnit.length && !isGuest ? 'SOP UNIT LAIN (hanya PDF Final yang boleh ditampilkan, DILARANG sebut folder utama):\n' + sopOtherUnit.slice(0,6).map((d,i)=>{
       const dept=S.depts.find(x=>x.id===d.deptId);
-      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.linkFinal?' | PDF Final: '+d.linkFinal:' | PDF Final: belum tersedia');
+      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.linkFinal?' | Folder SOP Final: '+d.linkFinal:'')+  (d.urlDokumen?' | View Dokumen: '+d.urlDokumen:' | View Dokumen: belum tersedia');
     }).join('\n') : '',
-    !isGuest ? '\nATURAN AKSES LINK SOP (WAJIB DIPATUHI):\n- PDF Final SOP: BOLEH ditampilkan ke SEMUA pegawai dan tamu — tidak ada batasan unit\n- Folder Utama Drive: HANYA untuk SOP berlabel [UNIT SENDIRI] — DILARANG sebutkan folder unit lain\n- Jika "PDF Final" ada di data → WAJIB tampilkan linknya langsung, JANGAN bilang belum tersedia\n- Jika "PDF Final: belum tersedia" di data → sampaikan dengan sopan bahwa link sedang diproses\n- JANGAN mengarang link — gunakan persis dari data, jika tidak ada akui tidak tersedia\n- Tamu: boleh lihat PDF Final tapi tidak boleh akses folder utama manapun' : '',
+    !isGuest ? '\nATURAN AKSES LINK SOP — 3 JENIS LINK (WAJIB DIPATUHI):\n1. Folder Utama: HANYA untuk SOP berlabel [UNIT SENDIRI] — DILARANG berikan ke unit lain\n2. Folder SOP Final: BOLEH untuk semua pegawai login, DILARANG untuk tamu\n3. View Dokumen SOP: BOLEH untuk SEMUA pegawai DAN tamu — tidak ada batasan\n- Jika link ada di data → WAJIB tampilkan langsung, JANGAN bilang belum tersedia\n- Jika memang tidak ada di data → sampaikan sopan link belum tersedia\n- JANGAN mengarang atau memodifikasi link' : '\nATURAN AKSES LINK SOP UNTUK TAMU:\n- View Dokumen SOP (Link View Dokumen): BOLEH ditampilkan ke tamu\n- Folder Utama & Folder SOP Final: DILARANG untuk tamu\n- Jika link View Dokumen ada di data → tampilkan langsung',
     'SOP SISTEM (semua unit):\n' + sopInfo,
     hierarchyInfo ? '\nDATAR SOP BERDASARKAN UNIT YANG DIMINTA:\n' + hierarchyInfo : '',
     relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
@@ -2562,10 +2573,12 @@ function rDrives(c){
   h += '<div style="flex:1;"><label class="flabel">Masa Berlaku</label>';
   h += '<select class="fselect" id="aDrStatus"><option value="Aktif">✅ Aktif</option><option value="Tidak Aktif">❌ Tidak Aktif</option></select></div>';
   h += '</div>';
-  h += '<label class="flabel">Link Google Drive <span style="color:var(--mu);font-size:10px;">(folder utama SOP unit)</span></label>';
+  h += '<label class="flabel">1. Link Folder Utama <span style="color:var(--mu);font-size:10px;">(hanya untuk unit sendiri)</span></label>';
   h += '<input class="finput" id="aDrL" placeholder="https://drive.google.com/drive/folders/..."/>';
-  h += '<label class="flabel">Link SOP Final PDF <span style="color:var(--cyan);font-size:10px;">★ untuk SOPI & publik</span></label>';
-  h += '<input class="finput" id="aDrLFinal" placeholder="https://drive.google.com/drive/folders/... (subfolder PDF final)"/>';
+  h += '<label class="flabel">2. Link Folder SOP Final <span style="color:var(--mu2);font-size:10px;">(folder berisi semua PDF unit)</span></label>';
+  h += '<input class="finput" id="aDrLFinal" placeholder="https://drive.google.com/drive/folders/..."/>';
+  h += '<label class="flabel">3. Link View Dokumen SOP <span style="color:var(--cyan);font-size:10px;">★ bisa diakses semua pegawai &amp; tamu</span></label>';
+  h += '<input class="finput" id="aDrLDoc" placeholder="https://drive.google.com/file/d/..."/>';
   h += '<label class="flabel">Deskripsi Singkat</label>';
   h += '<input class="finput" id="aDrDesc" placeholder="Ringkasan isi SOP..."/>';
   h += '<label class="flabel" style="display:flex;align-items:center;gap:6px;">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;font-weight:400;">(untuk AI — paste narasi & langkah prosedur)</span></label>';
@@ -2654,9 +2667,11 @@ async function addDrive(){
   const matchedDept = S.depts.find(d => d.name.toLowerCase() === targetName.toLowerCase());
   const deptId = matchedDept ? matchedDept.id : (e2ToDept[e2Id] || 's01');
 
+  const lDoc = document.getElementById('aDrLDoc')?.value.trim() || '';
   const newDrive = {
     id:'dr'+Date.now(),
     linkFinal: lFinal,
+    urlDokumen: lDoc,
     eselon1: 'Direktorat Jenderal Badan Peradilan Agama MA RI',
     eselon2Id: e2Id,
     eselon2: e2obj ? e2obj.name : '',
@@ -2707,8 +2722,9 @@ function editDrive(id){
     '<div style="flex:1;"><label class="flabel">Tanggal Dokumen</label><input class="finput" id="eDrTanggal" type="date" value="'+(d.tanggal||'')+'" style="color:var(--tx);"/></div>'+
     '<div style="flex:1;"><label class="flabel">Masa Berlaku</label><select class="fselect" id="eDrStatus">'+statusOpts+'</select></div>'+
     '</div>'+
-    '<label class="flabel">Link Google Drive <span style="color:var(--mu);font-size:10px;">(folder utama)</span></label><input class="finput" id="eDrL" value="'+(d.link||'')+'"/>'+
-    '<label class="flabel">Link SOP Final PDF <span style="color:var(--cyan);font-size:10px;">★ untuk SOPI & publik</span></label><input class="finput" id="eDrLFinal" value="'+(d.linkFinal||'')+'" placeholder="https://drive.google.com/drive/folders/..."/>'+
+    '<label class="flabel">1. Link Folder Utama <span style="color:var(--mu);font-size:10px;">(hanya untuk unit sendiri)</span></label><input class="finput" id="eDrL" value="'+(d.link||'')+'"/>'+
+    '<label class="flabel">2. Link Folder SOP Final <span style="color:var(--mu2);font-size:10px;">(folder berisi semua PDF unit)</span></label><input class="finput" id="eDrLFinal" value="'+(d.linkFinal||'')+'" placeholder="https://drive.google.com/drive/folders/..."/>'+
+    '<label class="flabel">3. Link View Dokumen SOP <span style="color:var(--cyan);font-size:10px;">★ bisa diakses semua pegawai &amp; tamu</span></label><input class="finput" id="eDrLDoc" value="'+(d.urlDokumen||'')+'" placeholder="https://drive.google.com/file/d/..."/>'+
     '<label class="flabel">Deskripsi</label><input class="finput" id="eDrDesc" value="'+(d.desc||'')+'"/>'+
     '<label class="flabel">Konten / Isi SOP <span style="color:var(--cyan);font-size:10px;">(untuk AI)</span></label>'+
     '<textarea class="finput" id="eDrContent" rows="5" style="resize:vertical;line-height:1.5;font-size:13px;">'+safeContent+'</textarea>'+
@@ -2767,6 +2783,7 @@ async function saveDrive(id){
   d.deptId = matchedDeptE ? matchedDeptE.id : (e2ToDept[e2Id] || d.deptId);
   d.title=t; d.link=l;
   d.linkFinal=(document.getElementById('eDrLFinal')||{value:''}).value.trim();
+  d.urlDokumen=(document.getElementById('eDrLDoc')||{value:''}).value.trim();
   d.nomor=(document.getElementById('eDrNomor')||{value:''}).value.trim();
   d.tanggal=(document.getElementById('eDrTanggal')||{value:''}).value;
   d.status=(document.getElementById('eDrStatus')||{value:'Aktif'}).value;
@@ -5304,7 +5321,7 @@ async function aktivasiSOP(sopId, tindakan) {
   // Buat drive entry LENGKAP via buildDriveFromSOP (field sama dengan manual)
   sop.content = kontenTeks;
   var driveObj = buildDriveFromSOP(sop, kontenTeks);
-  driveObj.link = urlFinal; driveObj.linkFinal = urlFinal;
+  driveObj.urlDokumen = urlFinal; // link per-file PDF TTE dari Builder
   var existDr = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveObj.id; });
   if (existDr) { Object.assign(existDr, driveObj); } else { S.drives.push(driveObj); }
   await fbSaveDrive(driveObj);
@@ -5456,7 +5473,7 @@ async function fbSaveDrive(sop, kontenTeks) {
     // Gunakan buildDriveFromSOP untuk konsistensi field dengan manual
     var driveData = buildDriveFromSOP(sop, kontenTeks);
     var urlF = sop.urlTTE || sop.urlPDFSigned || '';
-    driveData.link = urlF; driveData.linkFinal = urlF;
+    driveData.urlDokumen = urlF; // link per-file PDF TTE
     await db.collection('drives').doc(driveData.id).set(driveData);
     return true;
   } catch(e) { console.error('fbSaveDrive error:',e); return false; }
@@ -5582,9 +5599,8 @@ function normalizeDriveDoc(doc) {
   if (!doc.title && doc.namaSOP) doc.title = doc.namaSOP;
   // Builder lama simpan nomor di 'nomorSOP', bukan 'nomor'
   if (!doc.nomor && doc.nomorSOP) doc.nomor = doc.nomorSOP;
-  // link kosong → pakai urlTTE
-  if (!doc.link && doc.urlTTE) doc.link = doc.urlTTE;
-  if (!doc.linkFinal && doc.urlTTE) doc.linkFinal = doc.urlTTE;
+  // urlTTE dari Builder → urlDokumen (link per-file, bukan folder utama/final)
+  if (!doc.urlDokumen && doc.urlTTE) doc.urlDokumen = doc.urlTTE;
   // status default Aktif jika tidak ada
   if (!doc.status) doc.status = 'Aktif';
   return doc;
@@ -5645,9 +5661,10 @@ function buildDriveFromSOP(sop, kontenTeks) {
     desc        : sop.deskripsi || norm.namaSOP || '',
     content     : teks,          // ← FIELD UTAMA UNTUK SOPI (d.content)
 
-    // ── Link PDF (sama dengan TTE) ──
-    link        : urlFinal,      // Link folder (sama dengan PDF final untuk SOP Builder)
-    linkFinal   : urlFinal,      // Link PDF final ★ untuk SOPI & publik
+    // ── Link (3 field terpisah) ──
+    link        : '',            // Folder utama unit — diisi manual admin
+    linkFinal   : '',            // Folder SOP final — diisi manual admin
+    urlDokumen  : urlFinal,      // Link per-file PDF TTE (dari Builder/TTE)
 
     // ── Hierarki unit ──
     eselon1     : 'Direktorat Jenderal Badan Peradilan Agama MA RI',
@@ -5680,8 +5697,7 @@ window.patchFirestoreDrives = async function() {
     if (!d.content && d.kontenTeks) { updates.content = d.kontenTeks; needPatch = true; }
     if (!d.title && d.namaSOP)      { updates.title = d.namaSOP; needPatch = true; }
     if (!d.nomor && d.nomorSOP)     { updates.nomor = d.nomorSOP; needPatch = true; }
-    if (!d.link && d.urlTTE)        { updates.link = d.urlTTE; needPatch = true; }
-    if (!d.linkFinal && d.urlTTE)   { updates.linkFinal = d.urlTTE; needPatch = true; }
+    if (!d.urlDokumen && d.urlTTE)   { updates.urlDokumen = d.urlTTE; needPatch = true; }
     if (needPatch) {
       try {
         await db.collection('drives').doc(d.id).update(updates);
