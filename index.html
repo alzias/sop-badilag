@@ -2078,7 +2078,7 @@ function saveChatDrive(){
   const t=document.getElementById('mDT').value.trim(),l=document.getElementById('mDL').value.trim();
   if(!t||!l){toast('⚠ Judul & link wajib diisi');return;}
   S.drives.push({id:'dr'+Date.now(),deptId:document.getElementById('mDD').value,title:t,link:l,desc:document.getElementById('mDDesc').value.trim()});
-  fbSaveDrive(S.drives[S.drives.length-1]);closeModal('mDrive');toast('✅ Drive disimpan');
+  fbSaveDriveDoc(S.drives[S.drives.length-1]);closeModal('mDrive');toast('✅ Drive disimpan');
 }
 
 // ══ SIDEBAR ══
@@ -2691,7 +2691,7 @@ async function addDrive(){
   };
 
   S.drives.push(newDrive);
-  await fbSaveDrive(newDrive);
+  await fbSaveDriveDoc(newDrive);
   renderAdmin();
   toast('✅ SOP berhasil ditambahkan');
 }
@@ -2790,7 +2790,7 @@ async function saveDrive(id){
   d.status=(document.getElementById('eDrStatus')||{value:'Aktif'}).value;
   d.desc=document.getElementById('eDrDesc').value.trim();
   d.content=(document.getElementById('eDrContent')||{value:''}).value.trim();
-  fbSaveDrive(S.drives.find(x=>x.id===arguments[0])||S.drives[S.drives.length-1]);closeModal('mForm');renderAdmin();toast('✅ SOP berhasil diperbarui');
+  fbSaveDriveDoc(S.drives.find(x=>x.id===arguments[0])||S.drives[S.drives.length-1]);closeModal('mForm');renderAdmin();toast('✅ SOP berhasil diperbarui');
 }
 function delDriveConfirm(id){const d=S.drives.find(x=>x.id===id);showConfirm('Hapus Drive?','"'+d.title+'" akan dihapus permanen.',()=>delDrive(id));}
 async function delDrive(id){S.drives=S.drives.filter(d=>d.id!==id);await fbDeleteDrive(id);renderAdmin();toast('🗑 Drive dihapus');}
@@ -4033,7 +4033,7 @@ async function executeMigration(deptChanges, empChanges, driveChanges, STRUCT_DE
       if(d) {
         d.deptId     = c.newDeptId;
         d.eselon3Id  = c.newEselon3Id;
-        try { await fbSaveDrive(d); saved++; } catch(err) { errors++; }
+        try { await fbSaveDriveDoc(d); saved++; } catch(err) { errors++; }
       }
     }
 
@@ -4065,7 +4065,7 @@ async function fbSaveEmp(emp) {
 async function fbDeleteEmp(id) {
   try { await db.collection('emps').doc(id).delete(); } catch(e) { console.error(e); }
 }
-async function fbSaveDrive(drive) {
+async function fbSaveDriveDoc(drive) {
   try {
     const {id, ...data} = drive;
     // merge:true agar field yg tidak ada di data (link, linkFinal) tidak dihapus dari Firestore
