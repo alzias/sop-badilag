@@ -1673,21 +1673,24 @@ async function sendMsg(){
   const jabatan = isGuest ? '' : S.user.jabatan;
   const namaUser = isGuest ? (S.guestName || 'Bapak/Ibu') : S.user.name.split(' ')[0];
 
-  // SOP unit yang relevan
-  const sopUnit = !isGuest ? myDrives : [];
+  // SOP unit sendiri (folder utama + PDF final)
+  const sopUnit = !isGuest ? myDrives.filter(d => d.deptId === myDeptId) : [];
+  // SOP unit lain (hanya PDF final, folder utama tidak dikirim)
+  const sopOtherUnit = !isGuest ? myDrives.filter(d => d.deptId !== myDeptId) : myDrives;
+
   const sopUnitInfo = sopUnit.length ? sopUnit.map((d,i)=>{
-    let info = (i+1)+'. "'+d.title+'"';
+    let info = (i+1)+'. "'+d.title+'" [UNIT SENDIRI]';
     if(d.desc) info += ' — '+d.desc.slice(0,150);
-    if(d.linkFinal) info += ' | PDF: '+d.linkFinal;
-  else if(d.link) info += ' | Drive: '+d.link;
+    if(d.link) info += ' | Folder Utama: '+d.link;
+    if(d.linkFinal) info += ' | PDF Final: '+d.linkFinal;
     return info;
   }).join('\n') : '';
 
-  // Rekomendasi SOP terkait berdasarkan kata kunci
+  // Rekomendasi SOP terkait berdasarkan kata kunci (semua unit, hanya PDF final)
   const keywords = txt.toLowerCase().split(' ').filter(w=>w.length>3);
-  const relatedSop = S.drives.filter(d => {
+  const relatedSop = myDrives.filter(d => {
     const haystack = (d.title+' '+(d.desc||'')).toLowerCase();
-    return keywords.some(k=>haystack.includes(k)) && d.deptId !== (S.user?.dept?.id||'');
+    return keywords.some(k=>haystack.includes(k)) && d.deptId !== myDeptId;
   }).slice(0,3);
   // ══ FUNGSI TAMPILKAN SOP BERDASARKAN LEVEL HIRARKI ══
   // Deteksi apakah user tanya SOP di level Eselon II, III, atau IV
@@ -1937,8 +1940,12 @@ async function sendMsg(){
     pegawaiCtx,
     sopAnalysisCtx,
     '',
-    sopUnitInfo ? 'SOP UNIT KERJA ' + unitKerja + ':\n' + sopUnitInfo : '',
-    !isGuest ? '\nAKSES SOP & DRIVE (ATURAN KETAT):\n- Link PDF Final: ADA di data jika field "Link PDF Final" terisi → WAJIB tampilkan link tersebut langsung, JANGAN katakan belum tersedia atau sedang integrasi\n- Link PDF Final: BOLEH diberikan ke semua pegawai login lintas unit\n- Link FOLDER UTAMA: HANYA untuk SOP unit kerja pegawai sendiri (sudah ditandai "unit sendiri" di data)\n- DILARANG memberikan link folder utama unit lain — cukup PDF Final\n- Jika field "Link PDF Final" KOSONG/tidak ada di data → baru boleh sampaikan link belum tersedia\n- JANGAN pernah mengarang atau menebak link — gunakan persis dari data sistem' : '',
+    sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
+    sopOtherUnit.length && !isGuest ? 'SOP UNIT LAIN (hanya PDF Final yang boleh ditampilkan, DILARANG sebut folder utama):\n' + sopOtherUnit.slice(0,6).map((d,i)=>{
+      const dept=S.depts.find(x=>x.id===d.deptId);
+      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.linkFinal?' | PDF Final: '+d.linkFinal:' | PDF Final: belum tersedia');
+    }).join('\n') : '',
+    !isGuest ? '\nATURAN AKSES LINK SOP (WAJIB DIPATUHI):\n- PDF Final SOP: BOLEH ditampilkan ke SEMUA pegawai dan tamu — tidak ada batasan unit\n- Folder Utama Drive: HANYA untuk SOP berlabel [UNIT SENDIRI] — DILARANG sebutkan folder unit lain\n- Jika "PDF Final" ada di data → WAJIB tampilkan linknya langsung, JANGAN bilang belum tersedia\n- Jika "PDF Final: belum tersedia" di data → sampaikan dengan sopan bahwa link sedang diproses\n- JANGAN mengarang link — gunakan persis dari data, jika tidak ada akui tidak tersedia\n- Tamu: boleh lihat PDF Final tapi tidak boleh akses folder utama manapun' : '',
     'SOP SISTEM (semua unit):\n' + sopInfo,
     hierarchyInfo ? '\nDATAR SOP BERDASARKAN UNIT YANG DIMINTA:\n' + hierarchyInfo : '',
     relatedInfo ? '\nSOP TERKAIT DARI UNIT LAIN:\n' + relatedInfo : '',
