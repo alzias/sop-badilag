@@ -1970,9 +1970,18 @@ async function sendMsg(){
     sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
-    sopOtherUnit.length && !isGuest ? 'SOP UNIT LAIN (hanya PDF Final yang boleh ditampilkan, DILARANG sebut folder utama):\n' + sopOtherUnit.slice(0,6).map((d,i)=>{
+    // Tamu dapat data SOP dengan urlDokumen saja, pegawai dapat lebih lengkap
+    (isGuest ? myDrives : sopOtherUnit).length ? (isGuest ? 'DATA SOP SISTEM (untuk tamu — hanya Link View Dokumen yang boleh ditampilkan):\n' : 'SOP UNIT LAIN (hanya Link View Dokumen yang boleh ditampilkan):\n') +
+    (isGuest ? myDrives : sopOtherUnit).slice(0,8).map((d,i)=>{
       const dept=S.depts.find(x=>x.id===d.deptId);
-      return (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']'+(d.urlDokumen?' | Link View Dokumen SOP: '+d.urlDokumen:'');
+      let info = (i+1)+'. "'+d.title+'" ['+(dept?dept.name:'?')+']';
+      if(d.nomor) info += ' | No: '+d.nomor;
+      if(d.tanggal) info += ' | Tgl: '+d.tanggal;
+      if(d.disahkanOleh) info += ' | Disahkan: '+d.disahkanOleh;
+      if(d.desc) info += ' | '+d.desc.slice(0,100);
+      if(d.content) info += ' | Isi: '+d.content.slice(0,800);
+      if(d.urlDokumen) info += ' | Link View Dokumen SOP: '+d.urlDokumen;
+      return info;
     }).join('\n') : '',
     (wDrive ? '\nINSTRUKSI KHUSUS — USER MINTA DATA DRIVE/SOP UNIT:\n- JANGAN tulis link apapun di respons teks ini\n- JANGAN sebut Folder Utama, Folder Final, atau URL apapun\n- Cukup tulis sapaan singkat bahwa dokumen SOP ditampilkan di bawah\n- Card dokumen SOP akan otomatis ditampilkan oleh sistem' : '\nATURAN LINK DI CHAT:\n- Tanya SOP spesifik: HANYA tampilkan field "Link View Dokumen SOP" jika ada — label "📄 Lihat Dokumen SOP"\n- DILARANG sebut Folder Utama atau Folder Final di chat — itu hanya tersedia via tombol card Drive\n- Jika Link View Dokumen kosong → sampaikan link belum tersedia\n- JANGAN mengarang link'),
     'SOP SISTEM (semua unit):\n' + sopInfo,
