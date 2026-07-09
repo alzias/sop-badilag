@@ -1662,16 +1662,17 @@ async function sendMsg(){
   const myDeptId = !isGuest ? (S.user?.dept?.id || '') : '';
   const sopInfo = myDrives.slice(0,8).map((d,i)=>{ // Batasi 8 SOP untuk hemat token
     const dept=S.depts.find(x=>x.id===d.deptId);
-    const isMyUnit = !isGuest && d.deptId === myDeptId;
+    // isMyUnit: gunakan canUserAccessDrive yang sudah proven 6 cara matching
+    const isMyUnit = !isGuest && canUserAccessDrive(d);
     let info = (i+1)+'. "'+d.title+'"'+(dept?' ['+dept.name+']':'');
     if(d.nomor) info += ' (No: '+d.nomor+')';
     if(d.desc) info += '\n   Deskripsi: '+d.desc.slice(0,300);
     if(d.content) info += '\n   Isi SOP: '+d.content.slice(0,1500);
     // Link folder utama: HANYA untuk unit sendiri
-    if(isMyUnit && d.link) info += '\n   Link Drive Folder Utama (unit sendiri): '+d.link;
-    // Link PDF Final: hanya pegawai login
-    if(!isGuest && d.linkFinal) info += '\n   Link PDF Final (folder): '+d.linkFinal;
-    // Link View Dokumen: boleh semua termasuk tamu
+    if(isMyUnit && d.link) info += '\n   Link Folder Utama (unit sendiri): '+d.link;
+    // Link Folder SOP Final: semua pegawai login
+    if(!isGuest && d.linkFinal) info += '\n   Link Folder SOP Final: '+d.linkFinal;
+    // Link View Dokumen per-file: semua termasuk tamu
     if(d.urlDokumen) info += '\n   Link View Dokumen SOP: '+d.urlDokumen;
     return info;
   }).join('\n\n') || 'Belum ada SOP yang tersedia di sistem.';
@@ -1684,9 +1685,9 @@ async function sendMsg(){
   const namaUser = isGuest ? (S.guestName || 'Bapak/Ibu') : S.user.name.split(' ')[0];
 
   // SOP unit sendiri (folder utama + PDF final)
-  const sopUnit = !isGuest ? myDrives.filter(d => d.deptId === myDeptId) : [];
+  const sopUnit = !isGuest ? myDrives.filter(d => canUserAccessDrive(d)) : [];
   // SOP unit lain (hanya PDF final, folder utama tidak dikirim)
-  const sopOtherUnit = !isGuest ? myDrives.filter(d => d.deptId !== myDeptId) : myDrives;
+  const sopOtherUnit = !isGuest ? myDrives.filter(d => !canUserAccessDrive(d)) : myDrives;
 
   const sopUnitInfo = sopUnit.length ? sopUnit.map((d,i)=>{
     let info = (i+1)+'. "'+d.title+'" [UNIT SENDIRI]';
