@@ -1017,7 +1017,7 @@ async function persist() {
     });
     S.drives.forEach(dr => {
       const {id, ...data} = dr;
-      batch.set(db.collection('drives').doc(id), data);
+      batch.set(db.collection('drives').doc(id), data, {merge: true});
     });
     await batch.commit();
   } catch(e) {
@@ -4068,7 +4068,8 @@ async function fbDeleteEmp(id) {
 async function fbSaveDrive(drive) {
   try {
     const {id, ...data} = drive;
-    await db.collection('drives').doc(id).set(data);
+    // merge:true agar field yg tidak ada di data (link, linkFinal) tidak dihapus dari Firestore
+    await db.collection('drives').doc(id).set(data, {merge: true});
   } catch(e) { console.error('Save drive error:', e); }
 }
 async function fbDeleteDrive(id) {
@@ -5475,7 +5476,7 @@ async function fbSaveDrive(sop, kontenTeks) {
     var driveData = buildDriveFromSOP(sop, kontenTeks);
     var urlF = sop.urlTTE || sop.urlPDFSigned || '';
     driveData.urlDokumen = urlF; // link per-file PDF TTE
-    await db.collection('drives').doc(driveData.id).set(driveData);
+    await db.collection('drives').doc(driveData.id).set(driveData, {merge: true});
     return true;
   } catch(e) { console.error('fbSaveDrive error:',e); return false; }
 }
@@ -5598,6 +5599,11 @@ function normalizeDriveDoc(doc) {
   if (!doc.content && doc.kontenTeks) doc.content = doc.kontenTeks;
   // Builder lama simpan judul di 'namaSOP', SOPI baca 'title'
   if (!doc.title && doc.namaSOP) doc.title = doc.namaSOP;
+  // Ekstrak title dari content jika masih kosong (format: "NAMA SOP: xxx")
+  if (!doc.title && doc.content) {
+    var m = doc.content.match(/NAMA SOP:\s*(.+)/);
+    if (m && m[1] && m[1].trim() !== '-') doc.title = m[1].trim();
+  }
   // Builder lama simpan nomor di 'nomorSOP', bukan 'nomor'
   if (!doc.nomor && doc.nomorSOP) doc.nomor = doc.nomorSOP;
   // urlTTE dari Builder → urlDokumen (link per-file, bukan folder utama/final)
@@ -5663,8 +5669,8 @@ function buildDriveFromSOP(sop, kontenTeks) {
     content     : teks,          // ← FIELD UTAMA UNTUK SOPI (d.content)
 
     // ── Link (3 field terpisah) ──
-    link        : '',            // Folder utama unit — diisi manual admin
-    linkFinal   : '',            // Folder SOP final — diisi manual admin
+    // link & linkFinal TIDAK diisi dari Builder — hanya diisi manual admin
+    // sehingga tidak pernah overwrite data yang sudah ada
     urlDokumen  : urlFinal,      // Link per-file PDF TTE (dari Builder/TTE)
 
     // ── Hierarki unit ──
@@ -5767,7 +5773,10 @@ window.aktivasiSOPDirect = async function(sopId, tindakan) {
   // Buat drive entry LENGKAP via buildDriveFromSOP
   sop.content = kontenTeks;
   var driveData = buildDriveFromSOP(sop, kontenTeks);
-  driveData.link = urlDrive; driveData.linkFinal = urlDrive;
+  // Jangan overwrite link/linkFinal — hanya set urlDokumen (link per-file TTE)
+  driveData.urlDokumen = urlDrive || driveData.urlDokumen || '';
+  // Hapus field link/linkFinal dari driveData agar tidak menimpa data existing di Firestore
+  delete driveData.link; delete driveData.linkFinal;
   var existingDrive = S.drives.find(function(d){ return d.sopDraftId===(sop.id||sop.draftId)||d.id===driveData.id; });
   if (existingDrive) { Object.assign(existingDrive, driveData); } else { S.drives.push(driveData); }
   await fbSaveDrive(driveData); // fbSaveDrive hanya butuh 1 arg (object)
