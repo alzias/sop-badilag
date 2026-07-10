@@ -1742,23 +1742,25 @@ async function sendMsg(){
   let myDr = [];
   let driveAccessLevel = 'eselon4';
   if(S.mode === 'pegawai' && S.user && S.user.dept) {
-    const jabLow = (S.user.jabatan||'').toLowerCase();
-    const isTopJabatan = jabLow.includes('direktur jenderal') || jabLow.includes('dirjen')
-      || jabLow.includes('sekretaris direktorat jenderal') || jabLow.includes('sekretaris ditjen');
-    const isE3 = jabLow.includes('kepala bagian') || jabLow.includes('kabag')
-      || jabLow.includes('kepala sub direktorat') || jabLow.includes('kasubdit');
+    var deptId4Check = S.user.dept.id || '';
+    var jabLow = (S.user.jabatan||'').toLowerCase();
+    // Deteksi level: cek lookup table DULU (paling akurat), lalu fallback ke jabatan
+    var hasFolderMap = typeof DRIVE_FOLDER_MAP !== 'undefined' && DRIVE_FOLDER_MAP[deptId4Check];
+    var isTopJabatan = jabLow.includes('direktur jenderal') || jabLow.includes('dirjen')
+      || jabLow.includes('sekretaris direktorat jenderal') || jabLow.includes('sekretaris ditjen')
+      || deptId4Check === 'dj01' || deptId4Check === 's01'
+      || deptId4Check === 'a01' || deptId4Check === 't01' || deptId4Check === 'p01';
+    var isE3 = !isTopJabatan && (jabLow.includes('kepala bagian') || jabLow.includes('kabag')
+      || jabLow.includes('kepala sub direktorat') || jabLow.includes('kasubdit')
+      || (hasFolderMap && !isTopJabatan));
 
-    if(isTopJabatan) {
-      // Dirjen/Sekditjen: semua drive
+    if(isTopJabatan || (hasFolderMap && ['dj01','s01','a01','t01','p01'].includes(deptId4Check))) {
       myDr = S.drives.slice();
       driveAccessLevel = 'eselon2';
-    } else if(isE3) {
-      // Eselon III: gunakan canUserAccessDrive yang sudah handle nama-matching
-      // Ini lebih andal karena tidak bergantung pada konsistensi ID
+    } else if(isE3 || hasFolderMap) {
       myDr = S.drives.filter(function(d){ return canUserAccessDrive(d); });
       driveAccessLevel = 'eselon3';
     } else {
-      // Eselon IV: gunakan canUserAccessDrive (handle exact + nama match)
       myDr = S.drives.filter(function(d){ return canUserAccessDrive(d); });
       driveAccessLevel = 'eselon4';
     }
@@ -2089,6 +2091,7 @@ async function sendMsg(){
     // Instruksi kontekstual jika user tanya detail isi SOP
     txt.toLowerCase().match(/(dasar hukum|kualifikasi|peralatan|langkah|tahapan|prosedur|persyaratan|peringatan|pencatatan|isi sop|detail sop|jelaskan sop|konten sop)/) ?
     '⚠️ PERINTAH KHUSUS: User bertanya tentang DETAIL ISI SOP. WAJIB tampilkan semua informasi yang tersedia dari field "Isi SOP" di data sistem. Jika field konten ada — tampilkan SELENGKAPNYA dengan bullet point. Jika tidak ada data konten — arahkan ke link PDF dan jelaskan apa yang ada di deskripsi.' : '',
+    '\nFORMAT RESPONS WAJIB:\n- Jika menampilkan DAFTAR SOP (lebih dari 1): kelompokkan per unit kerja dengan header bold, tiap SOP tampilkan Nama SOP + Nomor SOP + link "📄 Lihat Dokumen SOP" yang bisa diklik (format markdown: [Klik di sini](url))\n- Jika hanya 1 SOP: tampilkan detail lengkap + link dokumen\n- JANGAN tampilkan URL mentah panjang — selalu gunakan format [teks](url) agar bisa diklik\n- Jika ada banyak SOP dari berbagai unit: buat section per unit dengan pemisah yang jelas',
     '',
     'PANDUAN MENJAWAB:',
     '1. Jawab hangat dan komunikatif — tidak kaku',
