@@ -1612,6 +1612,104 @@ function canUserAccessDrive(drive) {
 }
 function showTyping(){const area=document.getElementById('chatArea');const el=document.createElement('div');el.id='typing';el.className='typwrap';el.innerHTML='<div class="typbub"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';area.appendChild(el);area.scrollTop=area.scrollHeight;}
 function hideTyping(){const t=document.getElementById('typing');if(t)t.remove();}
+
+// ══════════════════════════════════════════════════════════════
+// DRIVE_FOLDER_MAP: deptId → folder links untuk Dirjen/E2/E3
+// Eselon IV tetap pakai S.drives (canUserAccessDrive) seperti biasa
+// ══════════════════════════════════════════════════════════════
+const DRIVE_FOLDER_MAP = {
+  'dj01': [ // Dirjen — semua 4 Eselon II
+    { label:'📁 Folder SOP Sekretariat', url:'https://drive.google.com/drive/folders/1B7rtHMLLJDYZ4a2FoDiFerp8jpifAYXA?usp=sharing' },
+    { label:'📁 Folder SOP Ditadmin', url:'https://drive.google.com/drive/folders/1O7CESbhtPkDtCNJM0KhibGUzfjuIuQFD?usp=sharing' },
+    { label:'📁 Folder SOP Ditbinganis', url:'https://drive.google.com/drive/folders/1fse9bRgQXyzAjYp6S_mZ19OcbSEF7qOm?usp=sharing' },
+    { label:'📁 Folder SOP Ditpranata', url:'https://drive.google.com/drive/folders/13lgN6VhtY2keh4eP8nqyHMzt-iHLoVav?usp=sharing' },
+  ],
+  's01': [{ label:'📁 Folder SOP Sekretariat', url:'https://drive.google.com/drive/folders/1B7rtHMLLJDYZ4a2FoDiFerp8jpifAYXA?usp=sharing' }],
+  'a01': [{ label:'📁 Folder SOP Ditadmin', url:'https://drive.google.com/drive/folders/1O7CESbhtPkDtCNJM0KhibGUzfjuIuQFD?usp=sharing' }],
+  't01': [{ label:'📁 Folder SOP Ditbinganis', url:'https://drive.google.com/drive/folders/1fse9bRgQXyzAjYp6S_mZ19OcbSEF7qOm?usp=sharing' }],
+  'p01': [{ label:'📁 Folder SOP Ditpranata', url:'https://drive.google.com/drive/folders/13lgN6VhtY2keh4eP8nqyHMzt-iHLoVav?usp=sharing' }],
+  's14': [ // Bagian Umum
+    { label:'📁 Kasubbag Tata Usaha Sekretariat', url:'https://drive.google.com/drive/folders/1vUuwsKcfZI7Ju_Y_mRYBL7pFHtWI9tjm?usp=sharing' },
+    { label:'📁 Kasubbag Rumah Tangga', url:'https://drive.google.com/drive/folders/1IPOPM82lqWcc733YNf34hem-R50Ab45j?usp=sharing' },
+    { label:'📁 Kasubbag Perlengkapan', url:'https://drive.google.com/drive/folders/1z9aU_jlFEaAs0NpVHvN0KA46dKEftNJp?usp=sharing' },
+  ],
+  's02': [ // Bagian Kepegawaian
+    { label:'📁 Kasubbag Umum Kepegawaian', url:'https://drive.google.com/drive/folders/1q-FgicAfGY1VRxxKliaJ_ZcfAuhGMeEQ?usp=sharing' },
+    { label:'📁 Kasubbag Pemberhentian dan Pensiun', url:'https://drive.google.com/drive/folders/1Cwx3g0uvZtn_BhpOolROkDVAFKu0BmKC?usp=sharing' },
+    { label:'📁 Kasubbag Mutasi Kepegawaian', url:'https://drive.google.com/drive/folders/1hadJkelNQC67ayOlnqB-LYiBoGeXHlXR?usp=sharing' },
+  ],
+  's10': [ // Bagian Perencanaan dan Keuangan
+    { label:'📁 Kasubbag Perencanaan Program dan Anggaran', url:'https://drive.google.com/drive/folders/1pTWdSan_ZVoOfCeg_Qrf1c3jo5276SDx?usp=sharing' },
+    { label:'📁 Kasubbag Anggaran dan Perbendaharaan', url:'https://drive.google.com/drive/folders/1JMcNOs4cMaFGBtvgZsiCLfLuecaWCLxx?usp=sharing' },
+    { label:'📁 Kasubbag Akuntansi', url:'https://drive.google.com/drive/folders/1avJR28rUyl8f4A8gQl3dTlEV4f7tfe-v?usp=sharing' },
+  ],
+  's06': [ // Bagian Organisasi dan Tata Laksana
+    { label:'📁 Kasubbag Ketatalaksanaan', url:'https://drive.google.com/drive/folders/1PCpKFuH-geKsCNlRNqWAUct2TOrlbiG6?usp=sharing' },
+    { label:'📁 Kasubbag Kelembagaan dan Pelaporan', url:'https://drive.google.com/drive/folders/13RjxkJC8mYnVWd7nsNf8TpP6sUzC2Vyv?usp=sharing' },
+    { label:'📁 Kasubbag Dokumentasi dan Informasi', url:'https://drive.google.com/drive/folders/12itX1EX95cOc1GFwHTxDl0M8r6ejnf6s?usp=sharing' },
+  ],
+  'a06': [ // Subdit Tata Kelola
+    { label:'📁 Kasi Tata Persidangan', url:'https://drive.google.com/drive/folders/1gHsm12MlKQx9fkRWu97uZbB7AzdwWBrm?usp=sharing' },
+    { label:'📁 Kasi Sarana Kerja Pengadilan', url:'https://drive.google.com/drive/folders/12G-FA7najwGqjt-fUgedYepPqzZv6s7p?usp=sharing' },
+    { label:'📁 Kasi Pelayanan Peradilan', url:'https://drive.google.com/drive/folders/1KYlMsg1HHKE9Hkf-3G1CpMQnvzWV2hfH?usp=sharing' },
+  ],
+  'a10': [ // Subdit Statistik dan Dokumentasi
+    { label:'📁 Kasubbag Tata Usaha Ditadmin', url:'https://drive.google.com/drive/folders/10HYor-L6Zq8Tb358Ju7In5MvjvVFHY-b?usp=sharing' },
+    { label:'📁 Kasi Statistik', url:'https://drive.google.com/drive/folders/1tVH4Ht-GCPw2I7Y5KgFzkPwOUentdD3N?usp=sharing' },
+    { label:'📁 Kasi Dokumentasi Wilayah Hukum', url:'https://drive.google.com/drive/folders/1Uw9gipFttCBzORo0Dtp_LiKQYYneTjlN?usp=sharing' },
+  ],
+  'a14': [ // duplikat Subdit Statistik
+    { label:'📁 Kasubbag Tata Usaha Ditadmin', url:'https://drive.google.com/drive/folders/10HYor-L6Zq8Tb358Ju7In5MvjvVFHY-b?usp=sharing' },
+    { label:'📁 Kasi Statistik', url:'https://drive.google.com/drive/folders/1tVH4Ht-GCPw2I7Y5KgFzkPwOUentdD3N?usp=sharing' },
+    { label:'📁 Kasi Dokumentasi Wilayah Hukum', url:'https://drive.google.com/drive/folders/1Uw9gipFttCBzORo0Dtp_LiKQYYneTjlN?usp=sharing' },
+  ],
+  'a02': [ // Subdit Bimbingan dan Monitoring
+    { label:'📁 Kasi Monitoring dan Evaluasi', url:'https://drive.google.com/drive/folders/1JkOmMAr1yDaqnWNfDmv3El11TyEzQWSr?usp=sharing' },
+    { label:'📁 Kasi Bimbingan II', url:'https://drive.google.com/drive/folders/12VB2ki6oyhsw0X2us8gL-uwvOY6LcEe5?usp=sharing' },
+    { label:'📁 Kasi Bimbingan I', url:'https://drive.google.com/drive/folders/1Mguvn_bJddj0A4CpexW4v_7bXcu_qM6n?usp=sharing' },
+  ],
+  't10': [ // Subdit Pengembangan Tenaga Teknis
+    { label:'📁 Kasubbag Tata Usaha Ditbinganis', url:'https://drive.google.com/drive/folders/1Z0co-YdQ4XXeftvZyDFbYusH6Uh_YnOy?usp=sharing' },
+    { label:'📁 Kasi Peningkatan Mutu Hakim', url:'https://drive.google.com/drive/folders/1QdZdpOoBMtVwwx_v813tyXz8Fx52oSxd?usp=sharing' },
+    { label:'📁 Kasi Evaluasi dan Rasionalisasi', url:'https://drive.google.com/drive/folders/1aUa5sfTd2o_nazbzfKy63ISGhRthmw1h?usp=sharing' },
+    { label:'📁 Kasi Peningkatan Mutu Panitera dan Jurusita', url:'https://drive.google.com/drive/folders/1UFSmxGXNGELhscYHh1-jcWllRSoBMKf-?usp=sharing' },
+  ],
+  't06': [ // Subdit Mutasi Panitera dan Jurusita
+    { label:'📁 Kasi Tata Naskah Panitera dan Jurusita', url:'https://drive.google.com/drive/folders/13a1sH32p_GRQcOJNXxhp4Ocx0nPp2zpH?usp=sharing' },
+    { label:'📁 Kasi Mutasi II Panitera dan Jurusita', url:'https://drive.google.com/drive/folders/1kvKh_8VbB2n2HMO14HQ1WPFVx5NXzHXj?usp=sharing' },
+    { label:'📁 Kasi Mutasi I Panitera dan Jurusita', url:'https://drive.google.com/drive/folders/1FGaNSYnDX1TF3CBxgFrmq5LszMLEYJjm?usp=sharing' },
+  ],
+  't02': [ // Subdit Mutasi Hakim
+    { label:'📁 Kasi Tata Naskah Mutasi Hakim', url:'https://drive.google.com/drive/folders/1ghQ7HL66Wz42n75QxpKIjJAYqjXnZIig?usp=sharing' },
+    { label:'📁 Kasi Mutasi Hakim II', url:'https://drive.google.com/drive/folders/1dJUA-BqObtPMGubg1aZt9ROfNPIeCXae?usp=sharing' },
+    { label:'📁 Kasi Mutasi I Hakim', url:'https://drive.google.com/drive/folders/1vO5UEDLwWh1JjH_GhVMhcktIcB9pvnYW?usp=sharing' },
+  ],
+  't15': [ // Subdit Data dan Evaluasi
+    { label:'📁 Kasi Evaluasi dan Pelaporan', url:'https://drive.google.com/drive/folders/1pf61xZopm5rtscNkdvn_52_00b1K-R94?usp=sharing' },
+    { label:'📁 Kasi Data dan Informasi', url:'https://drive.google.com/drive/folders/1X7j9gORpZOd9YSJvkQ4RtAw_a4v0Etgt?usp=sharing' },
+    { label:'📁 Kasi Arsip dan Dokumentasi', url:'https://drive.google.com/drive/folders/1lTu25-JikQj_NNnT8GYfEQ6aJtXMuaVm?usp=sharing' },
+  ],
+  'p02': [ // Subdit Syariah
+    { label:'📁 Kasi Pengkajian Syariah dan Hisab Rukyat', url:'https://drive.google.com/drive/folders/1HdBhlZf8Xf1xeVdrAw70H2ez_FAfWmDj?usp=sharing' },
+    { label:'📁 Kasi Kodifikasi dan Yurisprudensi', url:'https://drive.google.com/drive/folders/1cOAgQvdK19Ga1VQRxbDWK4iUBLmYkJxY?usp=sharing' },
+    { label:'📁 Kasi Evaluasi dan Pengendalian', url:'https://drive.google.com/drive/folders/17F9DkeOiOUUS1Mq-mN82oV9djWjz-5Ns?usp=sharing' },
+  ],
+};
+
+// Helper render folder links card untuk Dirjen/E2/E3
+function renderFolderLinksCard(folders, unitLabel) {
+  var chatBox = document.getElementById('chatBox');
+  if (!chatBox) return;
+  var btns = folders.map(function(f) {
+    return '<a class="dlink" href="'+f.url+'" target="_blank" rel="noopener" style="display:block;margin-bottom:6px;word-break:break-word;">'+f.label+'</a>';
+  }).join('');
+  var w = document.createElement('div');
+  w.className = 'bmsg-wrap';
+  w.innerHTML = '<div class="dcard"><div class="dcard-hd" style="background:rgba(0,245,212,.08);border-left:3px solid var(--cyan);">'+unitLabel+'</div><div class="dcard-bd">'+btns+'</div></div><div class="bmeta">'+now()+'</div>';
+  chatBox.appendChild(w);
+  w.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
 async function sendMsg(){
   const inp=document.getElementById('msgInput');
   const txt=inp.value.trim(); if(!txt)return;
@@ -2013,17 +2111,21 @@ async function sendMsg(){
     const stEl2=document.getElementById('stText'); if(stEl2) stEl2.textContent='Online · AI Aktif';
     S.history.push({role:'assistant',content:reply});
     addMsg(reply,false);
-    if(wDrive && myDr.length) {
-      // Tampilkan header sesuai level akses
-      const driveHeader = driveAccessLevel==='eselon2' 
-        ? '📂 Berikut seluruh dokumen SOP di lingkungan ' + (S.user.eselon2||unitKerja) + ':'
-        : driveAccessLevel==='eselon3'
-        ? '📂 Berikut dokumen SOP di bawah ' + (S.user.bagian||unitKerja) + ':'
-        : '📂 Berikut dokumen SOP unit ' + (S.user.subbag||unitKerja) + ':';
-      addMsg(driveHeader, false);
-      myDr.forEach((d,i)=>setTimeout(()=>addMsg('',false,d), 400+i*200));
-    } else if(wDrive && !myDr.length) {
-      addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
+    if(wDrive) {
+      var userDeptId = S.user && S.user.dept ? S.user.dept.id : '';
+      var folderLinks = DRIVE_FOLDER_MAP[userDeptId];
+      if(folderLinks && folderLinks.length) {
+        // Dirjen / Eselon II / Eselon III — tampilkan folder links dari lookup table
+        addMsg('📂 Berikut folder SOP untuk ' + (S.user.name||unitKerja) + ':', false);
+        setTimeout(function(){ renderFolderLinksCard(folderLinks, '📂 ' + unitKerja); }, 400);
+      } else if(myDr.length) {
+        // Eselon IV — tampilkan card SOP seperti biasa
+        var driveHeader = '📂 Berikut dokumen SOP unit ' + (S.user.subbag||unitKerja) + ':';
+        addMsg(driveHeader, false);
+        myDr.forEach(function(d,i){ setTimeout(function(){ addMsg('',false,d); }, 400+i*200); });
+      } else {
+        addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
+      }
     }
     // ══ POST-REPLY: cek state untuk trigger email + countdown ══
     if(S.sessionState === 'closing') {
