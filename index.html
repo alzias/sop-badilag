@@ -2117,18 +2117,26 @@ async function sendMsg(){
     '',
     pegawaiCtx,
     // Statistik SOP untuk Dirjen/E2 jika ditanya laporan
-    (isDirjen || isEselon2) && txt.toLowerCase().match(/(laporan|rekap|statistik|berapa sop|coverage|progress|status sop|unit yang sudah|unit yang belum)/) ? (function(){
+    (function(){
+      if(isGuest) return '';
+      var jabLowStat = (S.user&&S.user.jabatan||'').toLowerCase();
+      var deptStat = S.user&&S.user.dept ? S.user.dept.id : '';
+      var isHighLevel = jabLowStat.includes('direktur jenderal') || jabLowStat.includes('dirjen')
+        || deptStat === 'dj01' || ['s01','a01','t01','p01'].includes(deptStat);
+      if(!isHighLevel) return '';
+      if(!txt.toLowerCase().match(/(laporan|rekap|statistik|berapa sop|coverage|progress|status sop|unit yang sudah|unit yang belum)/)) return '';
       var allUnits = S.depts ? S.depts.length : 0;
       var unitDgSOP = {};
       S.drives.forEach(function(d){ if(d.deptId) unitDgSOP[d.deptId] = (unitDgSOP[d.deptId]||0)+1; });
       var unitAda = Object.keys(unitDgSOP).length;
       var unitBelum = allUnits - unitAda;
+      var pct = allUnits > 0 ? Math.round(unitAda/allUnits*100) : 0;
       var detail = S.depts ? S.depts.map(function(dept){
         var jml = unitDgSOP[dept.id] || 0;
-        return '- ' + dept.name + ': ' + (jml > 0 ? jml + ' SOP' : 'BELUM ada SOP');
+        return (jml > 0 ? '✅' : '❌') + ' ' + dept.name + ': ' + (jml > 0 ? jml + ' SOP' : 'belum ada SOP');
       }).join('\n') : '';
-      return '\nSTATISTIK SOP SISTEM:\nTotal unit: '+allUnits+' | Unit punya SOP: '+unitAda+' | Unit belum: '+unitBelum+'\nCoverage: '+Math.round(unitAda/allUnits*100)+'%\nDetail per unit:\n'+detail;
-    })() : '',
+      return '\nSTATISTIK SOP SISTEM:\nTotal unit: '+allUnits+' | Sudah punya SOP: '+unitAda+' unit | Belum: '+unitBelum+' unit | Coverage: '+pct+'%\nDetail:\n'+detail;
+    })(),
     sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
