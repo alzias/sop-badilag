@@ -1476,7 +1476,31 @@ function showChat() {
         tu_admin_sop : '\n\n📋 **Anda adalah Petugas TU Admin SOP**. SOP yang sudah disahkan Eselon II menunggu upload dokumen TTE dari Anda. Tap **📥 Inbox SOP**.',
       };
 
-      addMsg(getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + subbag + e2info + (roleMsg[myRole] || ''), false);
+      // Deteksi level jabatan berdasarkan deptId
+      var deptIdUser = S.user.dept ? S.user.dept.id : '';
+      var isDirjen = deptIdUser === 'dj01';
+      var isEselon2 = ['s01','a01','t01','p01'].includes(deptIdUser);
+      var isEselon3 = typeof DRIVE_FOLDER_MAP !== 'undefined' && DRIVE_FOLDER_MAP[deptIdUser] && !isDirjen && !isEselon2;
+
+      // Sembunyikan chip Buat SOP dan sidebar Buat SOP untuk E1/E2/E3
+      var qBuatEl = document.getElementById('qchipBuat');
+      var sbBuatEl = document.getElementById('sbItemBuat');
+      if(isDirjen || isEselon2 || isEselon3) {
+        if(qBuatEl) qBuatEl.style.display = 'none';
+        if(sbBuatEl) sbBuatEl.style.display = 'none';
+      }
+
+      var welcomeMsg;
+      if(isDirjen) {
+        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali di SOPI — Sistem Operasional Prosedur Instansi Ditjen Badilag.\n\nAda yang bisa SOPI bantu hari ini, Bapak? 😊';
+      } else if(isEselon2) {
+        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali.\n' + icon + ' ' + unit + '\n\nAda yang bisa SOPI bantu hari ini? 😊';
+      } else if(isEselon3) {
+        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + e2info + '\n\nAda yang bisa SOPI bantu hari ini? 😊' + (roleMsg[myRole] && myRole !== 'maker' ? roleMsg[myRole] : '');
+      } else {
+        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + subbag + e2info + (roleMsg[myRole] || '');
+      }
+      addMsg(welcomeMsg, false);
     }
   }, 500);
 }
@@ -2116,15 +2140,13 @@ async function sendMsg(){
     addMsg(reply,false);
     if(wDrive) {
       var userDeptId = S.user && S.user.dept ? S.user.dept.id : '';
-      var folderLinks = DRIVE_FOLDER_MAP[userDeptId];
+      var folderLinks = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[userDeptId] : null;
       if(folderLinks && folderLinks.length) {
-        // Dirjen / Eselon II / Eselon III — tampilkan folder links dari lookup table
-        addMsg('📂 Berikut folder SOP untuk ' + (S.user.name||unitKerja) + ':', false);
-        setTimeout(function(){ renderFolderLinksCard(folderLinks, '📂 ' + unitKerja); }, 400);
+        // Dirjen / Eselon II / Eselon III — tampilkan folder links langsung dari lookup table
+        setTimeout(function(){ renderFolderLinksCard(folderLinks, '📂 Folder SOP ' + unitKerja); }, 300);
       } else if(myDr.length) {
         // Eselon IV — tampilkan card SOP seperti biasa
-        var driveHeader = '📂 Berikut dokumen SOP unit ' + (S.user.subbag||unitKerja) + ':';
-        addMsg(driveHeader, false);
+        addMsg('📂 Berikut dokumen SOP unit ' + (S.user.subbag||unitKerja) + ':', false);
         myDr.forEach(function(d,i){ setTimeout(function(){ addMsg('',false,d); }, 400+i*200); });
       } else {
         addMsg('📂 Belum ada dokumen SOP yang tersimpan untuk unit Anda.\n\nAdmin Subbag Ketatalaksanaan dapat menambahkan melalui Panel Admin ⚙', false);
