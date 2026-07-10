@@ -2379,19 +2379,39 @@ function sq(t){document.getElementById('msgInput').value=t;sendMsg();}
 function showMyDrive(){
   closeSidebar();
   if(!S.user || S.mode !== 'pegawai') return;
-  const jabLow = (S.user.jabatan||'').toLowerCase();
-  const isFullAccess = jabLow.includes('direktur jenderal') || jabLow.includes('dirjen') ||
-                       jabLow.includes('sekretaris direktorat jenderal') ||
-                       jabLow.includes('sekretaris ditjen');
-  // Hanya tampilkan SOP yang bisa diakses user — tidak ada card "akses ditolak"
-  const my = isFullAccess ? S.drives : S.drives.filter(d => canUserAccessDrive(d));
-  if(!my.length){
-    addMsg('Belum ada dokumen SOP untuk unit **'+(S.user.dept?S.user.dept.name:'Anda')+'** yang tersimpan di sistem.\n\nHubungi Admin Subbag Ketatalaksanaan untuk menambahkan SOP ⚙',false);
+
+  // Cek apakah user ada di DRIVE_FOLDER_MAP (Dirjen/E2/E3)
+  var jabLowSD = (S.user.jabatan||'').toLowerCase();
+  var deptIdSD = S.user.dept ? S.user.dept.id : '';
+  var effDeptSD = (jabLowSD.includes('direktur jenderal')||jabLowSD.includes('dirjen')) ? 'dj01' : deptIdSD;
+  var fLinksSD = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[effDeptSD] : null;
+
+  if(fLinksSD && fLinksSD.length) {
+    // Dirjen / Eselon II / Eselon III — render folder links card
+    var unitLabelSD = S.user.dept ? S.user.dept.name : 'Unit Anda';
+    setTimeout(function(){ renderFolderLinksCard(fLinksSD, '📂 Folder SOP ' + unitLabelSD); }, 100);
     return;
   }
-  const label = isFullAccess ? 'Seluruh Unit Ditjen Badilag' : (S.user.dept?S.user.dept.name:'Unit Anda');
-  addMsg('📂 Dokumen SOP **'+label+'** — '+my.length+' dokumen:',false);
-  my.forEach((d,i)=>setTimeout(()=>addMsg('',false,d),300+i*200));
+
+  // Eselon IV — tampilkan 1 card drive unit (Folder Utama + Folder Final)
+  var myUnitDriveSD = S.drives.find(function(d){ return canUserAccessDrive(d); });
+  if(myUnitDriveSD) {
+    var deptSD = S.depts ? S.depts.find(function(d){ return d.id === deptIdSD; }) : null;
+    var deptNameSD = deptSD ? deptSD.name : (S.user.subbag || (S.user.dept ? S.user.dept.name : 'Unit Anda'));
+    var deptIconSD = deptSD ? (deptSD.icon||'📂') : '📂';
+    var fLinkSD = myUnitDriveSD.link || '';
+    var lfLinkSD = myUnitDriveSD.linkFinal || '';
+    var folderBtnSD = fLinkSD ? '<a class="dlink" href="'+fLinkSD+'" target="_blank" rel="noopener">📂 Buka Drive</a>' : '';
+    var finalBtnSD = lfLinkSD ? '<a class="dlink" style="background:rgba(255,183,3,.15);border-color:rgba(255,183,3,.3);color:var(--amber);" href="'+lfLinkSD+'" target="_blank" rel="noopener">📁 Folder Final</a>' : '';
+    var noLinkSD = (!fLinkSD && !lfLinkSD) ? '<div style="font-size:12px;color:var(--mu);margin-top:6px;">Link folder belum tersedia.</div>' : '';
+    var wSD = document.createElement('div');
+    wSD.className = 'bwrap in';
+    wSD.innerHTML = '<div class="dcard"><div class="dcard-hd">'+deptIconSD+' '+deptNameSD+'<span class="dpill">'+(S.user.subbag||'')+'</span></div><div class="dcard-bd">'+folderBtnSD+finalBtnSD+noLinkSD+'</div></div><div class="bmeta">'+now()+'</div>';
+    document.getElementById('chatArea').appendChild(wSD);
+    wSD.scrollIntoView({behavior:'smooth',block:'end'});
+  } else {
+    addMsg('📂 Belum ada folder SOP untuk unit **'+(S.user.dept?S.user.dept.name:'Anda')+'**.\n\nHubungi Admin Subbag Ketatalaksanaan untuk melengkapi data. ⚙', false);
+  }
 }
 function resetChat(silent=false){
   S.history=[];
@@ -2415,7 +2435,20 @@ function saveChatDrive(){
 }
 
 // ══ SIDEBAR ══
-function openSidebar(){document.getElementById('sidebar').classList.add('on');document.getElementById('overlay').classList.add('on');}
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('on');
+  document.getElementById('overlay').classList.add('on');
+  // Sembunyikan Buat SOP untuk Dirjen/E2/E3
+  if(S.user && S.mode==='pegawai') {
+    var jabSD2 = (S.user.jabatan||'').toLowerCase();
+    var deptSD2 = S.user.dept ? S.user.dept.id : '';
+    var isDirjenSD = jabSD2.includes('direktur jenderal')||jabSD2.includes('dirjen')||deptSD2==='dj01';
+    var isE2SD = ['s01','a01','t01','p01'].includes(deptSD2);
+    var isE3SD = !isDirjenSD && !isE2SD && typeof DRIVE_FOLDER_MAP!=='undefined' && !!DRIVE_FOLDER_MAP[deptSD2];
+    var sbBuatSide = document.getElementById('sbItemBuat');
+    if(sbBuatSide) sbBuatSide.style.display = (isDirjenSD||isE2SD||isE3SD) ? 'none' : '';
+  }
+}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('on');document.getElementById('overlay').classList.remove('on');}
 
 // ══ ADMIN ══
