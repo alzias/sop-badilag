@@ -1478,8 +1478,11 @@ function showChat() {
 
       // Deteksi level jabatan berdasarkan deptId
       var deptIdUser = S.user.dept ? S.user.dept.id : '';
-      var isDirjen = deptIdUser === 'dj01';
-      var isEselon2 = ['s01','a01','t01','p01'].includes(deptIdUser);
+      var jabLow2 = (S.user.jabatan||'').toLowerCase();
+      var isDirjen = deptIdUser === 'dj01'
+        || jabLow2.includes('direktur jenderal')
+        || jabLow2.includes('dirjen');
+      var isEselon2 = !isDirjen && ['s01','a01','t01','p01'].includes(deptIdUser);
       var isEselon3 = typeof DRIVE_FOLDER_MAP !== 'undefined' && DRIVE_FOLDER_MAP[deptIdUser] && !isDirjen && !isEselon2;
 
       // Sembunyikan chip Buat SOP dan sidebar Buat SOP untuk E1/E2/E3
@@ -1492,7 +1495,29 @@ function showChat() {
 
       var welcomeMsg;
       if(isDirjen) {
-        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali di SOPI — Sistem Operasional Prosedur Instansi Ditjen Badilag.\n\nAda yang bisa SOPI bantu hari ini, Bapak? 😊';
+        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali di **SOPI** — Sistem Operasional Prosedur Instansi Ditjen Badilag.\n\n🏛️ Direktorat Jenderal Badan Peradilan Agama\n\nAda yang bisa SOPI bantu hari ini? 😊';
+        // Quick reply chips untuk Dirjen
+        setTimeout(function(){
+          var chatBox = document.getElementById('chatBox');
+          if(!chatBox) return;
+          var chips = [
+            { label:'📊 Laporan SOP', msg:'Tampilkan laporan rekap status SOP seluruh unit Ditjen Badilag' },
+            { label:'📂 Drive Saya', msg:'Tampilkan data Drive saya' },
+            { label:'📋 SOP Sekretariat', msg:'Tampilkan SOP di Sekretariat Ditjen Badilag' },
+            { label:'📋 SOP Mutasi Hakim', msg:'Tampilkan SOP Mutasi Hakim' },
+          ];
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px 4px;';
+          chips.forEach(function(c){
+            var btn = document.createElement('button');
+            btn.className = 'qchip';
+            btn.textContent = c.label;
+            btn.onclick = function(){ sq(c.msg); };
+            wrap.appendChild(btn);
+          });
+          chatBox.appendChild(wrap);
+          wrap.scrollIntoView({behavior:'smooth',block:'end'});
+        }, 600);
       } else if(isEselon2) {
         welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali.\n' + icon + ' ' + unit + '\n\nAda yang bisa SOPI bantu hari ini? 😊';
       } else if(isEselon3) {
@@ -2091,6 +2116,19 @@ async function sendMsg(){
     '- Pertanyaan: ' + txt,
     '',
     pegawaiCtx,
+    // Statistik SOP untuk Dirjen/E2 jika ditanya laporan
+    (isDirjen || isEselon2) && txt.toLowerCase().match(/(laporan|rekap|statistik|berapa sop|coverage|progress|status sop|unit yang sudah|unit yang belum)/) ? (function(){
+      var allUnits = S.depts ? S.depts.length : 0;
+      var unitDgSOP = {};
+      S.drives.forEach(function(d){ if(d.deptId) unitDgSOP[d.deptId] = (unitDgSOP[d.deptId]||0)+1; });
+      var unitAda = Object.keys(unitDgSOP).length;
+      var unitBelum = allUnits - unitAda;
+      var detail = S.depts ? S.depts.map(function(dept){
+        var jml = unitDgSOP[dept.id] || 0;
+        return '- ' + dept.name + ': ' + (jml > 0 ? jml + ' SOP' : 'BELUM ada SOP');
+      }).join('\n') : '';
+      return '\nSTATISTIK SOP SISTEM:\nTotal unit: '+allUnits+' | Unit punya SOP: '+unitAda+' | Unit belum: '+unitBelum+'\nCoverage: '+Math.round(unitAda/allUnits*100)+'%\nDetail per unit:\n'+detail;
+    })() : '',
     sopAnalysisCtx,
     '',
     sopUnitInfo ? 'SOP UNIT SENDIRI (' + unitKerja + ') — Folder Utama + PDF Final tersedia:\n' + sopUnitInfo : '',
@@ -2115,7 +2153,7 @@ async function sendMsg(){
     // Instruksi kontekstual jika user tanya detail isi SOP
     txt.toLowerCase().match(/(dasar hukum|kualifikasi|peralatan|langkah|tahapan|prosedur|persyaratan|peringatan|pencatatan|isi sop|detail sop|jelaskan sop|konten sop)/) ?
     '⚠️ PERINTAH KHUSUS: User bertanya tentang DETAIL ISI SOP. WAJIB tampilkan semua informasi yang tersedia dari field "Isi SOP" di data sistem. Jika field konten ada — tampilkan SELENGKAPNYA dengan bullet point. Jika tidak ada data konten — arahkan ke link PDF dan jelaskan apa yang ada di deskripsi.' : '',
-    '\nFORMAT RESPONS WAJIB:\n- Jika menampilkan DAFTAR SOP (lebih dari 1): kelompokkan per unit kerja dengan header bold, tiap SOP tampilkan Nama SOP + Nomor SOP + link "📄 Lihat Dokumen SOP" yang bisa diklik (format markdown: [Klik di sini](url))\n- Jika hanya 1 SOP: tampilkan detail lengkap + link dokumen\n- JANGAN tampilkan URL mentah panjang — selalu gunakan format [teks](url) agar bisa diklik\n- Jika ada banyak SOP dari berbagai unit: buat section per unit dengan pemisah yang jelas',
+    '\nFORMAT RESPONS WAJIB:\n- Daftar SOP (>1): kelompokkan per unit, tiap SOP: Nama + Nomor + [📄 Lihat Dokumen SOP](url) — JANGAN URL mentah\n- SOP tunggal: detail lengkap + link\n- Laporan statistik (jika ditanya "berapa SOP", "laporan", "rekap"): buat tabel/daftar rinci:\n  • Total unit kerja vs yang sudah punya SOP\n  • Daftar unit DENGAN SOP: nama unit + jumlah SOP\n  • Daftar unit BELUM punya SOP\n  • Persentase coverage\n  • Ringkasan eksekutif\n- JANGAN URL mentah — selalu [teks](url)',
     '',
     'PANDUAN MENJAWAB:',
     '1. Jawab hangat dan komunikatif — tidak kaku',
@@ -2140,7 +2178,11 @@ async function sendMsg(){
     addMsg(reply,false);
     if(wDrive) {
       var userDeptId = S.user && S.user.dept ? S.user.dept.id : '';
-      var folderLinks = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[userDeptId] : null;
+      // Dirjen: override ke dj01 kalau jabatan = Direktur Jenderal
+      var jabLowDr = (S.user.jabatan||'').toLowerCase();
+      var effectiveDeptId = (jabLowDr.includes('direktur jenderal') || jabLowDr.includes('dirjen'))
+        ? 'dj01' : userDeptId;
+      var folderLinks = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[effectiveDeptId] : null;
       if(folderLinks && folderLinks.length) {
         // Dirjen / Eselon II / Eselon III — tampilkan folder links langsung dari lookup table
         setTimeout(function(){ renderFolderLinksCard(folderLinks, '📂 Folder SOP ' + unitKerja); }, 300);
