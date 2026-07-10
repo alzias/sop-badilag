@@ -1529,6 +1529,40 @@ function showChat() {
     }
   }, 500);
 }
+// ══ Deteksi apakah respons AI terpotong di tengah ══
+function isReplyTruncated(text) {
+  if(!text || text.length < 100) return false;
+  var t = text.trimEnd();
+  // Terpotong kalau: tidak diakhiri tanda baca, emoji, atau kata penutup
+  var endsWithPunct = /[.!?😊🙏👋✅❌📄📂🏛️]$/.test(t);
+  var endsWithClosing = /(terima kasih|semoga|ada lagi|bantu lagi|lainnya|saja ya|ya\.|hari ini\.|Bapak\.|Ibu\.)$/i.test(t);
+  var endsWithDash = /[-|:]$/.test(t);
+  var endsWithMidWord = /\*\*[^*]+$/.test(t) || /\([^)]+$/.test(t); // bold/bracket tidak tutup
+  return (!endsWithPunct && !endsWithClosing) || endsWithDash || endsWithMidWord;
+}
+
+// Tambah tombol Lanjut setelah pesan AI yang terpotong
+function addContinueButton() {
+  var chatBox = document.getElementById('chatBox');
+  if(!chatBox) return;
+  var existing = chatBox.querySelector('.continue-btn-wrap');
+  if(existing) existing.remove(); // hapus tombol lanjut sebelumnya jika ada
+
+  var wrap = document.createElement('div');
+  wrap.className = 'continue-btn-wrap';
+  wrap.style.cssText = 'padding:4px 12px 8px;display:flex;gap:8px;align-items:center;';
+  wrap.innerHTML = '<span style="font-size:11px;color:var(--mu);">Masih ada informasi lainnya</span>'
+    + '<button onclick="sendContinue()" style="background:rgba(0,245,212,.15);border:1px solid rgba(0,245,212,.3);color:var(--cyan);border-radius:20px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700;">Lanjut →</button>';
+  chatBox.appendChild(wrap);
+  wrap.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+function sendContinue() {
+  var wrap = document.getElementById('chatBox')?.querySelector('.continue-btn-wrap');
+  if(wrap) wrap.remove();
+  sq('lanjutkan');
+}
+
 function formatMessage(text) {
   let t = text;
   // Heading ## dan ###
@@ -1784,6 +1818,8 @@ async function sendMsg(){
   }
   // Deteksi penolakan email
   const userSaidNo = /^(tidak|tidak mau|no|enggak|gak|nggak|skip)$/i.test(txt.trim());
+  // Deteksi permintaan lanjut
+  const isLanjut = /^(lanjut(kan)?|next|teruskan|lanjut →|lanjut ->)$/i.test(txt.trim());
   const drKw=['drive saya','folder saya','tampilkan drive','lihat drive','akses drive','drive ku','dokumen saya','sop saya','file saya'];
   const wDrive = S.mode==='pegawai' && drKw.some(k=>txt.toLowerCase().includes(k));
 
@@ -1812,6 +1848,20 @@ async function sendMsg(){
     } else {
       myDr = S.drives.filter(function(d){ return canUserAccessDrive(d); });
       driveAccessLevel = 'eselon4';
+    }
+  }
+
+  // ══ INTERCEPT: wDrive + DRIVE_FOLDER_MAP → render card langsung, skip AI ══
+  if(wDrive && S.user && S.user.dept) {
+    var _jabDr = (S.user.jabatan||'').toLowerCase();
+    var _deptDr = S.user.dept.id || '';
+    var _effDept = (_jabDr.includes('direktur jenderal')||_jabDr.includes('dirjen')) ? 'dj01' : _deptDr;
+    var _fLinks = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[_effDept] : null;
+    if(_fLinks && _fLinks.length) {
+      var _unitLabel = S.user.dept.name || 'Unit Anda';
+      addMsg('Tentu! Berikut folder SOP untuk unit ' + S.user.name.split(' ')[0] + ':', false);
+      setTimeout(function(){ renderFolderLinksCard(_fLinks, '📂 Folder SOP ' + _unitLabel); }, 300);
+      return; // stop — tidak perlu panggil Gemini
     }
   }
 
@@ -2161,7 +2211,8 @@ async function sendMsg(){
     // Instruksi kontekstual jika user tanya detail isi SOP
     txt.toLowerCase().match(/(dasar hukum|kualifikasi|peralatan|langkah|tahapan|prosedur|persyaratan|peringatan|pencatatan|isi sop|detail sop|jelaskan sop|konten sop)/) ?
     '⚠️ PERINTAH KHUSUS: User bertanya tentang DETAIL ISI SOP. WAJIB tampilkan semua informasi yang tersedia dari field "Isi SOP" di data sistem. Jika field konten ada — tampilkan SELENGKAPNYA dengan bullet point. Jika tidak ada data konten — arahkan ke link PDF dan jelaskan apa yang ada di deskripsi.' : '',
-    '\nFORMAT RESPONS WAJIB:\n- Daftar SOP (>1): kelompokkan per unit, tiap SOP: Nama + Nomor + [📄 Lihat Dokumen SOP](url) — JANGAN URL mentah\n- SOP tunggal: detail lengkap + link\n- Laporan statistik (jika ditanya "berapa SOP", "laporan", "rekap"): buat tabel/daftar rinci:\n  • Total unit kerja vs yang sudah punya SOP\n  • Daftar unit DENGAN SOP: nama unit + jumlah SOP\n  • Daftar unit BELUM punya SOP\n  • Persentase coverage\n  • Ringkasan eksekutif\n- JANGAN URL mentah — selalu [teks](url)',
+    '\nFORMAT RESPONS WAJIB:\n- Daftar SOP (>1): kelompokkan per unit, tiap SOP: Nama + Nomor + [📄 Lihat Dokumen SOP](url) — JANGAN URL mentah\n- SOP tunggal: detail lengkap + link\n- Laporan statistik: buat daftar rinci unit + jumlah SOP + persentase coverage\n- Jika data BANYAK (>5 item): tampilkan 4-5 item dulu, akhiri dengan "*Masih ada X data lagi. Ketik Lanjut untuk melihat semua.*"\n- JANGAN URL mentah — selalu [teks](url)',
+    isLanjut ? '\n⚠️ PERINTAH LANJUT: User minta lanjutkan dari jawaban sebelumnya yang terpotong. Langsung lanjutkan tanpa mengulang dari awal. Jangan ulangi data yang sudah ditampilkan.' : '',
     '',
     'PANDUAN MENJAWAB:',
     '1. Jawab hangat dan komunikatif — tidak kaku',
@@ -2184,6 +2235,10 @@ async function sendMsg(){
     const stEl2=document.getElementById('stText'); if(stEl2) stEl2.textContent='Online · AI Aktif';
     S.history.push({role:'assistant',content:reply});
     addMsg(reply,false);
+    // Cek apakah reply terpotong di tengah — tampilkan tombol Lanjut
+    if(isReplyTruncated(reply)) {
+      setTimeout(addContinueButton, 300);
+    }
     if(wDrive) {
       var userDeptId = S.user && S.user.dept ? S.user.dept.id : '';
       // Dirjen: override ke dj01 kalau jabatan = Direktur Jenderal
