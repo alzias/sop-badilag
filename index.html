@@ -1519,7 +1519,9 @@ function showChat() {
           wrap.scrollIntoView({behavior:'smooth',block:'end'});
         }, 600);
       } else if(isEselon2) {
-        welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali.\n' + icon + ' ' + unit + '\n\nAda yang bisa SOPI bantu hari ini? 😊';
+        // Sapaan E2: "Bapak/Ibu [nama]" atau sebut jabatan
+        var titleE2 = S.user.name.startsWith('Drs') || S.user.name.startsWith('Dr') || S.user.name.startsWith('H.') ? 'Bapak ' : 'Bapak/Ibu ';
+        welcomeMsg = getTimeGreeting() + ', **' + titleE2 + S.user.name + '**! 👋\n\nSelamat datang kembali.\n' + icon + ' ' + unit + '\n\nAda yang bisa SOPI bantu hari ini? 😊';
       } else if(isEselon3) {
         welcomeMsg = getTimeGreeting() + ', **' + S.user.name + '**! 👋\n\nSelamat datang kembali. Anda masuk sebagai **' + jabatan + '**\n' + icon + ' ' + unit + e2info + '\n\nAda yang bisa SOPI bantu hari ini? 😊' + (roleMsg[myRole] && myRole !== 'maker' ? roleMsg[myRole] : '');
       } else {
@@ -1914,11 +1916,14 @@ async function sendMsg(){
   if(wDrive && S.user && S.user.dept) {
     var _jabDr = (S.user.jabatan||'').toLowerCase();
     var _deptDr = S.user.dept.id || '';
-    var _effDept = (_jabDr.includes('direktur jenderal')||_jabDr.includes('dirjen')) ? 'dj01' : _deptDr;
+    var _effDept = (_jabDr.includes('direktur jenderal')||_jabDr.includes('dirjen')) ? 'dj01'
+      : (_jabDr.includes('sekretaris') && (_jabDr.includes('ditjen')||_jabDr.includes('direktorat jenderal'))) ? 's01'
+      : _deptDr;
     var _fLinks = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[_effDept] : null;
     if(_fLinks && _fLinks.length) {
       var _unitLabel = S.user.dept.name || 'Unit Anda';
-      addMsg('Tentu! Berikut folder SOP untuk unit ' + S.user.name.split(' ')[0] + ':', false);
+      var _namaDepan = S.user.name.split(' ').filter(function(w){ return !['Drs.','Dr.','H.','Hj.','S.H.','M.H.','S.IP','M.M.','S.Kom.','S.E.'].includes(w); })[0] || S.user.name.split(' ')[0];
+      addMsg('Tentu, Bapak/Ibu **' + _namaDepan + '**! Berikut folder SOP untuk unit Anda:', false);
       setTimeout(function(){ renderFolderLinksCard(_fLinks, '📂 Folder SOP ' + _unitLabel); }, 300);
       return; // stop — tidak perlu panggil Gemini
     }
@@ -2383,7 +2388,10 @@ function showMyDrive(){
   // Cek apakah user ada di DRIVE_FOLDER_MAP (Dirjen/E2/E3)
   var jabLowSD = (S.user.jabatan||'').toLowerCase();
   var deptIdSD = S.user.dept ? S.user.dept.id : '';
-  var effDeptSD = (jabLowSD.includes('direktur jenderal')||jabLowSD.includes('dirjen')) ? 'dj01' : deptIdSD;
+  // Tambah fallback: Sekretaris Ditjen → s01
+  var effDeptSD = (jabLowSD.includes('direktur jenderal')||jabLowSD.includes('dirjen')) ? 'dj01'
+    : (jabLowSD.includes('sekretaris') && (jabLowSD.includes('ditjen')||jabLowSD.includes('direktorat jenderal'))) ? 's01'
+    : deptIdSD;
   var fLinksSD = typeof DRIVE_FOLDER_MAP !== 'undefined' ? DRIVE_FOLDER_MAP[effDeptSD] : null;
 
   if(fLinksSD && fLinksSD.length) {
