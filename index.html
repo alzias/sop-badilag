@@ -3121,7 +3121,18 @@ function rDrives(c){
   h += '<button class="addbtn" onclick="addDrive()">+ Tambah SOP</button></div>';
   h += '<div class="sectitle">Semua Dokumen SOP (' + S.drives.length + ')</div>';
   if(!S.drives.length)h+='<div style="text-align:center;padding:24px;color:var(--mu);font-size:13px;">Belum ada data Drive</div>';
-    // Kelompokkan SOP berdasarkan 4 Eselon II
+  if(S.drives.length){
+    h += '<div style="position:relative;margin-bottom:12px;">';
+    h += '<input type="text" id="drSearchBox" class="finput" placeholder="🔍 Cari nomor SOP, nama SOP, atau nama unit..." oninput="filterDriveTree(this.value)" style="padding-right:34px;"/>';
+    h += '<span id="drSearchClear" onclick="document.getElementById(\'drSearchBox\').value=\'\';filterDriveTree(\'\');" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--mu);font-size:15px;">✕</span>';
+    h += '</div>';
+    h += '<div id="drTreeCount" style="display:none;font-size:11px;color:var(--cyan);margin:-4px 0 10px;padding:0 2px;"></div>';
+    h += renderDriveTree();
+  }
+  c.innerHTML=h;
+}
+// ══ TREE DOKUMEN SOP: Eselon II → III → IV (show/hide + live search) ══
+function renderDriveTree(){
   const driveE2Groups = [
     {label:'🏛️ Sekretariat Ditjen Badilag',    e2id:'e2_sek'},
     {label:'⚖️ Dit. Adm. Peradilan Agama',      e2id:'e2_adm'},
@@ -3130,29 +3141,136 @@ function rDrives(c){
     {label:'➕ Lainnya',                         e2id:''},
   ];
   const allE2ids = ['e2_sek','e2_adm','e2_ttk','e2_prt'];
+  const badge = d => d.status==='Tidak Aktif'
+    ? '<span style="background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">❌ Tidak Aktif</span>'
+    : '<span style="background:rgba(6,214,160,.15);color:var(--green);border:1px solid rgba(6,214,160,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">✅ Aktif</span>';
+  const leafCard = d => {
+    const nm = d.nomor ? '📄 '+d.nomor+' · ' : '';
+    const tg = d.tanggal ? '📅 '+formatTanggal(d.tanggal) : '';
+    const searchStr = [d.title,d.nomor,d.eselon2,d.eselon3,d.eselon4,d.desc].filter(Boolean).join(' ').toLowerCase();
+    let s = '<div class="acard drv-leaf" data-search="'+searchStr.replace(/"/g,'&quot;')+'"><span class="acard-ico">📋</span>';
+    s += '<div class="acard-info">';
+    s += '<div class="acard-name">'+d.title+' '+badge(d)+'</div>';
+    s += '<div class="acard-sub">'+nm+tg+'</div>';
+    s += '<div class="acard-sub">'+(d.desc||'—')+'</div>';
+    s += '</div>';
+    s += '<div class="acard-acts"><button class="bedit" onclick="editDrive(\''+d.id+'\')">✏️</button><button class="bdel" onclick="delDriveConfirm(\''+d.id+'\')">🗑</button></div></div>';
+    return s;
+  };
+  const treeHeader = (level, icon, label, count) => {
+    const size = level==='e2'?13:level==='e3'?12.5:12;
+    const pad = level==='e2'?'10px 12px':level==='e3'?'9px 11px':'8px 10px';
+    const bg = level==='e2'?'rgba(0,245,212,.07)':level==='e3'?'rgba(255,255,255,.03)':'rgba(255,255,255,.02)';
+    const bd = level==='e2'?'rgba(0,245,212,.18)':'var(--b1)';
+    const clr = level==='e2'?'var(--cyan)':level==='e3'?'var(--tx)':'var(--mu2)';
+    return '<div class="tree-header" onclick="toggleTreeNode(this)" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:'+pad+';background:'+bg+';border:1px solid '+bd+';border-radius:9px;font-weight:700;font-size:'+size+'px;color:'+clr+';user-select:none;">'+
+      '<span class="tree-arrow" style="font-size:10px;color:var(--mu);flex-shrink:0;">▸</span>'+
+      '<span style="flex-shrink:0;">'+icon+'</span>'+
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+label+'</span>'+
+      '<span class="tree-count" style="flex-shrink:0;font-size:10px;color:var(--mu);font-weight:600;background:rgba(255,255,255,.05);border-radius:20px;padding:2px 8px;">'+count+'</span>'+
+    '</div>';
+  };
+  let out = '';
   driveE2Groups.forEach(grp => {
     const dd = grp.e2id
       ? S.drives.filter(d=>d.eselon2Id===grp.e2id)
       : S.drives.filter(d=>!allE2ids.includes(d.eselon2Id||''));
     if(!dd.length) return;
-    h+='<div style="font-size:10px;color:var(--cyan);letter-spacing:1px;font-weight:800;margin:14px 0 6px;text-transform:uppercase;padding:6px 10px;background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.12);border-radius:8px;">'+grp.label+' ('+dd.length+')</div>';
-    dd.forEach(d=>{
-      const sb = d.status==='Tidak Aktif'
-        ? '<span style="background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">❌ Tidak Aktif</span>'
-        : '<span style="background:rgba(6,214,160,.15);color:var(--green);border:1px solid rgba(6,214,160,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">✅ Aktif</span>';
-      const nm = d.nomor ? '📄 '+d.nomor+' · ' : '';
-      const tg = d.tanggal ? '📅 '+formatTanggal(d.tanggal) : '';
-      const e4lbl = d.eselon4 ? ' · <em style="color:var(--mu);font-size:10px;">'+d.eselon4+'</em>' : '';
-      h += '<div class="acard"><span class="acard-ico">📋</span>';
-      h += '<div class="acard-info">';
-      h += '<div class="acard-name">'+d.title+' '+sb+'</div>';
-      h += '<div class="acard-sub">'+nm+tg+e4lbl+'</div>';
-      h += '<div class="acard-sub">'+(d.desc||'—')+'</div>';
-      h += '</div>';
-      h += '<div class="acard-acts"><button class="bedit" onclick="editDrive(\''+d.id+'\')">✏️</button><button class="bdel" onclick="delDriveConfirm(\''+d.id+'\')">🗑</button></div></div>';
+    out += '<div class="tree-node" data-level="e2" style="margin:10px 0;">';
+    out += treeHeader('e2','🏛️',grp.label,dd.length);
+    out += '<div class="tree-children" style="display:none;padding:8px 0 2px 18px;border-left:2px solid rgba(0,245,212,.1);margin-left:10px;">';
+    const e3List = (typeof ESELON3!=='undefined' && grp.e2id) ? ESELON3.filter(e=>e.eselon2===grp.e2id) : [];
+    const usedE3Ids = [];
+    e3List.forEach(e3 => {
+      const dd3 = dd.filter(d=>d.eselon3Id===e3.id);
+      if(!dd3.length) return;
+      usedE3Ids.push(e3.id);
+      out += '<div class="tree-node" data-level="e3" style="margin:7px 0;">';
+      out += treeHeader('e3','📂',e3.nama,dd3.length);
+      out += '<div class="tree-children" style="display:none;padding:7px 0 2px 16px;border-left:2px solid rgba(255,255,255,.06);margin-left:9px;">';
+      const e4List = (typeof ESELON4!=='undefined') ? ESELON4.filter(e=>e.eselon3===e3.id) : [];
+      const usedE4Ids = [];
+      e4List.forEach(e4 => {
+        const dd4 = dd3.filter(d=>d.eselon4Id===e4.id);
+        if(!dd4.length) return;
+        usedE4Ids.push(e4.id);
+        out += '<div class="tree-node" data-level="e4" style="margin:6px 0;">';
+        out += treeHeader('e4','📁',e4.nama,dd4.length);
+        out += '<div class="tree-children" style="display:none;padding:6px 0 0 4px;">';
+        dd4.forEach(d=> out += leafCard(d));
+        out += '</div></div>';
+      });
+      const dd3NoE4 = dd3.filter(d=>!usedE4Ids.includes(d.eselon4Id||''));
+      if(dd3NoE4.length){
+        out += '<div class="tree-node" data-level="e4" style="margin:6px 0;">';
+        out += treeHeader('e4','📁','Umum / Belum Ditentukan',dd3NoE4.length);
+        out += '<div class="tree-children" style="display:none;padding:6px 0 0 4px;">';
+        dd3NoE4.forEach(d=> out += leafCard(d));
+        out += '</div></div>';
+      }
+      out += '</div></div>';
+    });
+    const ddNoE3 = dd.filter(d=>!usedE3Ids.includes(d.eselon3Id||''));
+    if(ddNoE3.length){
+      out += '<div class="tree-node" data-level="e3" style="margin:7px 0;">';
+      out += treeHeader('e3','📂','Umum / Belum Ditentukan',ddNoE3.length);
+      out += '<div class="tree-children" style="display:none;padding:7px 0 2px 16px;border-left:2px solid rgba(255,255,255,.06);margin-left:9px;">';
+      ddNoE3.forEach(d=> out += leafCard(d));
+      out += '</div></div>';
+    }
+    out += '</div></div>';
+  });
+  return out;
+}
+function toggleTreeNode(headerEl){
+  const node = headerEl.parentElement;
+  const kids = node.querySelector(':scope > .tree-children');
+  const arrow = headerEl.querySelector('.tree-arrow');
+  if(!kids) return;
+  const isOpen = kids.style.display === 'block';
+  kids.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▸' : '▾';
+}
+function filterDriveTree(q){
+  const term = (q||'').trim().toLowerCase();
+  const clearBtn = document.getElementById('drSearchClear');
+  const countEl = document.getElementById('drTreeCount');
+  if(clearBtn) clearBtn.style.display = term ? 'block' : 'none';
+  const leaves = document.querySelectorAll('.drv-leaf');
+  if(!term){
+    leaves.forEach(l=>l.style.display='flex');
+    document.querySelectorAll('.tree-node').forEach(n=>{
+      n.style.display='block';
+      const kids = n.querySelector(':scope > .tree-children');
+      if(kids) kids.style.display='none';
+      const arrow = n.querySelector(':scope > .tree-header .tree-arrow');
+      if(arrow) arrow.textContent='▸';
+    });
+    if(countEl) countEl.style.display='none';
+    return;
+  }
+  leaves.forEach(l=>{
+    const match = (l.getAttribute('data-search')||'').includes(term);
+    l.style.display = match ? 'flex' : 'none';
+  });
+  ['e4','e3','e2'].forEach(lvl=>{
+    document.querySelectorAll('.tree-node[data-level="'+lvl+'"]').forEach(n=>{
+      const anyVisible = [...n.querySelectorAll('.drv-leaf')].some(l=>l.style.display!=='none');
+      n.style.display = anyVisible ? 'block' : 'none';
+      if(anyVisible){
+        const kids = n.querySelector(':scope > .tree-children');
+        if(kids) kids.style.display='block';
+        const arrow = n.querySelector(':scope > .tree-header .tree-arrow');
+        if(arrow) arrow.textContent='▾';
+      }
     });
   });
-  c.innerHTML=h;
+  if(countEl){
+    const total = document.querySelectorAll('.drv-leaf').length;
+    const visible = [...leaves].filter(l=>l.style.display!=='none').length;
+    countEl.style.display='block';
+    countEl.textContent = 'Menampilkan ' + visible + ' dari ' + total + ' dokumen SOP';
+  }
 }
 // ══ CASCADE DROPDOWN HANDLERS (FORM TAMBAH SOP) ══
 function onE2ChangeDr() {
