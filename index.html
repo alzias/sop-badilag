@@ -2100,7 +2100,16 @@ async function sendMsg(){
   // Hanya drive utama (folder) yang dibatasi per unit — bukan konten/link final
   const myDrives = S.drives.filter(d => d.status !== 'Tidak Aktif');
   const myDeptId = !isGuest ? (S.user?.dept?.id || '') : '';
-  const sopInfo = myDrives.slice(0,8).map((d,i)=>{ // Batasi 8 SOP untuk hemat token
+  // Prioritaskan SOP yang kata kuncinya cocok dengan pertanyaan user, baru sisanya —
+  // supaya SOP yang baru diinput (posisi di akhir array) tidak selalu terpotong oleh batas 8
+  const _qKeywords = (txt||'').toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  const _matched8 = myDrives.filter(d=>{
+    const hay=(d.title+' '+(d.nomor||'')+' '+(d.desc||'')+' '+(d.eselon3||'')+' '+(d.eselon4||'')).toLowerCase();
+    return _qKeywords.some(k=>hay.includes(k));
+  });
+  const _rest8 = myDrives.filter(d=>!_matched8.includes(d));
+  const drivesForInfo = _matched8.concat(_rest8);
+  const sopInfo = drivesForInfo.slice(0,8).map((d,i)=>{ // Batasi 8 SOP untuk hemat token, prioritas SOP relevan
     const dept=S.depts.find(x=>x.id===d.deptId);
     // isMyUnit: gunakan canUserAccessDrive yang sudah proven 6 cara matching
     const isMyUnit = !isGuest && canUserAccessDrive(d);
@@ -2174,8 +2183,9 @@ async function sendMsg(){
         lines.push('📁 '+e3.nama+':');
         sopE4.forEach(d => {
           const dept = S.depts.find(x=>x.id===d.deptId);
-          const link = d.linkFinal ? ' [PDF Final: '+d.linkFinal+']' : ' [PDF Final: belum tersedia]';
-          lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+link);
+          const link = d.urlDokumen ? ' [Link View Dokumen SOP: '+d.urlDokumen+']' : ' [Link View Dokumen SOP: belum tersedia]';
+          const nomorInfo = d.nomor ? ' | Nomor SOP: '+d.nomor : '';
+          lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+nomorInfo+link);
         });
       }
     });
@@ -2193,8 +2203,9 @@ async function sendMsg(){
       const lines = ['SOP di '+mentionedE3.nama+':'];
       sopE4.forEach(d => {
         const dept = S.depts.find(x=>x.id===d.deptId);
-        const link = d.linkFinal ? ' [PDF Final: '+d.linkFinal+']' : ' [PDF Final: belum tersedia]';
-        lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+link);
+        const link = d.urlDokumen ? ' [Link View Dokumen SOP: '+d.urlDokumen+']' : ' [Link View Dokumen SOP: belum tersedia]';
+        const nomorInfo = d.nomor ? ' | Nomor SOP: '+d.nomor : '';
+        lines.push('  📄 '+d.title+' ['+(dept?dept.name:'?')+']'+nomorInfo+link);
       });
       hierarchyInfo = lines.join('\n');
     }
@@ -2202,7 +2213,7 @@ async function sendMsg(){
 
   const relatedInfo = relatedSop.length ? relatedSop.map(d=>{
     const dept = S.depts.find(x=>x.id===d.deptId);
-    const linkInfo = d.linkFinal ? ' | PDF Final: '+d.linkFinal : ' | PDF Final: belum tersedia';
+    const linkInfo = d.urlDokumen ? ' | Link View Dokumen SOP: '+d.urlDokumen : ' | Link View Dokumen SOP: belum tersedia';
     return '• "'+d.title+'" ['+(dept?dept.name:'?')+']'+linkInfo;
   }).join('\n') : '';
 
