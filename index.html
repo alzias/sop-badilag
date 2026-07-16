@@ -7,6 +7,14 @@
 <title>SOP Digital v3.0 — Ditjen Badilag MA RI</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ══ TEMA: terapkan sedini mungkin agar tidak ada flicker warna saat load ══
+(function(){
+  var saved = 'dark';
+  try{ saved = localStorage.getItem('sopiTheme') || 'dark'; }catch(e){}
+  document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -15,6 +23,35 @@
   --cyan:#00f5d4;--cyan2:#00c4aa;--amber:#ffb703;--red:#ff4d6d;
   --green:#06d6a0;--blue:#4361ee;--tx:#e8eaf0;--mu:#6b7280;--mu2:#9ca3af;
 }
+/* ══ TEMA TERANG (Mode Cerah) ══ */
+[data-theme="light"]{
+  --bg:#eef1f8;--s1:rgba(20,30,55,.035);--s2:rgba(20,30,55,.07);
+  --b1:rgba(20,30,55,.10);--b2:rgba(20,30,55,.18);
+  --cyan:#009e8c;--cyan2:#007b6d;--amber:#b3690a;--red:#d6304a;
+  --green:#0a8f66;--blue:#3346c4;--tx:#101828;--mu:#5c6674;--mu2:#414b58;
+}
+[data-theme="light"] body::before{background-image:none;background:var(--bg);filter:none;transform:none;}
+[data-theme="light"] body::after{background:
+    linear-gradient(to bottom, rgba(255,255,255,.5) 0%, rgba(255,255,255,.2) 40%, rgba(255,255,255,.5) 100%),
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0,158,140,.05) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(51,70,196,.05) 0%,transparent 60%);
+}
+[data-theme="light"] .fselect option{background:#fff;color:var(--tx);}
+[data-theme="light"] .ipdrop{background:#fff;}
+[data-theme="light"] .mbox{background:rgba(255,255,255,.98);box-shadow:0 24px 64px rgba(20,30,55,.18);}
+[data-theme="light"] .lcard{background:rgba(255,255,255,.55);box-shadow:0 24px 48px rgba(20,30,55,.12);}
+[data-theme="light"] .lbtn,[data-theme="light"] .mbtn.ok,[data-theme="light"] .sendbtn{color:#fff;}
+[data-theme="light"] .ltitle{background:linear-gradient(135deg,var(--cyan),#334 60%,var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+[data-theme="light"] .finput,[data-theme="light"] .fselect,[data-theme="light"] .ipbtn,[data-theme="light"] .finput-sm{background:rgba(20,30,55,.04);}
+[data-theme="light"] .ahd,[data-theme="light"] .atabs,[data-theme="light"] .chdr,[data-theme="light"] .qarea{background:rgba(20,30,55,.02);}
+[data-theme="light"] .aclose{background:rgba(20,30,55,.05);}
+[data-theme="light"] .aclose:hover,[data-theme="light"] .atab:hover:not(.on),[data-theme="light"] .sbitem:hover,[data-theme="light"] .cbtn.no:hover{background:rgba(20,30,55,.05);}
+[data-theme="light"] .dcard{background:rgba(20,30,55,.03);}
+[data-theme="light"] .dpill{background:rgba(20,30,55,.08);color:rgba(20,30,55,.65);}
+[data-theme="light"] #adminPanel{background:var(--bg);}
+#themeToggle{position:fixed;top:14px;right:14px;z-index:99999;width:38px;height:38px;border-radius:50%;border:1px solid var(--b2);background:var(--s2);color:var(--tx);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(0,0,0,.2);transition:transform .2s,background .2s;}
+#themeToggle:hover{transform:scale(1.08);}
+#themeToggle:active{transform:scale(.94);}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh;display:flex;justify-content:center;align-items:center;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);}
 
 /* ── Layer 1: Gambar gedung Mahkamah Agung (desktop only) ── */
@@ -309,6 +346,9 @@ textarea.finput-sm{resize:vertical;min-height:70px;line-height:1.5;}
 </div>
 
 <div class="app">
+
+<!-- TOGGLE TEMA — selalu tampil di login, chat, maupun admin panel -->
+<button id="themeToggle" onclick="toggleTheme()" title="Ganti tema tampilan">🌙</button>
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -4743,6 +4783,17 @@ async function fbDeleteDrive(id) {
 
 // ── SAFETY NET: bind tombol kritis SEGERA saat script jalan (tidak tunggu 'load') ──
 // Mencegah tombol tidak responsif jika 'load' listener gagal di tengah jalan
+// ══ TEMA TAMPILAN (Gelap/Cerah) ══
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  var btn = document.getElementById('themeToggle');
+  if(btn) btn.textContent = t === 'light' ? '🌙' : '☀️';
+  try{ localStorage.setItem('sopiTheme', t); }catch(e){}
+}
+function toggleTheme(){
+  var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(cur === 'light' ? 'dark' : 'light');
+}
 function bindCriticalButtons() {
   var btnAdminLink = document.getElementById('btnAdminLink');
   if (btnAdminLink && !btnAdminLink._bound) {
@@ -4759,6 +4810,11 @@ function bindCriticalButtons() {
     btnDoLogin._bound = true;
     btnDoLogin.onclick = doLogin;
     btnDoLogin.disabled = false;
+  }
+  var themeBtn = document.getElementById('themeToggle');
+  if (themeBtn) {
+    var curTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    themeBtn.textContent = curTheme === 'light' ? '🌙' : '☀️';
   }
 }
 // Jalankan segera jika DOM sudah siap, atau tunggu DOMContentLoaded
