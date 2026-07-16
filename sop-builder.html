@@ -14,6 +14,14 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// Set worker path untuk PDF.js
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -80,6 +88,18 @@
 .theme-toggle:hover{background:var(--s2);color:var(--tx);}
 
 /* ── Light mode body ── */
+/* ── Embedded mode (dibuka dari SOPI) — navbar disembunyikan ── */
+body.embedded-mode .hd { display: none !important; }
+body.embedded-mode .tabs {
+  border-top: none;
+  border-radius: 0;
+}
+/* Mobile: tambah padding atas agar konten tidak tertindih status bar */
+@media (max-width: 600px) {
+  body.embedded-mode { padding-top: env(safe-area-inset-top); }
+}
+
+
 [data-theme="light"] body{background:var(--bg);}
 [data-theme="light"] body::before{
   background:radial-gradient(ellipse 70% 60% at 15% 10%,rgba(0,158,140,.04) 0%,transparent 60%),
@@ -2304,6 +2324,10 @@ function toggleTheme() {
   html.setAttribute('data-theme', next);
   try { localStorage.setItem('sopiTheme', next); } catch(e) {}
   updateThemeBtn(next);
+  // Sinkronisasi tema ke SOPI parent/opener jika ada
+  const msg = { type: 'BUILDER_THEME', theme: next };
+  try { window.parent && window.parent !== window && window.parent.postMessage(msg, '*'); } catch(e){}
+  try { window.opener && window.opener.postMessage(msg, '*'); } catch(e){}
 }
 
 function updateThemeBtn(theme) {
@@ -2423,13 +2447,14 @@ function renderFormView() {
   // DROP ZONE / FILE STATUS
   if (state.fileState === 'idle') {
     h += `<div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-      <input type="file" id="fileInput" accept=".docx,.doc">
+      <input type="file" id="fileInput" accept=".docx,.doc,.pdf">
       <div style="font-size:36px;margin-bottom:8px;">📂</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">Klik atau Drag &amp; Drop File SOP (.docx)</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">Klik atau Drag &amp; Drop File SOP</div>
       <div style="font-size:12px;color:var(--mu2);margin-bottom:12px;">Data otomatis masuk ke form</div>
       <div style="display:flex;gap:6px;justify-content:center;">
         <span class="badge">.docx</span>
         <span class="badge" style="color:var(--mu2);border-color:rgba(255,255,255,.1);">.doc</span>
+        <span class="badge" style="color:rgba(0,245,212,.8);border-color:rgba(0,245,212,.3);">.pdf</span>
         <span class="badge" style="color:var(--mu);border-color:rgba(255,255,255,.08);">Format SOP Ditjen Badilag</span>
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--mu);">— atau isi form manual di bawah —</div>
@@ -2438,7 +2463,7 @@ function renderFormView() {
     h += `<div class="status-bar loading">
       <span style="font-size:20px;">⚙️</span>
       <div style="flex:1;">
-        <div style="font-weight:700;color:var(--cyan);margin-bottom:4px;">Membaca file Word...</div>
+        <div style="font-weight:700;color:var(--cyan);margin-bottom:4px;">${state.fileName.endsWith('.pdf') ? 'Membaca file PDF...' : 'Membaca file Word...'}</div>
         <div style="font-size:11px;color:var(--mu2);">${state.fileName}</div>
         <div class="progress-bar"><div class="progress-fill" id="pBar"></div></div>
       </div>
@@ -3614,27 +3639,125 @@ function bindEvents() {
 }
 
 // ══ FILE PROCESSING ══
+// ══ PROSES PDF — ekstrak teks dengan PDF.js lalu parse seperti Word ══
+async function processPDFFile(file) {
+  try {
+    // Cek library
+    if (typeof pdfjsLib === 'undefined') {
+      // Coba load worker lagi
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = () => {
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          res();
+        };
+        s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    const ab  = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    const numPages = pdf.numPages;
+
+    // Ekstrak semua halaman
+    let fullText = '';
+    for (let p = 1; p <= numPages; p++) {
+      const page    = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      // Gabungkan item teks dengan spasi/newline berdasarkan posisi y
+      let lastY = null;
+      for (const item of content.items) {
+        if (!item.str) continue;
+        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+          fullText += '\n';
+        }
+        fullText += item.str + ' ';
+        lastY = item.transform[5];
+      }
+      fullText += '\n\n';
+    }
+
+    fullText = fullText.trim();
+    if (fullText.length < 50) {
+      throw new Error('PDF tidak bisa dibaca (kemungkinan PDF hasil scan/gambar, bukan teks). Gunakan file .docx saja.');
+    }
+
+    // Pakai parser teks yang sama dengan Word
+    const parsed = parseSOPFromText(fullText);
+
+    // Untuk PDF tidak ada HTML tabel → section mungkin kosong, biarkan user isi manual
+    // Coba parse section dari teks biasa
+    const ktItems = parseSectionFromText(fullText, 'KETERKAITAN');
+    if (ktItems.length > 0) parsed.keterkaitan = ktItems.concat(['']);
+
+    state.form = parsed;
+
+    // Hitung jumlah langkah dari teks
+    const langkahCount = (parsed.langkah||[]).filter(l=>l.aktivitas).length;
+    const pelCount     = (parsed.pelaksana||[]).filter(p=>p).length;
+
+    state.fileState = 'done';
+    state.parseInfo = `${file.name} · ${langkahCount} langkah terdeteksi dari PDF · ${pelCount} pelaksana · isi ulang langkah jika perlu`;
+
+    render();
+    toast('✅ PDF berhasil dibaca! Periksa dan lengkapi form.');
+  } catch(e) {
+    state.fileState = 'error';
+    state.parseInfo = 'Gagal membaca PDF: ' + e.message;
+    render();
+    console.error('PDF parse error:', e);
+  }
+}
+
+// Helper: parse section dari teks biasa (untuk PDF)
+function parseSectionFromText(raw, headerName) {
+  const lines  = raw.split(/\n/);
+  const result = [];
+  let   inside = false;
+  const ALL_SECTIONS = ['DASAR HUKUM','KUALIFIKASI PELAKSANA','KETERKAITAN',
+    'PERALATAN','PERINGATAN','PENCATATAN','PROSEDUR','PELAKSANA'];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.toUpperCase().includes(headerName)) { inside = true; continue; }
+    if (inside) {
+      if (ALL_SECTIONS.some(s => trimmed.toUpperCase().startsWith(s))) break;
+      const clean = trimmed.replace(/^\d+\.?\s*/, '').trim();
+      if (clean.length > 3) result.push(clean);
+    }
+  }
+  return result;
+}
+
+
 function processFile(file) {
-  // Validasi: cek extension DAN MIME type (untuk file dari WhatsApp/mobile yang nama berubah)
-  const validExt  = file.name.match(/\.(docx|doc)$/i);
-  const validMime = file.type && (
-    file.type.includes('word') ||
-    file.type.includes('document') ||
-    file.type.includes('officedocument') ||
-    file.type.includes('msword') ||
-    file.type === 'application/octet-stream' // beberapa mobile kirim generic
-  );
-  if (!validExt && !validMime) {
+  // Validasi extension
+  const isPDF   = file.name.match(/\.pdf$/i) || file.type === 'application/pdf';
+  const isWord  = file.name.match(/\.(docx|doc)$/i) || (file.type && (
+    file.type.includes('word') || file.type.includes('document') ||
+    file.type.includes('officedocument') || file.type.includes('msword') ||
+    file.type === 'application/octet-stream'
+  ));
+  if (!isPDF && !isWord) {
     state.fileState='error';
-    state.parseInfo='Format tidak didukung. Gunakan file .docx atau .doc (MIME: '+file.type+', nama: '+file.name+')';
+    state.parseInfo='Format tidak didukung. Gunakan .docx, .doc, atau .pdf';
     render(); return;
   }
   state.fileName = file.name;
   state.fileState = 'parsing';
   render();
+
+  // ── PDF: pakai PDF.js ──
+  if (isPDF) {
+    processPDFFile(file); return;
+  }
+
+  // ── Word: pakai mammoth ──
   file.arrayBuffer().then(ab => {
     if (!window.mammoth) throw new Error('Library mammoth belum dimuat, coba lagi');
-    // Ekstrak dua format sekaligus: HTML (untuk tabel) + teks mentah (untuk metadata)
     return Promise.all([
       window.mammoth.convertToHtml({ arrayBuffer: ab }),
       window.mammoth.extractRawText({ arrayBuffer: ab })
@@ -3974,8 +4097,25 @@ window.addEventListener('message', function(e) {
     toast('📄 Dokumen SOP dimuat — lihat Preview dan Flowchart');
     return;
   }
+  // Sinkronisasi tema dari SOPI
+  if (e.data.type === 'SOPI_THEME') {
+    const t = e.data.theme;
+    if (t === 'light' || t === 'dark') {
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('sopiTheme', t); } catch(err){}
+      updateThemeBtn(t);
+    }
+    return;
+  }
+
   if (e.data.type !== 'SOPI_CONTEXT') return;
   const d = e.data;
+  // Sinkronisasi tema jika dikirim bersama context
+  if (d.theme === 'light' || d.theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', d.theme);
+    try { localStorage.setItem('sopiTheme', d.theme); } catch(err){}
+    updateThemeBtn(d.theme);
+  }
   state.ctx = { nip:d.nip||'', nama:d.nama||'', unit:d.unit||'', e3:d.e3||'', e4:d.e4||'', deptId:d.deptId||'' };
   if (state.ctx.e3) state.form.eselon3 = state.ctx.e3;
   if (state.ctx.e4) state.form.eselon4 = state.ctx.e4;
@@ -3988,6 +4128,26 @@ window.addEventListener('message', function(e) {
 // ══ INIT ══
 window.addEventListener('load', function() {
   readURLContext();
+
+  // ── Deteksi mode: embedded (dari SOPI) vs standalone ──
+  const isEmbedded = (function() {
+    try {
+      return (window.parent && window.parent !== window) ||
+             !!window.opener;
+    } catch(e) { return false; }
+  })();
+
+  if (isEmbedded) {
+    // Sembunyikan navbar Builder — SOPI sudah punya navbar sendiri
+    const hdEl = document.querySelector('.hd');
+    if (hdEl) hdEl.style.display = 'none';
+    // Sembunyikan juga theme toggle — tema dikendalikan SOPI
+    const themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) themeBtn.style.display = 'none';
+    // Tambah class ke body untuk CSS tambahan
+    document.body.classList.add('embedded-mode');
+  }
+
   render();
 
   // Beritahu parent/opener bahwa Builder sudah siap
