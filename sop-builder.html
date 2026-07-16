@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<script>
+(function(){
+  var t='dark';
+  try{ t=localStorage.getItem('sopiTheme')||'dark'; }catch(e){}
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SOP Builder — Ditjen Badilag MA RI</title>
@@ -12,15 +19,122 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <style>
+/* ══════════════════════════════════════════
+   SOPI UNIFIED THEME — Dark & Light Mode
+   Ditjen Badan Peradilan Agama, MA RI
+   ══════════════════════════════════════════ */
+
+/* ── Reset ── */
 *{margin:0;padding:0;box-sizing:border-box;}
-:root{
-  --bg:#08111f;--card:#0f1c2e;--card2:#131f30;
-  --b1:rgba(0,245,212,.10);--b2:rgba(0,245,212,.18);
-  --cyan:#00f5d4;--cyan2:#00c4aa;
-  --amber:#ffb703;--red:#ff4d6d;--green:#06d6a0;--purple:#a855f7;
-  --mu:#5a7a8a;--mu2:#8fa8b8;--tx:#deeaf2;
-  --r:12px;--r2:16px;
+
+/* ── Design Tokens: Dark (default) ── */
+:root {
+  --bg    :#08111f; --card:#0f1c2e; --card2:#131f30;
+  --s1    :rgba(255,255,255,.04);  --s2:rgba(255,255,255,.07); --s3:rgba(255,255,255,.11);
+  --b1    :rgba(0,245,212,.10);    --b2:rgba(0,245,212,.18);   --b3:rgba(0,245,212,.30);
+  --cyan  :#00f5d4; --cyan2:#00c4aa;
+  --amber :#ffb703; --red:#ff4d6d; --green:#06d6a0; --blue:#4361ee; --purple:#a855f7;
+  --mu    :#5a7a8a; --mu2:#8fa8b8; --tx:#deeaf2;
+  --r     :12px; --r2:16px;
+  /* Alias tema */
+  --shadow-sm  :0 2px 8px rgba(0,0,0,.3);
+  --shadow-md  :0 8px 24px rgba(0,0,0,.45);
+  --shadow-lg  :0 24px 64px rgba(0,0,0,.6);
+  --shadow-cyan:0 6px 20px rgba(0,245,212,.3);
+  --t-fast:.15s ease; --t-base:.2s ease; --t-pop:.3s cubic-bezier(.34,1.56,.64,1);
+  --font-display:'Syne','DM Sans',sans-serif;
+  --font-body:'DM Sans',sans-serif;
 }
+
+/* ── Design Tokens: Light ── */
+[data-theme="light"] {
+  --bg    :#eef1f8; --card:#fff; --card2:#f0f4fb;
+  --s1    :rgba(20,30,55,.035); --s2:rgba(20,30,55,.07); --s3:rgba(20,30,55,.11);
+  --b1    :rgba(20,30,55,.10);  --b2:rgba(20,30,55,.18); --b3:rgba(20,30,55,.28);
+  --cyan  :#009e8c; --cyan2:#007b6d;
+  --amber :#b3690a; --red:#d6304a; --green:#0a8f66; --blue:#3346c4; --purple:#7c3aed;
+  --mu    :#5c6674; --mu2:#414b58; --tx:#101828;
+  --shadow-sm  :0 2px 8px rgba(20,30,55,.12);
+  --shadow-md  :0 8px 24px rgba(20,30,55,.15);
+  --shadow-lg  :0 24px 64px rgba(20,30,55,.2);
+  --shadow-cyan:0 6px 20px rgba(0,158,140,.25);
+}
+
+/* ── SOP Status Badges ── */
+.sop-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;}
+.sop-status.draft        {background:rgba(107,114,128,.15);border:1px solid rgba(107,114,128,.3);color:var(--mu2);}
+.sop-status.pending_e3   {background:rgba(255,183,3,.15);  border:1px solid rgba(255,183,3,.3);  color:var(--amber);}
+.sop-status.pending_admin{background:rgba(168,85,247,.15); border:1px solid rgba(168,85,247,.3); color:var(--purple);}
+.sop-status.pending_e2   {background:rgba(99,102,241,.15); border:1px solid rgba(99,102,241,.3); color:#818cf8;}
+.sop-status.signed       {background:rgba(6,214,160,.15);  border:1px solid rgba(6,214,160,.3);  color:var(--green);}
+.sop-status.rejected_e3,
+.sop-status.rejected_admin{background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:var(--red);}
+
+/* ── Theme Toggle Button ── */
+.theme-toggle{
+  display:flex;align-items:center;gap:6px;padding:5px 12px;
+  border-radius:40px;background:var(--s1);border:1px solid var(--b2);
+  color:var(--mu2);font-size:12px;font-weight:600;cursor:pointer;
+  transition:all var(--t-base);
+}
+.theme-toggle:hover{background:var(--s2);color:var(--tx);}
+
+/* ── Light mode body ── */
+[data-theme="light"] body{background:var(--bg);}
+[data-theme="light"] body::before{
+  background:radial-gradient(ellipse 70% 60% at 15% 10%,rgba(0,158,140,.04) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 50% at 85% 90%,rgba(51,70,196,.05) 0%,transparent 60%);
+}
+[data-theme="light"] .card,
+[data-theme="light"] .card2{background:var(--card);}
+[data-theme="light"] .tabs{background:rgba(20,30,55,.03);border-color:var(--b1);}
+
+/* ── Light mode form inputs ── */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea{
+  background:rgba(20,30,55,.04) !important;
+  border-color:var(--b2) !important;
+  color:var(--tx) !important;
+}
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus{
+  border-color:var(--cyan) !important;
+  box-shadow:0 0 0 3px rgba(0,158,140,.08) !important;
+}
+[data-theme="light"] .step-block,
+[data-theme="light"] .mf-row input{background:rgba(20,30,55,.03) !important;}
+
+/* ── Pelaksana pill — light ── */
+[data-theme="light"] .pel-pill-on{
+  background:rgba(0,158,140,.1);border-color:var(--cyan);color:var(--cyan);
+}
+
+/* ── Drop zone — light ── */
+[data-theme="light"] .drop-zone{
+  background:rgba(0,158,140,.03);border-color:rgba(0,158,140,.3);
+}
+[data-theme="light"] .drop-zone:hover{
+  background:rgba(0,158,140,.07);border-color:var(--cyan);
+}
+
+/* ── Modal — light ── */
+[data-theme="light"] .modal-box,
+[data-theme="light"] .mbox-kirim{
+  background:#fff !important;
+}
+
+/* ── Toast — light ── */
+[data-theme="light"] #toast{background:rgba(0,158,140,.12);}
+[data-theme="light"] #toast.err{background:rgba(214,48,74,.1);}
+
+/* ── Preview dokumen — light ── */
+[data-theme="light"] #previewDoc{color:#000 !important;}
+
+/* ══ BUILDER-SPECIFIC CSS ══ */
+/* → dari sopi-theme */
+
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 70% 60% at 15% 10%,rgba(0,245,212,.05) 0%,transparent 60%),
@@ -36,8 +150,75 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 #toast.err{background:rgba(255,77,109,.12);border-color:rgba(255,77,109,.3);color:var(--red);}
 
 /* HEADER */
-.hd{position:sticky;top:0;z-index:100;background:rgba(8,17,31,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--b1);padding:0 20px;display:flex;align-items:center;gap:12px;height:56px;}
-.hd-logo{width:32px;height:32px;object-fit:contain;border-radius:6px;}
+/* ══ HEADER — identik dengan SOP Digital ══ */
+.hd{
+  position:sticky;top:0;z-index:100;
+  background:rgba(8,17,31,.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--b1);
+  padding:0 16px;display:flex;align-items:center;gap:12px;height:58px;
+  transition:background .3s,border-color .3s;
+}
+
+/* Avatar ring — persis SOP Digital */
+.hd-avring{
+  width:40px;height:40px;flex-shrink:0;border-radius:50%;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+  padding:2.5px;box-shadow:0 0 16px rgba(0,245,212,.3);
+}
+.hd-avin{
+  width:100%;height:100%;border-radius:50%;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+
+/* Judul & sub */
+.hd-title{
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:800;
+  letter-spacing:-.3px;color:var(--tx);line-height:1.2;
+}
+.hd-sub{
+  font-size:11px;color:var(--mu);margin-top:1px;letter-spacing:.2px;
+}
+
+/* Badges area kanan */
+.hd-badges{margin-left:auto;display:flex;gap:7px;align-items:center;}
+
+/* ── Light mode — gradient cyan seperti SOP Digital ── */
+[data-theme="light"] .hd{
+  background:linear-gradient(135deg,var(--cyan),var(--cyan2));
+  border-bottom:1px solid rgba(0,0,0,.08);
+  backdrop-filter:none;
+}
+[data-theme="light"] .hd-title,
+[data-theme="light"] .hd-sub{ color:#fff; }
+[data-theme="light"] .hd-avring{
+  background:rgba(255,255,255,.95);
+  box-shadow:none;
+}
+[data-theme="light"] .hd-avin{ background:#fff; }
+[data-theme="light"] .hd .badge{
+  background:rgba(255,255,255,.22);
+  border:1px solid rgba(255,255,255,.38);
+  color:#fff;
+}
+[data-theme="light"] .hd .badge.green,
+[data-theme="light"] .hd .badge.amber{
+  background:rgba(255,255,255,.2);
+  border-color:rgba(255,255,255,.35);
+  color:#fff;
+}
+[data-theme="light"] .theme-toggle{
+  background:rgba(255,255,255,.2);
+  border:1px solid rgba(255,255,255,.38);
+  color:#fff;
+}
+[data-theme="light"] .theme-toggle:hover{
+  background:rgba(255,255,255,.32);
+  color:#fff;
+}
+
+
+.hd-logo{width:27px;height:27px;object-fit:contain;border-radius:50%;display:block;}
 .hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.3px;}
 .hd-sub{font-size:11px;color:var(--mu2);margin-top:1px;}
 /* ── Mode Preview: sembunyikan elemen yang tidak diperlukan reviewer ── */
@@ -336,26 +517,25 @@ textarea.finput{resize:vertical;min-height:72px;line-height:1.5;}
   </div>
 </div>
 
-<!-- HEADER -->
+<!-- HEADER — style SOP Digital -->
 <div class="hd">
-  <div id="navLogo" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;
-    background:linear-gradient(135deg,rgba(0,245,212,.2),rgba(67,97,238,.15));
-    border:1px solid rgba(0,245,212,.25);
-    display:flex;align-items:center;justify-content:center;">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f5d4"
-      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-      <polyline points="10 9 9 9 8 9"/>
-    </svg>
+  <!-- Avatar ring kiri — logo MA dalam lingkaran -->
+  <div class="hd-avring" id="hdAvring">
+    <div class="hd-avin">
+      <img id="navLogo" src="" alt="MA" class="hd-logo">
+    </div>
   </div>
-  <div>
+  <!-- Judul & sub -->
+  <div style="flex:1;min-width:0;">
     <div class="hd-title">SOP Builder</div>
-    <div class="hd-sub">Ditjen Badilag MA RI · v3.1</div>
+    <div class="hd-sub" id="hdSub">Ditjen Badilag MA RI · v3.1</div>
   </div>
+  <!-- Tombol kanan -->
   <div class="hd-badges">
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Ganti tema gelap/terang">
+      <span id="themeIcon">🌙</span>
+      <span id="themeLabel" style="font-size:11px;">Dark</span>
+    </button>
     <span class="badge" id="badgeVer">Builder v3.1</span>
     <span class="badge green" id="badgeConn">● Firebase</span>
     <span class="badge amber" id="badgeUser" style="display:none;"></span>
@@ -1437,27 +1617,27 @@ async function exportToWord() {
 // ══ EXPORT KE JPG ══
 // Export flowchart SVG langsung ke JPG — lebih ringan untuk Google Drive & SOPI
 // Menggunakan Canvas API (built-in browser, tidak perlu library tambahan)
-async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tombol
+async function exportToPDF() {  // Export flowchart sebagai JPG
   const f = state.form;
 
-  // Cek apakah ada SVG flowchart yang ter-render
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) {
-    // Coba switch ke flowchart dulu
-    if (typeof switchPreview === 'function') switchPreview('flow');
-    setTimeout(() => exportToPDF(), 500);
-    return;
+  // Render SVG dari state.form langsung — tidak bergantung tab aktif
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || svgStr.length < 50) {
+    toast('Isi data SOP terlebih dahulu', 'err'); return;
   }
+  const tmpDiv = document.createElement('div');
+  tmpDiv.innerHTML = svgStr;
+  const svgEl = tmpDiv.querySelector('svg');
+  if (!svgEl) { toast('Gagal render SVG', 'err'); return; }
 
   try {
     toast('⏳ Membuat JPG...');
-    const svgData  = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob  = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl   = URL.createObjectURL(svgBlob);
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl  = URL.createObjectURL(svgBlob);
 
     const img = new Image();
     img.onload = () => {
-      // Render ke canvas dengan skala 2x untuk kualitas tinggi
       const scale  = 2;
       const canvas = document.createElement('canvas');
       canvas.width  = img.width  * scale;
@@ -1469,10 +1649,9 @@ async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tomb
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(svgUrl);
 
-      // Download sebagai JPG
       const link = document.createElement('a');
-      const nama  = (f.nomorSOP||'SOP').replace(/[/\\:*?"<>|]/g,'-').slice(0,40);
-      link.download = 'Flowchart - ' + nama + '.jpg';
+      var noClP = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
+      link.download = 'Flowchart_' + noClP + '.jpg';
       link.href = canvas.toDataURL('image/jpeg', 0.95);
       link.click();
       toast('✅ Flowchart berhasil diunduh sebagai JPG!');
@@ -1484,9 +1663,9 @@ async function exportToPDF() {  // nama fungsi tetap agar tidak perlu ganti tomb
     img.src = svgUrl;
   } catch(e) {
     toast('❌ Gagal export JPG: ' + e.message, 'err');
-    console.error(e);
   }
 }
+
 
 
 // ══ TOGGLE PELAKSANA MULTI-SELECT ══
@@ -1989,29 +2168,29 @@ function exportDocPDF() {
 
 // ══ EXPORT PDF DARI FLOWCHART ══
 function exportFlowPDF() {
-  const svgEl = document.querySelector('#previewPanel svg');
-  if (!svgEl) { toast('Buka tab Flowchart terlebih dahulu','err'); return; }
   if (!window.html2pdf) { toast('Library html2pdf belum siap','err'); return; }
   const f = state.form;
+  // Render SVG dari state.form langsung — tidak bergantung tab atau DOM
+  const svgStr = renderFlowchart(f);
+  if (!svgStr || svgStr.length < 50) { toast('Isi data SOP terlebih dahulu','err'); return; }
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'background:#fff;padding:16px;';
-  wrapper.innerHTML = `<div style="text-align:center;font-family:Arial;font-size:12px;font-weight:700;margin-bottom:8px;">FLOWCHART — ${(f.namaSOP||'SOP').toUpperCase()}</div>`;
-  wrapper.appendChild(svgEl.cloneNode(true));
-  document.body.appendChild(wrapper);
-  var tglEfP = f.tglEfektif ? f.tglEfektif.replace(/-/g,'') : '';
+  wrapper.style.cssText = 'background:#fff;padding:20px;font-family:Arial,sans-serif;';
   var noClP = (f.nomorSOP||'SOP').replace(/[\/\\:*?"<>|]/g,'-');
   var nmClP = (f.namaSOP||'SOP').replace(/[\/\\:*?"<>|]/g,' ').trim();
-  const filename = noClP + (tglEfP?'_'+tglEfP:'') + '_' + nmClP + '.pdf';
+  wrapper.innerHTML = `<div style="text-align:center;font-size:12px;font-weight:700;margin-bottom:12px;letter-spacing:.5px;">FLOWCHART PROSES — ${(f.namaSOP||'SOP').toUpperCase()}</div><div style="overflow-x:auto;">${svgStr}</div>`;
+  document.body.appendChild(wrapper);
+  const filename = noClP + '_' + nmClP + '_flowchart.pdf';
   toast('⏳ Membuat PDF flowchart...');
   html2pdf().set({
-    margin:[5,5,5,5], filename,
-    image:{type:'jpeg',quality:0.95},
+    margin:[10,8,10,8], filename,
+    image:{type:'jpeg',quality:0.97},
     html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true},
     jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
   }).from(wrapper).save()
     .then(()=>{ document.body.removeChild(wrapper); toast('✅ PDF flowchart berhasil diunduh!'); })
     .catch(e=>{ if(wrapper.parentNode) document.body.removeChild(wrapper); toast('❌ Gagal: '+e.message,'err'); });
 }
+
 
 // ══ Fix switchPreview — sync state.previewMode ══
 
@@ -2117,6 +2296,30 @@ function mfDrop(e, targetIdx) {
 }
 
 
+// ══ THEME TOGGLE ══
+function toggleTheme() {
+  const html = document.documentElement;
+  const curr = html.getAttribute('data-theme') || 'dark';
+  const next = curr === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  try { localStorage.setItem('sopiTheme', next); } catch(e) {}
+  updateThemeBtn(next);
+}
+
+function updateThemeBtn(theme) {
+  const icon  = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+  if (!icon || !label) return;
+  if (theme === 'light') {
+    icon.textContent  = '☀️';
+    label.textContent = 'Light';
+  } else {
+    icon.textContent  = '🌙';
+    label.textContent = 'Dark';
+  }
+}
+
+
 // ══ TOAST ══
 function toast(msg, type) {
   const el = document.getElementById('toast');
@@ -2177,7 +2380,11 @@ function syncFormFromDOM() {
     langkah.push({
       aktivitas: (blk.querySelector('.step-aktivitas')||{value:''}).value,
       // Multi-pelaksana: baca semua checkbox yang checked
+      // Prioritas: state.form (sudah diupdate togglePelaksana) > DOM checkbox
       pelaksana: (()=>{
+        const existing = state.form.langkah && state.form.langkah[i]
+          ? state.form.langkah[i].pelaksana : null;
+        if (existing && Array.isArray(existing) && existing.length) return existing;
         const cbs = blk.querySelectorAll('.pel-cb:checked');
         const arr = Array.from(cbs).map(cb => +cb.dataset.idx);
         return arr.length ? arr : [0];
@@ -2394,33 +2601,12 @@ function renderPreviewView(mode) {
 }
 
 function switchPreview(mode) {
+  // Hanya update state — tidak ada DOM manipulation
+  // Tab 1=Preview Dokumen, Tab 2=Flowchart sudah terpisah
   syncFormFromDOM();
   state.previewMode = mode;
-  const f = state.form;
-  // Update tab buttons
-  document.getElementById('btnDoc').style.cssText = mode==='doc'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--cyan);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  document.getElementById('btnFlow').style.cssText = mode==='flow'
-    ? 'flex:1;padding:9px;font-size:13px;background:var(--amber);color:#000;'
-    : 'flex:1;padding:9px;font-size:13px;background:rgba(255,255,255,.06);color:var(--mu2);';
-  // Update toolbar export buttons sesuai mode
-  const toolbarEl = document.getElementById('previewToolbar');
-  if (toolbarEl) {
-    if (mode === 'doc') {
-      toolbarEl.innerHTML = `
-        <button onclick="exportToWord()" style="flex:1;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📄 Export Word</button>
-        <button onclick="exportDocPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#b91c1c,#dc2626);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>`;
-    } else {
-      toolbarEl.innerHTML = `
-        <button onclick="exportFlowPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📑 Export PDF</button>
-        <button onclick="exportToPDF()" style="flex:1;padding:9px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Export JPG</button>`;
-    }
-  }
-  // Update panel
-  document.getElementById('previewPanel').innerHTML = mode==='flow'
-    ? renderFlowchart(f) : renderDocPreview(f);
 }
+
 
 // ══ FLOWCHART SYMBOL HELPER ══
 // tipe: 'process' (default), 'decision' (belah ketupat), 'input' (parallelogram)
@@ -2478,7 +2664,10 @@ function renderFlowchart(f) {
   const langkah  = f.langkah  || [];
   const pelaksana = f.pelaksana || [];
   if (!langkah.length || !pelaksana.length)
-    return '<div style="text-align:center;padding:40px;color:var(--mu2);">Isi langkah dan pelaksana di form terlebih dahulu</div>';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="80">
+    <text x="200" y="44" text-anchor="middle" font-size="13" fill="#94a3b8" font-family="sans-serif">
+      Isi langkah dan pelaksana terlebih dahulu
+    </text></svg>`;
 
   // ── Layout constants ──
   const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
@@ -3216,6 +3405,12 @@ function editDraftFromList(draftId) {
     });
     state._editingDraftId = draftId;
   } catch(e) { state.form = Object.assign({}, state.form); }
+  // Set logo MA di navbar
+  const navLogoEl = document.getElementById('navLogo');
+  if (navLogoEl) navLogoEl.src = LOGO_MA;
+  // Init tema sesuai yang tersimpan
+  const savedTheme = (function(){ try{ return localStorage.getItem('sopiTheme')||'dark'; }catch(e){ return 'dark'; } })();
+  updateThemeBtn(savedTheme);
   setTab(0);
   toast('✏️ Data SOP dimuat ke form untuk diedit');
 }
