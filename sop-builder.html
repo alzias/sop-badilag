@@ -91,6 +91,7 @@ if (typeof pdfjsLib !== 'undefined') {
 /* ── Embedded mode (dibuka dari SOPI) — navbar disembunyikan ── */
 body.embedded-mode .hd { display: none !important; }
 body.embedded-mode .tabs {
+  top: 0 !important;        /* navbar hilang → tabs naik ke paling atas */
   border-top: none;
   border-radius: 0;
 }
@@ -107,7 +108,7 @@ body.embedded-mode .tabs {
 }
 [data-theme="light"] .card,
 [data-theme="light"] .card2{background:var(--card);}
-[data-theme="light"] .tabs{background:rgba(20,30,55,.03);border-color:var(--b1);}
+[data-theme="light"] .tabs{background:rgba(238,241,248,.92);border-color:var(--b1);backdrop-filter:blur(10px);}
 
 /* ── Light mode form inputs ── */
 [data-theme="light"] input,
@@ -268,7 +269,8 @@ body.preview-mode #previewExportBar{display:flex;gap:8px;padding:6px 10px;backgr
 
 /* TABS */
 .tabs{display:flex;gap:4px;padding:10px 16px;background:rgba(15,28,46,.8);
-  border-bottom:1px solid var(--b1);position:sticky;top:56px;z-index:90;backdrop-filter:blur(10px);}
+  border-bottom:1px solid var(--b1);position:sticky;top:56px;z-index:90;
+  backdrop-filter:blur(10px);transition:top .2s;}
 .tab-btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;
   font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:all .2s;
   background:rgba(255,255,255,.05);color:var(--mu2);}
@@ -4144,8 +4146,11 @@ window.addEventListener('load', function() {
     // Sembunyikan juga theme toggle — tema dikendalikan SOPI
     const themeBtn = document.getElementById('themeBtn');
     if (themeBtn) themeBtn.style.display = 'none';
-    // Tambah class ke body untuk CSS tambahan
+    // Tambah class ke body untuk CSS tambahan (tabs top:0, dll)
     document.body.classList.add('embedded-mode');
+    // Tabs langsung sticky di top:0
+    const tabsEl = document.querySelector('.tabs');
+    if (tabsEl) tabsEl.style.top = '0';
   }
 
   render();
