@@ -3730,8 +3730,9 @@ function rQR(c) {
         const el = document.getElementById(qid);
         if (!el) return;
         try {
+          const qrTarget = d.urlDokumen || d.linkFinal || d.link || '';
           new QRCode(el, {
-            text: d.link, width: 120, height: 120,
+            text: qrTarget, width: 120, height: 120,
             colorDark: "#1a1a2e", colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
           });
