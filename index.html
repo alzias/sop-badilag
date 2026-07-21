@@ -1510,7 +1510,50 @@ function doLogout() {
   document.getElementById('chatWrapper').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   populateDepts();
+  stopIdleTimer();
 }
+
+// ══ AUTO LOGOUT KARENA IDLE (5 MENIT TANPA AKTIVITAS) ══
+// Berlaku untuk pegawai, tamu, maupun admin panel.
+const IDLE_LIMIT_MS = 5 * 60 * 1000; // 5 menit
+let _idleTimer = null;
+
+function isSessionActive() {
+  const chatEl  = document.getElementById('chatWrapper');
+  const adminEl = document.getElementById('adminPanel');
+  const chatActive  = chatEl  && chatEl.style.display  === 'flex';
+  const adminActive = adminEl && adminEl.style.display === 'flex';
+  return chatActive || adminActive;
+}
+
+function resetIdleTimer() {
+  if (_idleTimer) clearTimeout(_idleTimer);
+  if (!isSessionActive()) return; // belum login / sudah logout, tidak perlu timer
+  _idleTimer = setTimeout(handleIdleTimeout, IDLE_LIMIT_MS);
+}
+
+function stopIdleTimer() {
+  if (_idleTimer) clearTimeout(_idleTimer);
+  _idleTimer = null;
+}
+
+function handleIdleTimeout() {
+  if (!isSessionActive()) return; // sudah logout duluan lewat cara lain
+  const adminEl = document.getElementById('adminPanel');
+  if (adminEl && adminEl.style.display === 'flex') {
+    closeAdmin();
+  }
+  const chatEl = document.getElementById('chatWrapper');
+  if (chatEl && chatEl.style.display === 'flex') {
+    toast('⏰ Sesi berakhir — tidak ada aktivitas selama 5 menit. Silakan login kembali.');
+    doLogout();
+  }
+}
+
+// Aktivitas apa pun dari pengguna akan mengatur ulang hitungan mundur idle
+['mousemove','mousedown','keydown','touchstart','scroll','wheel'].forEach(evt => {
+  document.addEventListener(evt, resetIdleTimer, { passive: true });
+});
 
 // ══ CHAT ══
 function showChat() {
@@ -1519,6 +1562,7 @@ function showChat() {
   setStyle('loginScreen','display','none');
   setStyle('chatWrapper','display','flex');
   setStyle('chatWrapper','flexDirection','column');
+  resetIdleTimer();
   // Ensure input is enabled
   setTimeout(()=>{
     const inp = document.getElementById('msgInput');
@@ -2705,6 +2749,7 @@ function openAdmin(){
   document.getElementById('adminPanel').style.display='flex';
   document.getElementById('adminPanel').style.flexDirection='column';
   renderAdmin();
+  resetIdleTimer();
 }
 function closeAdmin(){
   document.getElementById('adminPanel').style.display='none';
