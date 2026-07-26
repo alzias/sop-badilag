@@ -2081,13 +2081,12 @@ function exportDocPDF() {
         }
       });
 
-      // SELESAI
+      // SELESAI — Terminator: rounded-rect/stadium, sama dg MULAI (rx=12)
       const lastPi = Math.min((Array.isArray(lkFlow[lkFlow.length-1].pelaksana)?lkFlow[lkFlow.length-1].pelaksana[0]:lkFlow[lkFlow.length-1].pelaksana)||0, nPelF-1);
       const lCX  = colCX(lastPi);
       const endY = rowY(lkFlow.length) + 16;
-      svgF += `<polygon points="${lCX-40},${endY-12} ${lCX+40},${endY-12} ${lCX+40},${endY+4} ${lCX},${endY+20} ${lCX-40},${endY+4}"
-        fill="#1f2937"/>`;
-      svgF += `<text x="${lCX}" y="${endY+8}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">SELESAI</text>`;
+      svgF += `<rect x="${lCX-34}" y="${endY-12}" width="68" height="24" rx="12" fill="#1f2937"/>`;
+      svgF += `<text x="${lCX}" y="${endY+4}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">SELESAI</text>`;
 
       svgF += '</svg>';
 
@@ -2854,7 +2853,7 @@ function renderFlowchart(f) {
   // ── Layout constants ──
   const COL_W  = 130, HDR_H = 44, PAD_X = 16, PAD_Y = 20;
   const BOX_W  = 108, BOX_H = 52;   // persegi panjang = proses
-  const OVAL_H = 28, OVAL_W = 80;   // oval = mulai/selesai
+  const OVAL_H = 28, OVAL_W = 80;   // Terminator (MULAI/SELESAI) — rounded-rect/stadium
   const ROW_H  = 90;                 // jarak antar baris
 
   const totalCols = pelaksana.length;
@@ -2920,13 +2919,13 @@ function renderFlowchart(f) {
       x2="${cx + COL_W/2}" y2="${svgH - 20}" stroke="${col.stroke}" stroke-width="0.5" stroke-dasharray="4 3" opacity="0.4"/>`;
   });
 
-  // ── MULAI — oval ──
+  // ── MULAI — Terminator: rounded-rect/stadium (BUKAN oval — beda dg Proses yg rx kecil) ──
   const startCol  = langkah[0]
     ? (Array.isArray(langkah[0].pelaksana) ? langkah[0].pelaksana[0] : langkah[0].pelaksana) || 0
     : 0;
   const startCX   = colCX(startCol);
   const startCY   = PAD_Y + HDR_H + 18;
-  svg += `<ellipse cx="${startCX}" cy="${startCY}" rx="${OVAL_W/2}" ry="${OVAL_H/2}"
+  svg += `<rect x="${startCX-OVAL_W/2}" y="${startCY-OVAL_H/2}" width="${OVAL_W}" height="${OVAL_H}" rx="${OVAL_H/2}"
     fill="#1e293b" filter="url(#fsh)"/>`;
   svg += `<text x="${startCX}" y="${startCY + 1}" text-anchor="middle" dominant-baseline="middle"
     font-size="10" font-weight="700" fill="#fff" font-family="sans-serif" letter-spacing="1">MULAI</text>`;
@@ -3036,7 +3035,7 @@ function renderFlowchart(f) {
     }
   });
 
-  // ── SELESAI — pentagon/home shape ──
+  // ── SELESAI — Terminator: rounded-rect/stadium, SAMA dg MULAI (pentagon khusus utk Konektor) ──
   const lastL    = langkah[langkah.length - 1];
   const lastPelArr = Array.isArray(lastL.pelaksana) ? lastL.pelaksana : [lastL.pelaksana || 0];
   const lastPi   = Math.min(lastPelArr[0] || 0, pelaksana.length - 1);
@@ -3047,15 +3046,8 @@ function renderFlowchart(f) {
   // Arrow to end
   svg += `<line x1="${colCX(lastPi)}" y1="${rowCY(langkah.length-1)+BOX_H/2}"
     x2="${ex}" y2="${ey - endH/2 - 2}" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>`;
-  // Pentagon (end shape)
-  const pts = [
-    [ex - endW/2, ey - endH/2],
-    [ex + endW/2, ey - endH/2],
-    [ex + endW/2, ey + endH/2 - 6],
-    [ex,          ey + endH/2 + 4],
-    [ex - endW/2, ey + endH/2 - 6],
-  ].map(p => p.join(',')).join(' ');
-  svg += `<polygon points="${pts}" fill="#1e293b" filter="url(#fsh)"/>`;
+  svg += `<rect x="${ex-endW/2}" y="${ey-endH/2}" width="${endW}" height="${endH}" rx="${endH/2}"
+    fill="#1e293b" filter="url(#fsh)"/>`;
   svg += `<text x="${ex}" y="${ey + 1}" text-anchor="middle" dominant-baseline="middle"
     font-size="10" font-weight="700" fill="#fff" font-family="sans-serif" letter-spacing="1">SELESAI</text>`;
 
@@ -3127,10 +3119,10 @@ function renderFlowchartSVG(f) {
     svg += `<line x1="${cx+COL_W/2}" y1="${PAD_Y+32}" x2="${cx+COL_W/2}" y2="${totalH-30}" stroke="${col.stroke}" stroke-width="0.5" stroke-dasharray="4,3" opacity="0.4"/>`;
   });
 
-  // MULAI
+  // MULAI — Terminator: rounded-rect/stadium (bukan oval)
   const startPelArr = Array.isArray(langkah[0].pelaksana)?langkah[0].pelaksana:[langkah[0].pelaksana||0];
   const startCX = colCX(Math.min(startPelArr[0]||0, nPel-1));
-  svg += `<ellipse cx="${startCX}" cy="${PAD_Y+42}" rx="28" ry="12" fill="#1e293b"/>`;
+  svg += `<rect x="${startCX-28}" y="${PAD_Y+30}" width="56" height="24" rx="12" fill="#1e293b"/>`;
   svg += `<text x="${startCX}" y="${PAD_Y+46}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">MULAI</text>`;
   svg += `<line x1="${startCX}" y1="${PAD_Y+54}" x2="${startCX}" y2="${rowCY(0)-BOX_H/2-2}" stroke="#555" stroke-width="1.2" marker-end="url(#svgarrow)"/>`;
 
@@ -3215,15 +3207,15 @@ function renderFlowchartSVG(f) {
     }
   });
 
-  // SELESAI
+  // SELESAI — Terminator: rounded-rect/stadium, sama dg MULAI
   const lastL = langkah[langkah.length-1];
   const lastPelArr = Array.isArray(lastL.pelaksana)?lastL.pelaksana:[lastL.pelaksana||0];
   const lastCX = colCX(Math.min(lastPelArr[0]||0, nPel-1));
   const ey = rowCY(langkah.length-1)+BOX_H/2;
   svg += `<line x1="${lastCX}" y1="${ey}" x2="${lastCX}" y2="${ey+20}" stroke="#555" stroke-width="1.2" marker-end="url(#svgarrow)"/>`;
   const py = ey+22;
-  svg += `<polygon points="${lastCX-32},${py} ${lastCX+32},${py} ${lastCX+32},${py+14} ${lastCX},${py+28} ${lastCX-32},${py+14}" fill="#1e293b"/>`;
-  svg += `<text x="${lastCX}" y="${py+13}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">SELESAI</text>`;
+  svg += `<rect x="${lastCX-32}" y="${py}" width="64" height="24" rx="12" fill="#1e293b"/>`;
+  svg += `<text x="${lastCX}" y="${py+16}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">SELESAI</text>`;
   svg += '</svg>';
   return svg;
 }
