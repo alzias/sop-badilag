@@ -1524,7 +1524,7 @@ function doLogout() {
 
 // ══ AUTO LOGOUT KARENA IDLE (5 MENIT TANPA AKTIVITAS) ══
 // Berlaku untuk pegawai, tamu, maupun admin panel.
-const IDLE_LIMIT_MS = 5 * 60 * 1000; // 5 menit
+const IDLE_LIMIT_MS = 60 * 60 * 1000; // 5 menit
 let _idleTimer = null;
 
 function isSessionActive() {
@@ -1562,7 +1562,7 @@ function handleIdleTimeout() {
 // Aktivitas apa pun dari pengguna akan mengatur ulang hitungan mundur idle
 ['mousemove','mousedown','keydown','touchstart','scroll','wheel'].forEach(evt => {
   document.addEventListener(evt, resetIdleTimer, { passive: true });
-});
+}); 
 
 // ══ CHAT ══
 function showChat() {
