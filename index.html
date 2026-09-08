@@ -1507,6 +1507,26 @@ async function sendRekapEmail(toEmail) {
 }
 
 function doLogout() {
+  // ── Tutup paksa SOP Builder jika sedang terbuka (desktop: tab/window terpisah; mobile: modal iframe) ──
+  // Ini fix untuk bug: auto-logout di SOPI Chat sebelumnya tidak menutup Builder,
+  // sehingga sesi Builder tetap terbuka & aktif walau SOPI sudah logout.
+  try {
+    if (window._openedBuilderWindow && !window._openedBuilderWindow.closed) {
+      try { window._openedBuilderWindow.postMessage({ type: 'SOPI_SESSION_ENDED' }, '*'); } catch(e){}
+      window._openedBuilderWindow.close();
+      // Beberapa browser diam-diam menolak window.close() untuk window yg sudah dinavigasi jauh dari originnya
+      setTimeout(function(){
+        try {
+          if (window._openedBuilderWindow && !window._openedBuilderWindow.closed) {
+            toast('⚠ Sesi berakhir — mohon tutup manual tab SOP Builder yang masih terbuka.');
+          }
+        } catch(e){}
+      }, 400);
+    }
+  } catch(e) {}
+  window._openedBuilderWindow = null;
+  try { closeBuilderFrame(); } catch(e) {}
+
   // Reset semua state — fresh total untuk sesi berikutnya
   S.user        = null;
   S.history     = [];
@@ -1524,7 +1544,7 @@ function doLogout() {
 
 // ══ AUTO LOGOUT KARENA IDLE (5 MENIT TANPA AKTIVITAS) ══
 // Berlaku untuk pegawai, tamu, maupun admin panel.
-const IDLE_LIMIT_MS = 60 * 60 * 1000; // 5 menit
+const IDLE_LIMIT_MS = 5 * 60 * 1000; // 5 menit
 let _idleTimer = null;
 
 function isSessionActive() {
@@ -1562,7 +1582,7 @@ function handleIdleTimeout() {
 // Aktivitas apa pun dari pengguna akan mengatur ulang hitungan mundur idle
 ['mousemove','mousedown','keydown','touchstart','scroll','wheel'].forEach(evt => {
   document.addEventListener(evt, resetIdleTimer, { passive: true });
-}); 
+});
 
 // ══ CHAT ══
 function showChat() {
@@ -5453,6 +5473,7 @@ function _doOpenBuilder(u, emp) {
   } else {
     // Fallback: window.open (desktop)
     var win = window.open(builderURL, 'sop-builder', 'width=820,height=920,resizable=yes,scrollbars=yes');
+    window._openedBuilderWindow = win; // simpan referensi global agar bisa ditutup paksa saat logout
     if (win) {
       var attempt = 0;
       var tryPost = setInterval(function() {
@@ -6765,7 +6786,7 @@ function openSOPBuilderForExport(sopId) {
     deptId: sop.deptId       || ''
   });
   var url = (window.SOP_BUILDER_URL || 'sop-builder.html') + '?' + params.toString();
-  window.open(url, '_blank');
+  window._openedBuilderWindow = window.open(url, '_blank');
   toast('📄 Builder terbuka di tab baru — gunakan tombol Export Word/PDF di sana');
 }
 
@@ -6782,7 +6803,7 @@ function downloadSOPPDF(sopId) {
   try { sessionStorage.setItem('sopi_preview_sop', JSON.stringify(sop)); } catch(e){}
   var params = new URLSearchParams({ mode:'preview', exportPDF:'1',
     nip:sop.createdByNIP||'', nama:sop.createdBy||'', deptId:sop.deptId||'' });
-  window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(), '_blank');
+  window._openedBuilderWindow = window.open((window.SOP_BUILDER_URL||'sop-builder.html')+'?'+params.toString(), '_blank');
   toast('📑 Membuka Builder untuk export PDF...');
 }
 
